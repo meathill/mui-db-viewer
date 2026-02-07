@@ -5,7 +5,7 @@
 export interface DatabaseConnection {
   id: string;
   name: string;
-  type: "tidb" | "d1" | "supabase" | "mysql" | "postgres";
+  type: 'tidb' | 'd1' | 'supabase' | 'mysql' | 'postgres';
   host: string;
   port: string;
   database: string;

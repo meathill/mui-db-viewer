@@ -1,14 +1,8 @@
-"use client";
+'use client';
 
-import {
-  DatabaseIcon,
-  HomeIcon,
-  MessageSquareIcon,
-  SettingsIcon,
-  AlertCircleIcon,
-} from "lucide-react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { DatabaseIcon, HomeIcon, MessageSquareIcon, SettingsIcon, AlertCircleIcon } from 'lucide-react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import {
   Sidebar,
   SidebarContent,
@@ -20,13 +14,13 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-} from "@/components/ui/sidebar";
+} from '@/components/ui/sidebar';
 
 const navItems = [
-  { href: "/", label: "仪表盘", icon: HomeIcon },
-  { href: "/query", label: "查询", icon: MessageSquareIcon },
-  { href: "/databases", label: "数据库", icon: DatabaseIcon },
-  { href: "/alerts", label: "告警", icon: AlertCircleIcon },
+  { href: '/', label: '仪表盘', icon: HomeIcon },
+  { href: '/query', label: '查询', icon: MessageSquareIcon },
+  { href: '/databases', label: '数据库', icon: DatabaseIcon },
+  { href: '/alerts', label: '告警', icon: AlertCircleIcon },
 ];
 
 export function AppSidebar() {
@@ -53,8 +47,7 @@ export function AppSidebar() {
                   <SidebarMenuButton
                     isActive={pathname === item.href}
                     render={<Link href={item.href} />}
-                    tooltip={item.label}
-                  >
+                    tooltip={item.label}>
                     <item.icon className="size-4" />
                     <span>{item.label}</span>
                   </SidebarMenuButton>
@@ -69,10 +62,9 @@ export function AppSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
-              isActive={pathname === "/settings"}
+              isActive={pathname === '/settings'}
               render={<Link href="/settings" />}
-              tooltip="设置"
-            >
+              tooltip="设置">
               <SettingsIcon className="size-4" />
               <span>设置</span>
             </SidebarMenuButton>

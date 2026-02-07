@@ -31,7 +31,7 @@ const SYSTEM_PROMPT = `你是一个 SQL 专家。根据用户的自然语言描�
 `;
 
 export function createAiService(config: AiConfig) {
-  const { apiKey, model = "gpt-4o-mini", baseUrl = "https://api.openai.com/v1" } = config;
+  const { apiKey, model = 'gpt-4o-mini', baseUrl = 'https://api.openai.com/v1' } = config;
 
   return {
     async generateSql(request: GenerateSqlRequest): Promise<GenerateSqlResponse> {
@@ -47,19 +47,19 @@ ${schema}
 请生成 SQL 查询。`;
 
       const response = await fetch(`${baseUrl}/chat/completions`, {
-        method: "POST",
+        method: 'POST',
         headers: {
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
           Authorization: `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
           model,
           messages: [
-            { role: "system", content: SYSTEM_PROMPT },
-            { role: "user", content: userMessage },
+            { role: 'system', content: SYSTEM_PROMPT },
+            { role: 'user', content: userMessage },
           ],
           temperature: 0.1,
-          response_format: { type: "json_object" },
+          response_format: { type: 'json_object' },
         }),
       });
 
@@ -68,19 +68,19 @@ ${schema}
         throw new Error(`AI 服务调用失败: ${error}`);
       }
 
-      const data = await response.json() as {
+      const data = (await response.json()) as {
         choices: Array<{ message: { content: string } }>;
       };
 
       const content = data.choices[0]?.message?.content;
       if (!content) {
-        throw new Error("AI 未返回有效响应");
+        throw new Error('AI 未返回有效响应');
       }
 
       try {
         const parsed = JSON.parse(content) as GenerateSqlResponse;
         return {
-          sql: parsed.sql || "",
+          sql: parsed.sql || '',
           explanation: parsed.explanation,
         };
       } catch {

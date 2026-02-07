@@ -3,13 +3,9 @@
  * 实现密码的 HSM 加密存储
  */
 
-import { Hono } from "hono";
-import { createHsmClient } from "../services/hsm";
-import type {
-  DatabaseConnection,
-  CreateDatabaseRequest,
-  ApiResponse,
-} from "../types";
+import { Hono } from 'hono';
+import { createHsmClient } from '../services/hsm';
+import type { DatabaseConnection, CreateDatabaseRequest, ApiResponse } from '../types';
 
 interface Env {
   HSM_URL: string;
@@ -26,16 +22,19 @@ const databaseRoutes = new Hono<{ Bindings: Env }>();
  * 创建数据库连接
  * POST /api/v1/databases
  */
-databaseRoutes.post("/", async (c) => {
+databaseRoutes.post('/', async (c) => {
   const body = await c.req.json<CreateDatabaseRequest>();
   const { name, type, host, port, database, username, password } = body;
 
   // 参数验证
   if (!name || !type || !host || !database || !username || !password) {
-    return c.json<ApiResponse>({
-      success: false,
-      error: "缺少必填字段",
-    }, 400);
+    return c.json<ApiResponse>(
+      {
+        success: false,
+        error: '缺少必填字段',
+      },
+      400,
+    );
   }
 
   // 生成唯一 ID 和密钥路径
@@ -54,9 +53,9 @@ databaseRoutes.post("/", async (c) => {
     const connection: DatabaseConnection = {
       id,
       name,
-      type: type as DatabaseConnection["type"],
+      type: type as DatabaseConnection['type'],
       host,
-      port: port || "3306",
+      port: port || '3306',
       database,
       username,
       keyPath,
@@ -66,16 +65,22 @@ databaseRoutes.post("/", async (c) => {
 
     databases.set(id, connection);
 
-    return c.json<ApiResponse<DatabaseConnection>>({
-      success: true,
-      data: connection,
-    }, 201);
+    return c.json<ApiResponse<DatabaseConnection>>(
+      {
+        success: true,
+        data: connection,
+      },
+      201,
+    );
   } catch (error) {
-    console.error("创建数据库连接失败:", error);
-    return c.json<ApiResponse>({
-      success: false,
-      error: error instanceof Error ? error.message : "创建失败",
-    }, 500);
+    console.error('创建数据库连接失败:', error);
+    return c.json<ApiResponse>(
+      {
+        success: false,
+        error: error instanceof Error ? error.message : '创建失败',
+      },
+      500,
+    );
   }
 });
 
@@ -83,7 +88,7 @@ databaseRoutes.post("/", async (c) => {
  * 获取所有数据库连接
  * GET /api/v1/databases
  */
-databaseRoutes.get("/", (c) => {
+databaseRoutes.get('/', (c) => {
   const list = Array.from(databases.values());
   return c.json<ApiResponse<DatabaseConnection[]>>({
     success: true,
@@ -95,15 +100,18 @@ databaseRoutes.get("/", (c) => {
  * 获取单个数据库连接
  * GET /api/v1/databases/:id
  */
-databaseRoutes.get("/:id", (c) => {
-  const id = c.req.param("id");
+databaseRoutes.get('/:id', (c) => {
+  const id = c.req.param('id');
   const connection = databases.get(id);
 
   if (!connection) {
-    return c.json<ApiResponse>({
-      success: false,
-      error: "数据库连接不存在",
-    }, 404);
+    return c.json<ApiResponse>(
+      {
+        success: false,
+        error: '数据库连接不存在',
+      },
+      404,
+    );
   }
 
   return c.json<ApiResponse<DatabaseConnection>>({
@@ -116,15 +124,18 @@ databaseRoutes.get("/:id", (c) => {
  * 删除数据库连接
  * DELETE /api/v1/databases/:id
  */
-databaseRoutes.delete("/:id", async (c) => {
-  const id = c.req.param("id");
+databaseRoutes.delete('/:id', async (c) => {
+  const id = c.req.param('id');
   const connection = databases.get(id);
 
   if (!connection) {
-    return c.json<ApiResponse>({
-      success: false,
-      error: "数据库连接不存在",
-    }, 404);
+    return c.json<ApiResponse>(
+      {
+        success: false,
+        error: '数据库连接不存在',
+      },
+      404,
+    );
   }
 
   try {
@@ -142,11 +153,14 @@ databaseRoutes.delete("/:id", async (c) => {
       success: true,
     });
   } catch (error) {
-    console.error("删除数据库连接失败:", error);
-    return c.json<ApiResponse>({
-      success: false,
-      error: error instanceof Error ? error.message : "删除失败",
-    }, 500);
+    console.error('删除数据库连接失败:', error);
+    return c.json<ApiResponse>(
+      {
+        success: false,
+        error: error instanceof Error ? error.message : '删除失败',
+      },
+      500,
+    );
   }
 });
 

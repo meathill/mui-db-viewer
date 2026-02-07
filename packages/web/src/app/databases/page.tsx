@@ -1,32 +1,49 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { PlusIcon, DatabaseIcon, MoreHorizontalIcon } from "lucide-react";
-import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
-import { AppSidebar } from "@/components/app-sidebar";
-import { Button } from "@/components/ui/button";
-import { Card, CardHeader, CardTitle, CardDescription, CardPanel } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-import { Badge } from "@/components/ui/badge";
-import {
-  Dialog,
-  DialogTrigger,
-  DialogPortal,
-  DialogBackdrop,
-  DialogPopup,
-} from "@/components/ui/dialog";
-import { DatabaseConnectionForm } from "@/components/database-connection-form";
-import { Empty, EmptyMedia, EmptyTitle, EmptyDescription, EmptyContent } from "@/components/ui/empty";
-
-// 模拟数据库列表
-const mockDatabases = [
-  { id: "1", name: "生产环境", type: "tidb", host: "tidb.example.com", status: "connected" },
-  { id: "2", name: "测试环境", type: "d1", host: "d1.cloudflare.com", status: "connected" },
-];
+import { useState, useEffect } from 'react';
+import { PlusIcon, DatabaseIcon, MoreHorizontalIcon, TrashIcon } from 'lucide-react';
+import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
+import { AppSidebar } from '@/components/app-sidebar';
+import { Button } from '@/components/ui/button';
+import { Card, CardHeader, CardTitle, CardDescription, CardPanel } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
+import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogTrigger, DialogPortal, DialogBackdrop, DialogPopup } from '@/components/ui/dialog';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/menu';
+import { DatabaseConnectionForm } from '@/components/database-connection-form';
+import { Empty, EmptyMedia, EmptyTitle, EmptyDescription, EmptyContent } from '@/components/ui/empty';
+import { api, type DatabaseConnection } from '@/lib/api';
 
 export default function DatabasesPage() {
-  const [databases] = useState(mockDatabases);
+  const [databases, setDatabases] = useState<DatabaseConnection[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
+
+  const fetchDatabases = async () => {
+    try {
+      const dbs = await api.databases.list();
+      setDatabases(dbs);
+    } catch (error) {
+      console.error('Failed to fetch databases:', error);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('确定要删除这个数据库连接吗？')) {
+      return;
+    }
+
+    try {
+      await api.databases.delete(id);
+      fetchDatabases();
+    } catch (error) {
+      console.error('Failed to delete database:', error);
+      alert('删除失败');
+    }
+  };
+
+  useEffect(() => {
+    fetchDatabases();
+  }, []);
 
   return (
     <SidebarProvider>
@@ -35,10 +52,15 @@ export default function DatabasesPage() {
         <header className="flex h-14 items-center justify-between gap-4 border-b px-6">
           <div className="flex items-center gap-4">
             <SidebarTrigger />
-            <Separator orientation="vertical" className="h-6" />
+            <Separator
+              orientation="vertical"
+              className="h-6"
+            />
             <h1 className="font-semibold">数据库管理</h1>
           </div>
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <Dialog
+            open={dialogOpen}
+            onOpenChange={setDialogOpen}>
             <DialogTrigger
               render={
                 <Button>
@@ -50,7 +72,12 @@ export default function DatabasesPage() {
             <DialogPortal>
               <DialogBackdrop />
               <DialogPopup className="max-w-2xl p-0">
-                <DatabaseConnectionForm onSuccess={() => setDialogOpen(false)} />
+                <DatabaseConnectionForm
+                  onSuccess={() => {
+                    setDialogOpen(false);
+                    fetchDatabases();
+                  }}
+                />
               </DialogPopup>
             </DialogPortal>
           </Dialog>
@@ -74,7 +101,9 @@ export default function DatabasesPage() {
           ) : (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {databases.map((db) => (
-                <Card key={db.id} className="group relative">
+                <Card
+                  key={db.id}
+                  className="group relative">
                   <CardHeader>
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-3">
@@ -86,21 +115,39 @@ export default function DatabasesPage() {
                           <CardDescription className="text-xs">{db.host}</CardDescription>
                         </div>
                       </div>
-                      <Button variant="ghost" size="icon" className="size-8 opacity-0 group-hover:opacity-100">
-                        <MoreHorizontalIcon className="size-4" />
-                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger
+                          render={
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="size-8 opacity-0 group-hover:opacity-100">
+                              <MoreHorizontalIcon className="size-4" />
+                            </Button>
+                          }
+                        />
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            onClick={() => handleDelete(db.id)}
+                            className="text-destructive">
+                            <TrashIcon className="mr-2 size-4" />
+                            删除连接
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   </CardHeader>
                   <CardPanel className="pt-0">
                     <div className="flex items-center justify-between">
-                      <Badge variant="outline" className="uppercase">
+                      <Badge
+                        variant="outline"
+                        className="uppercase">
                         {db.type}
                       </Badge>
                       <Badge
-                        variant={db.status === "connected" ? "default" : "secondary"}
-                        className={db.status === "connected" ? "bg-green-500/10 text-green-600" : ""}
-                      >
-                        {db.status === "connected" ? "已连接" : "断开"}
+                        variant="default"
+                        className="bg-green-500/10 text-green-600 hover:bg-green-500/20">
+                        已连接
                       </Badge>
                     </div>
                   </CardPanel>

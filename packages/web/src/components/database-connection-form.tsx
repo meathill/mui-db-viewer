@@ -1,33 +1,20 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { DatabaseIcon, EyeIcon, EyeOffIcon, Loader2Icon, CheckCircleIcon } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardPanel,
-  CardFooter,
-} from "@/components/ui/card";
-import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectPopup,
-  SelectItem,
-} from "@/components/ui/select";
-import { api } from "@/lib/api";
+import { useState } from 'react';
+import { DatabaseIcon, EyeIcon, EyeOffIcon, Loader2Icon, CheckCircleIcon } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardHeader, CardTitle, CardDescription, CardPanel, CardFooter } from '@/components/ui/card';
+import { Select, SelectTrigger, SelectValue, SelectPopup, SelectItem } from '@/components/ui/select';
+import { api } from '@/lib/api';
 
 const DB_TYPES = [
-  { value: "tidb", label: "TiDB Cloud" },
-  { value: "d1", label: "Cloudflare D1" },
-  { value: "supabase", label: "Supabase" },
-  { value: "mysql", label: "MySQL" },
-  { value: "postgres", label: "PostgreSQL" },
+  { value: 'tidb', label: 'TiDB Cloud' },
+  { value: 'd1', label: 'Cloudflare D1' },
+  { value: 'supabase', label: 'Supabase' },
+  { value: 'mysql', label: 'MySQL' },
+  { value: 'postgres', label: 'PostgreSQL' },
 ];
 
 interface ConnectionFormData {
@@ -46,18 +33,18 @@ interface DatabaseConnectionFormProps {
 
 export function DatabaseConnectionForm({ onSuccess }: DatabaseConnectionFormProps) {
   const [formData, setFormData] = useState<ConnectionFormData>({
-    name: "",
-    type: "",
-    host: "",
-    port: "",
-    database: "",
-    username: "",
-    password: "",
+    name: '',
+    type: '',
+    host: '',
+    port: '',
+    database: '',
+    username: '',
+    password: '',
   });
   const [showPassword, setShowPassword] = useState(false);
   const [testing, setTesting] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [testResult, setTestResult] = useState<"success" | "error" | null>(null);
+  const [testResult, setTestResult] = useState<'success' | 'error' | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   function handleChange(field: keyof ConnectionFormData, value: string) {
@@ -71,7 +58,7 @@ export function DatabaseConnectionForm({ onSuccess }: DatabaseConnectionFormProp
     setTestResult(null);
     // TODO: 实际测试连接
     await new Promise((resolve) => setTimeout(resolve, 1500));
-    setTestResult("success");
+    setTestResult('success');
     setTesting(false);
   }
 
@@ -84,19 +71,14 @@ export function DatabaseConnectionForm({ onSuccess }: DatabaseConnectionFormProp
       await api.databases.create(formData);
       onSuccess?.();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "保存失败");
+      setError(err instanceof Error ? err.message : '保存失败');
     } finally {
       setSaving(false);
     }
   }
 
   const isValid =
-    formData.name &&
-    formData.type &&
-    formData.host &&
-    formData.database &&
-    formData.username &&
-    formData.password;
+    formData.name && formData.type && formData.host && formData.database && formData.username && formData.password;
 
   return (
     <Card className="mx-auto max-w-2xl">
@@ -121,20 +103,24 @@ export function DatabaseConnectionForm({ onSuccess }: DatabaseConnectionFormProp
               id="name"
               placeholder="例如：生产环境数据库"
               value={formData.name}
-              onChange={(e) => handleChange("name", e.target.value)}
+              onChange={(e) => handleChange('name', e.target.value)}
             />
           </div>
 
           {/* 数据库类型 */}
           <div className="space-y-2">
             <Label>数据库类型</Label>
-            <Select value={formData.type} onValueChange={(v) => v && handleChange("type", v)}>
+            <Select
+              value={formData.type}
+              onValueChange={(v) => v && handleChange('type', v)}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="选择数据库类型" />
               </SelectTrigger>
               <SelectPopup>
                 {DB_TYPES.map((db) => (
-                  <SelectItem key={db.value} value={db.value}>
+                  <SelectItem
+                    key={db.value}
+                    value={db.value}>
                     {db.label}
                   </SelectItem>
                 ))}
@@ -150,7 +136,7 @@ export function DatabaseConnectionForm({ onSuccess }: DatabaseConnectionFormProp
                 id="host"
                 placeholder="例如：db.example.com"
                 value={formData.host}
-                onChange={(e) => handleChange("host", e.target.value)}
+                onChange={(e) => handleChange('host', e.target.value)}
               />
             </div>
             <div className="space-y-2">
@@ -159,7 +145,7 @@ export function DatabaseConnectionForm({ onSuccess }: DatabaseConnectionFormProp
                 id="port"
                 placeholder="3306"
                 value={formData.port}
-                onChange={(e) => handleChange("port", e.target.value)}
+                onChange={(e) => handleChange('port', e.target.value)}
               />
             </div>
           </div>
@@ -171,7 +157,7 @@ export function DatabaseConnectionForm({ onSuccess }: DatabaseConnectionFormProp
               id="database"
               placeholder="输入数据库名称"
               value={formData.database}
-              onChange={(e) => handleChange("database", e.target.value)}
+              onChange={(e) => handleChange('database', e.target.value)}
             />
           </div>
 
@@ -182,7 +168,7 @@ export function DatabaseConnectionForm({ onSuccess }: DatabaseConnectionFormProp
               id="username"
               placeholder="输入数据库用户名"
               value={formData.username}
-              onChange={(e) => handleChange("username", e.target.value)}
+              onChange={(e) => handleChange('username', e.target.value)}
             />
           </div>
 
@@ -192,17 +178,16 @@ export function DatabaseConnectionForm({ onSuccess }: DatabaseConnectionFormProp
             <div className="relative">
               <Input
                 id="password"
-                type={showPassword ? "text" : "password"}
+                type={showPassword ? 'text' : 'password'}
                 placeholder="输入数据库密码"
                 value={formData.password}
-                onChange={(e) => handleChange("password", e.target.value)}
+                onChange={(e) => handleChange('password', e.target.value)}
                 className="pr-10"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              >
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
                 {showPassword ? <EyeOffIcon className="size-4" /> : <EyeIcon className="size-4" />}
               </button>
             </div>
@@ -211,21 +196,20 @@ export function DatabaseConnectionForm({ onSuccess }: DatabaseConnectionFormProp
         </CardPanel>
 
         <CardFooter className="flex flex-col gap-3 border-t">
-          {error && (
-            <p className="w-full text-destructive text-sm">{error}</p>
-          )}
+          {error && <p className="w-full text-destructive text-sm">{error}</p>}
           <div className="flex w-full justify-between gap-3">
             <Button
               type="button"
               variant="outline"
               onClick={handleTestConnection}
-              disabled={!isValid || testing || saving}
-            >
+              disabled={!isValid || testing || saving}>
               {testing && <Loader2Icon className="mr-2 size-4 animate-spin" />}
-              {testResult === "success" && <CheckCircleIcon className="mr-2 size-4 text-green-500" />}
+              {testResult === 'success' && <CheckCircleIcon className="mr-2 size-4 text-green-500" />}
               测试连接
             </Button>
-            <Button type="submit" disabled={!isValid || testResult !== "success" || saving}>
+            <Button
+              type="submit"
+              disabled={!isValid || testResult !== 'success' || saving}>
               {saving && <Loader2Icon className="mr-2 size-4 animate-spin" />}
               保存连接
             </Button>

@@ -1,51 +1,74 @@
-"use client";
+'use client';
 
-import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
-import { AppSidebar } from "@/components/app-sidebar";
-import { MagicSearch } from "@/components/magic-search";
-import { Card, CardHeader, CardTitle, CardDescription, CardPanel } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-import { DatabaseIcon, ActivityIcon, AlertTriangleIcon, TrendingUpIcon } from "lucide-react";
-
-const statsCards = [
-  {
-    title: "已连接数据库",
-    value: "0",
-    description: "添加你的第一个数据库",
-    icon: DatabaseIcon,
-    color: "from-blue-500 to-cyan-500",
-  },
-  {
-    title: "今日查询",
-    value: "0",
-    description: "开始使用 AI 查询",
-    icon: ActivityIcon,
-    color: "from-green-500 to-emerald-500",
-  },
-  {
-    title: "活跃告警",
-    value: "0",
-    description: "一切正常",
-    icon: AlertTriangleIcon,
-    color: "from-amber-500 to-orange-500",
-  },
-  {
-    title: "查询效率",
-    value: "--",
-    description: "暂无数据",
-    icon: TrendingUpIcon,
-    color: "from-purple-500 to-pink-500",
-  },
-];
+import { useState, useEffect } from 'react';
+import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
+import { AppSidebar } from '@/components/app-sidebar';
+import { MagicSearch } from '@/components/magic-search';
+import { Card, CardHeader, CardTitle, CardDescription, CardPanel } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
+import { DatabaseIcon, ActivityIcon, AlertTriangleIcon, TrendingUpIcon } from 'lucide-react';
+import { Dialog, DialogPortal, DialogBackdrop, DialogPopup } from '@/components/ui/dialog';
+import { DatabaseConnectionForm } from '@/components/database-connection-form';
+import { api } from '@/lib/api';
 
 export function Dashboard() {
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dbCount, setDbCount] = useState(0);
+
+  const fetchDatabases = async () => {
+    try {
+      const dbs = await api.databases.list();
+      setDbCount(dbs.length);
+    } catch (error) {
+      console.error('Failed to fetch databases:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchDatabases();
+  }, []);
+
+  const statsCards = [
+    {
+      title: '已连接数据库',
+      value: dbCount.toString(),
+      description: '添加你的第一个数据库',
+      icon: DatabaseIcon,
+      color: 'from-blue-500 to-cyan-500',
+    },
+    {
+      title: '今日查询',
+      value: '0',
+      description: '开始使用 AI 查询',
+      icon: ActivityIcon,
+      color: 'from-green-500 to-emerald-500',
+    },
+    {
+      title: '活跃告警',
+      value: '0',
+      description: '一切正常',
+      icon: AlertTriangleIcon,
+      color: 'from-amber-500 to-orange-500',
+    },
+    {
+      title: '查询效率',
+      value: '--',
+      description: '暂无数据',
+      icon: TrendingUpIcon,
+      color: 'from-purple-500 to-pink-500',
+    },
+  ];
+
   return (
     <SidebarProvider>
       <AppSidebar />
       <SidebarInset>
         <header className="flex h-14 items-center gap-4 border-b px-6">
           <SidebarTrigger />
-          <Separator orientation="vertical" className="h-6" />
+          <Separator
+            orientation="vertical"
+            className="h-6"
+          />
           <h1 className="font-semibold">仪表盘</h1>
         </header>
 
@@ -62,13 +85,14 @@ export function Dashboard() {
               <h2 className="mb-4 text-xl font-semibold">概览</h2>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 {statsCards.map((card) => (
-                  <Card key={card.title} className="overflow-hidden">
+                  <Card
+                    key={card.title}
+                    className="overflow-hidden">
                     <CardHeader className="pb-2">
                       <div className="flex items-center justify-between">
                         <CardDescription>{card.title}</CardDescription>
                         <div
-                          className={`flex size-8 items-center justify-center rounded-lg bg-gradient-to-br ${card.color} text-white`}
-                        >
+                          className={`flex size-8 items-center justify-center rounded-lg bg-gradient-to-br ${card.color} text-white`}>
                           <card.icon className="size-4" />
                         </div>
                       </div>
@@ -86,7 +110,9 @@ export function Dashboard() {
             <section>
               <h2 className="mb-4 text-xl font-semibold">快速开始</h2>
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                <Card className="cursor-pointer transition-shadow hover:shadow-lg">
+                <Card
+                  className="cursor-pointer transition-shadow hover:shadow-lg"
+                  onClick={() => setDialogOpen(true)}>
                   <CardPanel className="flex items-center gap-4 p-6">
                     <div className="flex size-12 items-center justify-center rounded-xl bg-blue-100 text-blue-600 dark:bg-blue-950 dark:text-blue-400">
                       <DatabaseIcon className="size-6" />
@@ -101,6 +127,21 @@ export function Dashboard() {
             </section>
           </div>
         </main>
+        <Dialog
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}>
+          <DialogPortal>
+            <DialogBackdrop />
+            <DialogPopup className="max-w-2xl p-0">
+              <DatabaseConnectionForm
+                onSuccess={() => {
+                  setDialogOpen(false);
+                  fetchDatabases();
+                }}
+              />
+            </DialogPopup>
+          </DialogPortal>
+        </Dialog>
       </SidebarInset>
     </SidebarProvider>
   );
