@@ -294,3 +294,25 @@ pnpm --filter web test --run
   - `pnpm --filter worker test --run`：`9` 文件 `86` 测试通过
   - `pnpm --filter web test --run`：`10` 文件 `48` 测试通过
   - `pnpm test`：全仓通过
+
+### 子任务 5：继续分拆 `database` 路由主文件（worker）
+
+#### Todo
+
+- [x] 将 `packages/worker/src/routes/database.ts` 拆分为入口路由 + 子路由模块
+- [x] 保持原有 API 路径与行为兼容
+- [x] 跑 `worker` 与全仓测试回归
+
+#### 结果
+
+- 路由入口文件降到 16 行：
+  - `packages/worker/src/routes/database.ts`
+- 新增子路由模块：
+  - `packages/worker/src/routes/database-connection-routes.ts`
+  - `packages/worker/src/routes/database-row-routes.ts`
+- 关键兼容性：
+  - 路由路径未变（`/api/v1/databases` 下所有原路径保持不变）
+  - 保留 `loadTableData` 导出，避免潜在外部引用回归
+- 测试结果：
+  - `pnpm --filter worker test --run`：`9` 文件 `86` 测试通过
+  - `pnpm test`：全仓通过
