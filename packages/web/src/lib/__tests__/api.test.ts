@@ -129,6 +129,82 @@ describe('API Client', () => {
         await expect(api.databases.delete('123')).rejects.toThrow('删除失败');
       });
     });
+
+    describe('getTableData', () => {
+      it('应正确序列化查询参数并返回表数据', async () => {
+        const mockData = {
+          rows: [{ id: 1, name: 'Alice' }],
+          total: 1,
+          columns: [{ Field: 'id', Type: 'int' }],
+        };
+        mockFetch.mockResolvedValueOnce({
+          json: () => Promise.resolve({ success: true, data: mockData }),
+        });
+
+        const result = await api.databases.getTableData('db-1', 'users', {
+          page: 2,
+          pageSize: 10,
+          sortField: 'id',
+          sortOrder: 'desc',
+          filters: {
+            status: 'active',
+            _search: 'Alice',
+          },
+        });
+
+        expect(result).toEqual(mockData);
+        expect(mockFetch).toHaveBeenCalledWith(
+          expect.stringContaining('/api/v1/databases/db-1/tables/users/data?'),
+          expect.objectContaining({ method: 'GET' }),
+        );
+        expect(mockFetch.mock.calls[0]?.[0]).toContain('page=2');
+        expect(mockFetch.mock.calls[0]?.[0]).toContain('pageSize=10');
+        expect(mockFetch.mock.calls[0]?.[0]).toContain('sortField=id');
+        expect(mockFetch.mock.calls[0]?.[0]).toContain('sortOrder=desc');
+        expect(mockFetch.mock.calls[0]?.[0]).toContain('filter_status=active');
+        expect(mockFetch.mock.calls[0]?.[0]).toContain('_search=Alice');
+      });
+    });
+
+    describe('deleteRows', () => {
+      it('成功删除行', async () => {
+        mockFetch.mockResolvedValueOnce({
+          json: () => Promise.resolve({ success: true }),
+        });
+
+        await expect(api.databases.deleteRows('db-1', 'users', [1, 2])).resolves.toBeUndefined();
+      });
+
+      it('删除行失败时抛错', async () => {
+        mockFetch.mockResolvedValueOnce({
+          json: () => Promise.resolve({ success: false, error: '删除行失败' }),
+        });
+
+        await expect(api.databases.deleteRows('db-1', 'users', [1])).rejects.toThrow('删除行失败');
+      });
+    });
+
+    describe('insertRow', () => {
+      it('成功插入行', async () => {
+        mockFetch.mockResolvedValueOnce({
+          json: () => Promise.resolve({ success: true }),
+        });
+
+        await expect(api.databases.insertRow('db-1', 'users', { name: 'Alice' })).resolves.toBeUndefined();
+      });
+    });
+
+    describe('updateRows', () => {
+      it('成功更新行', async () => {
+        mockFetch.mockResolvedValueOnce({
+          json: () => Promise.resolve({ success: true }),
+        });
+
+        await expect(
+          api.databases.updateRows('db-1', 'users', [{ pk: 1, data: { name: 'Alice Updated' } }]),
+        ).resolves.toBeUndefined();
+      });
+    });
   });
 
   describe('query', () => {

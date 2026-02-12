@@ -3,6 +3,8 @@
  * 封装与 Worker 后端的交互
  */
 
+import { buildTableDataSearchParams, type TableQueryParams } from './table-query';
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8787';
 
 export interface DatabaseConnection {
@@ -26,6 +28,28 @@ export interface CreateDatabaseRequest {
   database: string;
   username: string;
   password: string;
+}
+
+export interface TableColumn {
+  Field: string;
+  Type: string;
+  Null?: string;
+  Key?: string;
+  Default?: unknown;
+  Extra?: string;
+}
+
+export type TableRow = Record<string, unknown>;
+
+export interface TableDataResult<Row extends TableRow = TableRow> {
+  rows: Row[];
+  total: number;
+  columns: TableColumn[];
+}
+
+export interface RowUpdate {
+  pk: string | number;
+  data: Record<string, unknown>;
 }
 
 interface ApiResponse<T = unknown> {
@@ -87,32 +111,9 @@ export const api = {
       return result.data;
     },
 
-    async getTableData(
-      id: string,
-      tableName: string,
-      params: {
-        page?: number;
-        pageSize?: number;
-        sortField?: string;
-        sortOrder?: 'asc' | 'desc';
-        [key: string]: any;
-      } = {},
-    ): Promise<{ rows: any[]; total: number; columns: any[] }> {
-      // 构建查询参数
-      const searchParams = new URLSearchParams();
-      if (params.page) searchParams.set('page', params.page.toString());
-      if (params.pageSize) searchParams.set('pageSize', params.pageSize.toString());
-      if (params.sortField) searchParams.set('sortField', params.sortField);
-      if (params.sortOrder) searchParams.set('sortOrder', params.sortOrder);
-
-      // 添加过滤参数
-      Object.keys(params).forEach((key) => {
-        if (!['page', 'pageSize', 'sortField', 'sortOrder'].includes(key)) {
-          searchParams.set(`filter_${key}`, params[key]);
-        }
-      });
-
-      const result = await request<{ rows: any[]; total: number; columns: any[] }>(
+    async getTableData(id: string, tableName: string, params: TableQueryParams = {}): Promise<TableDataResult> {
+      const searchParams = buildTableDataSearchParams(params);
+      const result = await request<TableDataResult>(
         'GET',
         `/api/v1/databases/${id}/tables/${tableName}/data?${searchParams.toString()}`,
       );
@@ -122,25 +123,21 @@ export const api = {
       return result.data;
     },
 
-    async deleteRows(id: string, tableName: string, ids: any[]): Promise<void> {
+    async deleteRows(id: string, tableName: string, ids: Array<string | number>): Promise<void> {
       const result = await request('POST', `/api/v1/databases/${id}/tables/${tableName}/rows/delete`, { ids });
       if (!result.success) {
         throw new Error(result.error || '删除失败');
       }
     },
 
-    async insertRow(id: string, tableName: string, data: Record<string, any>): Promise<void> {
+    async insertRow(id: string, tableName: string, data: Record<string, unknown>): Promise<void> {
       const result = await request('POST', `/api/v1/databases/${id}/tables/${tableName}/rows`, data);
       if (!result.success) {
         throw new Error(result.error || '插入失败');
       }
     },
 
-    async updateRows(
-      id: string,
-      tableName: string,
-      rows: Array<{ pk: any; data: Record<string, any> }>,
-    ): Promise<void> {
+    async updateRows(id: string, tableName: string, rows: RowUpdate[]): Promise<void> {
       const result = await request('PUT', `/api/v1/databases/${id}/tables/${tableName}/rows`, { rows });
       if (!result.success) {
         throw new Error(result.error || '更新失败');

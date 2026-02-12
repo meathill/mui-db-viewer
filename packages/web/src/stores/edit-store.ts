@@ -4,6 +4,7 @@
  */
 
 import { create } from 'zustand';
+import type { RowUpdate } from '@/lib/api';
 
 /** 单元格编辑位置标识 */
 interface EditingCell {
@@ -12,7 +13,7 @@ interface EditingCell {
 }
 
 /** 暂存的编辑内容，key 格式为 `${rowKey}` */
-type PendingEdits = Map<string | number, Record<string, any>>;
+type PendingEdits = Map<string | number, Record<string, unknown>>;
 
 interface EditStore {
   /** 当前正在编辑的单元格 */
@@ -25,15 +26,15 @@ interface EditStore {
   /** 停止编辑 */
   stopEditing: () => void;
   /** 暂存一个字段的修改 */
-  setEdit: (rowKey: string | number, field: string, value: any) => void;
+  setEdit: (rowKey: string | number, field: string, value: unknown) => void;
   /** 检查某个单元格是否有暂存修改 */
   isCellEdited: (rowKey: string | number, field: string) => boolean;
   /** 获取单元格的暂存值（如果有） */
-  getCellValue: (rowKey: string | number, field: string) => any | undefined;
+  getCellValue: (rowKey: string | number, field: string) => unknown;
   /** 是否有待提交的修改 */
   hasPendingEdits: () => boolean;
   /** 获取所有暂存数据（转为提交格式） */
-  getPendingRows: () => Array<{ pk: any; data: Record<string, any> }>;
+  getPendingRows: () => RowUpdate[];
   /** 清空所有暂存 */
   clearEdits: () => void;
 }
@@ -75,7 +76,7 @@ export const useEditStore = create<EditStore>((set, get) => ({
   },
 
   getPendingRows() {
-    const rows: Array<{ pk: any; data: Record<string, any> }> = [];
+    const rows: RowUpdate[] = [];
     get().pendingEdits.forEach((data, pk) => {
       rows.push({ pk, data });
     });

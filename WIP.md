@@ -115,3 +115,182 @@ pnpm --filter web test --run
 - 新增 `database-store`，将数据库连接列表的加载、刷新、创建、删除行为统一到单一状态源。
 - `dashboard`、`databases`、`query` 已改为消费全局 store，移除重复请求与重复本地状态。
 - 新增 store 单测 5 个，并更新页面测试；`pnpm --filter web test --run` 全部通过（6 个文件 / 28 个测试）。
+
+---
+
+## 当前任务：维护性重构与测试补强
+
+### 目标
+
+- 清理并补齐常规文档（README/TESTING/DEPLOYMENT/DEV_NOTE）
+- 补充函数/API/GUI 测试覆盖
+- 分拆超长文件并提取通用逻辑
+- 优先复用成熟能力，减少手写重复逻辑
+- 为后续扩展更多数据库类型预留结构
+
+### Todo
+
+- [x] 分拆 `packages/worker/src/routes/database.ts`，提取通用逻辑模块
+- [x] 为提取后的通用函数补充单元测试
+- [x] 补齐 web API 客户端对表数据接口的测试覆盖
+- [x] 新增 GUI 测试：`DatabaseConnectionForm` 关键交互路径
+- [x] 新增并整理常规文档：`README.md`、`TESTING.md`、`DEPLOYMENT.md`、`DEV_NOTE.md`
+- [x] 运行并通过 `worker` + `web` 单元测试
+- [x] 更新 `WIP.md` 结果与后续建议
+
+### 结果
+
+- `worker` 数据库路由已拆分为“路由 + 共享逻辑”结构：
+  - 新增 `database-shared.ts` 统一处理连接转换、查询参数解析、数据库服务会话。
+  - `database.ts` 从 513 行降到 393 行，重复逻辑显著减少。
+- 表格相关通用逻辑已抽取：
+  - Web 端新增 `table-query.ts`、`table-data-utils.ts`，避免页面反复拼接参数与重复数据处理。
+  - Driver 层新增 `drivers/helpers.ts`，统一主键字段提取与字段名映射。
+- GUI 大文件拆分：
+  - `packages/web/src/app/databases/[id]/page.tsx` 从 505 行降到 397 行。
+  - 新增 `database-detail` 子组件（侧栏、工具栏、插入弹窗）提升复用性。
+- 文档已补齐常规文档：
+  - `README.md`
+  - `TESTING.md`
+  - `DEPLOYMENT.md`
+  - `DEV_NOTE.md`
+- 新增并通过测试：
+  - Web：新增函数/API/GUI 测试后，`9` 个文件 `42` 个测试全部通过。
+  - Worker：新增共享逻辑测试后，`7` 个文件 `75` 个测试全部通过。
+
+### 后续建议
+
+- 下一步可以继续拆分 `packages/web/src/components/ui/sidebar.tsx`（689 行），按容器与子组件分层。
+- 若后续允许调整依赖环境，可引入 `zod` 做请求体验证，进一步减少手写校验分支。
+
+---
+
+## 当前任务：数据库详情页 Zustand 状态收敛
+
+### 背景
+
+- `packages/web/src/app/databases/[id]/page.tsx` 仍有较多查询相关的本地状态（表列表、分页、排序、过滤、数据加载），和 `zustand` 既有使用方式不一致。
+- 页面内状态与异步请求耦合较高，后续扩展数据库类型或复用详情查询逻辑时成本偏高。
+
+### Todo
+
+- [x] 新增 `database-detail-store`，集中管理详情页查询状态和请求动作
+- [x] 重构详情页，接入 `database-detail-store`，仅保留 UI 瞬时状态在组件内
+- [x] 新增 store 单测，覆盖成功/失败/排序/过滤/请求参数行为
+- [x] 运行并通过 `web` 与全仓测试回归
+
+### 结果
+
+- 新增 `packages/web/src/stores/database-detail-store.ts`：
+  - 统一维护 `tables/selectedTable/tableData/page/pageSize/sort/filters/loading/error`
+  - 提供 `fetchTables/fetchTableData/selectTable/setSort/setFilter/reset` 等动作
+- `packages/web/src/app/databases/[id]/page.tsx` 改为消费 store：
+  - 表查询与分页排序过滤逻辑从页面内本地状态迁移到 `zustand`
+  - 页面主要保留行勾选、弹窗开关、提交 loading 等 UI 层状态
+  - 内联编辑状态继续由 `edit-store` 管理，并改为选择器订阅，减少不必要重渲染
+- 新增测试：
+  - `packages/web/src/stores/__tests__/database-detail-store.test.ts`（6 用例）
+- 测试结果：
+  - `pnpm --filter web test --run`：`10` 个文件 `48` 个测试全部通过
+  - `pnpm test`：`worker 75` + `web 48` 全部通过
+
+---
+
+## 当前任务：继续维护（按优先级顺序）
+
+### 子任务 1：分拆 `sidebar.tsx` 大文件
+
+#### Todo
+
+- [x] 将 `packages/web/src/components/ui/sidebar.tsx` 拆为多模块
+- [x] 保持原有导出 API 与引用路径不变
+- [x] 运行 `web` 测试确认无回归
+
+#### 结果
+
+- `sidebar` 组件已按职责拆分：
+  - `packages/web/src/components/ui/sidebar/context.ts`
+  - `packages/web/src/components/ui/sidebar/provider.tsx`
+  - `packages/web/src/components/ui/sidebar/layout.tsx`
+  - `packages/web/src/components/ui/sidebar/group.tsx`
+  - `packages/web/src/components/ui/sidebar/menu.tsx`
+  - `packages/web/src/components/ui/sidebar.tsx`（保留统一导出入口）
+- 行数从单文件 `689` 行拆为多个 `<= 300` 行模块，提升可维护性与复用性。
+- `pnpm --filter web test --run` 通过（`10` 文件 `48` 测试）。
+
+### 子任务 2：请求校验抽离（为引入 zod 做准备）
+
+#### Todo
+
+- [x] 集中抽离 worker 请求校验逻辑，减少路由层手写判断分散
+- [x] 引入 Hono `validator` 中间件，统一 JSON 校验入口
+- [x] 补测试覆盖解析函数与错误分支
+- [x] 引入 `zod`，将请求解析切换为 schema 校验
+
+#### 结果
+
+- 新增 `packages/worker/src/routes/request-validation.ts`：
+  - `parseCreateDatabaseRequest`
+  - `parseDeleteRowsRequest`
+  - `parseInsertRowRequest`
+  - `parseUpdateRowsRequest`
+  - `parseGenerateSqlRequest`
+  - `parseValidateSqlRequest`
+- `database` 与 `query` 路由已改为 `validator('json', ...)` + 统一解析函数：
+  - `packages/worker/src/routes/database.ts`
+  - `packages/worker/src/routes/query.ts`
+- 已引入 `zod` 并完成 schema 化校验：
+  - `packages/worker/src/routes/request-validation.ts`
+- 测试更新：
+  - `packages/worker/src/test/database-shared.test.ts` 新增解析函数断言
+- 测试结果：
+  - `pnpm --filter worker test --run`：`9` 文件 `86` 测试通过
+  - `pnpm test`：`worker 86` + `web 48` 全部通过
+
+#### 阻塞记录
+
+- 早期多次执行 `pnpm --filter worker add zod` 失败（`ENOTFOUND`），后定位为执行环境网络与 `pnpm store` 路径冲突叠加导致。
+- 已通过 `pnpm --filter worker add zod --store-dir .pnpm-store` 完成安装并落地改造（`2026-02-12`）。
+
+### 子任务 3：继续分拆数据库详情页大文件（web）
+
+#### Todo
+
+- [x] 拆分 `packages/web/src/app/databases/[id]/page.tsx` 的表格与分页 UI
+- [x] 页面状态订阅改为 `zustand` + `useShallow` 聚合选择器
+- [x] 保持既有页面行为与 API 调用路径不变
+
+#### 结果
+
+- 新增组件：
+  - `packages/web/src/components/database-detail/table-data-grid.tsx`
+  - `packages/web/src/components/database-detail/table-pagination.tsx`
+- 详情页入口 `packages/web/src/app/databases/[id]/page.tsx` 从 `397` 行降至 `312` 行，页面职责更聚焦。
+- `database-detail` 页面对 `useDatabaseDetailStore` / `useEditStore` 改为 `useShallow` 聚合订阅，减少重复订阅与不必要重渲染。
+
+### 子任务 4：提取跨驱动通用逻辑（worker）
+
+#### Todo
+
+- [x] 抽取 `mysql` / `tidb` / `d1` 共用的 `WHERE` 条件构建逻辑
+- [x] 抽取驱动工厂，替换 `DatabaseService` 内部 `switch`
+- [x] 为新提取逻辑补充单元测试
+
+#### 结果
+
+- 新增通用过滤构建器：
+  - `packages/worker/src/services/drivers/where-clause-builder.ts`
+- 新增驱动工厂：
+  - `packages/worker/src/services/drivers/factory.ts`
+- 接入改造：
+  - `packages/worker/src/services/drivers/mysql.ts`
+  - `packages/worker/src/services/drivers/tidb.ts`
+  - `packages/worker/src/services/drivers/d1.ts`
+  - `packages/worker/src/services/db.ts`
+- 新增测试：
+  - `packages/worker/src/test/where-clause-builder.test.ts`（4 用例）
+  - `packages/worker/src/test/driver-factory.test.ts`（4 用例）
+- 测试结果：
+  - `pnpm --filter worker test --run`：`9` 文件 `86` 测试通过
+  - `pnpm --filter web test --run`：`10` 文件 `48` 测试通过
+  - `pnpm test`：全仓通过

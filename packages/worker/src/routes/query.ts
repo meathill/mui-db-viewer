@@ -4,19 +4,16 @@
  */
 
 import { Hono } from 'hono';
+import { validator } from 'hono/validator';
 import { createAiService } from '../services/ai';
 import { validateAndSanitizeSql } from '../services/sql-guard';
 import type { ApiResponse } from '../types';
+import { parseGenerateSqlRequest, parseValidateSqlRequest } from './request-validation';
 
 interface Env {
   OPENAI_API_KEY: string;
   OPENAI_MODEL?: string;
   OPENAI_BASE_URL?: string;
-}
-
-interface GenerateRequest {
-  databaseId: string;
-  prompt: string;
 }
 
 interface GenerateResponse {
@@ -54,95 +51,88 @@ const MOCK_SCHEMA = `
  * 生成 SQL
  * POST /api/v1/query/generate
  */
-queryRoutes.post('/generate', async (c) => {
-  const body = await c.req.json<GenerateRequest>();
-  const { databaseId, prompt } = body;
+queryRoutes.post(
+  '/generate',
+  validator('json', (body, c) => {
+    const result = parseGenerateSqlRequest(body);
+    if (!result.success) {
+      return c.json<ApiResponse>({ success: false, error: result.error }, 400);
+    }
+    return result.data;
+  }),
+  async (c) => {
+    const { prompt } = c.req.valid('json');
 
-  if (!databaseId || !prompt) {
-    return c.json<ApiResponse>(
-      {
-        success: false,
-        error: '缺少 databaseId 或 prompt',
-      },
-      400,
-    );
-  }
+    try {
+      const ai = createAiService({
+        apiKey: c.env.OPENAI_API_KEY,
+        model: c.env.OPENAI_MODEL,
+        baseUrl: c.env.OPENAI_BASE_URL,
+      });
 
-  try {
-    // 创建 AI 服务
-    const ai = createAiService({
-      apiKey: c.env.OPENAI_API_KEY,
-      model: c.env.OPENAI_MODEL,
-      baseUrl: c.env.OPENAI_BASE_URL,
-    });
+      const schema = MOCK_SCHEMA;
 
-    // TODO: 从缓存获取实际 Schema
-    const schema = MOCK_SCHEMA;
+      const result = await ai.generateSql({
+        prompt,
+        schema,
+        databaseType: 'MySQL',
+      });
 
-    // 生成 SQL
-    const result = await ai.generateSql({
-      prompt,
-      schema,
-      databaseType: 'MySQL', // TODO: 从数据库配置获取
-    });
+      const guardResult = validateAndSanitizeSql(result.sql);
 
-    // SQL Guard 校验
-    const guardResult = validateAndSanitizeSql(result.sql);
+      if (!guardResult.valid) {
+        return c.json<ApiResponse<GenerateResponse>>({
+          success: true,
+          data: {
+            sql: result.sql,
+            explanation: result.explanation,
+            warning: guardResult.error,
+          },
+        });
+      }
 
-    if (!guardResult.valid) {
       return c.json<ApiResponse<GenerateResponse>>({
         success: true,
         data: {
-          sql: result.sql,
+          sql: guardResult.sql!,
           explanation: result.explanation,
-          warning: guardResult.error,
         },
       });
+    } catch (error) {
+      console.error('生成 SQL 失败:', error);
+      return c.json<ApiResponse>(
+        {
+          success: false,
+          error: error instanceof Error ? error.message : '生成失败',
+        },
+        500,
+      );
     }
-
-    return c.json<ApiResponse<GenerateResponse>>({
-      success: true,
-      data: {
-        sql: guardResult.sql!,
-        explanation: result.explanation,
-      },
-    });
-  } catch (error) {
-    console.error('生成 SQL 失败:', error);
-    return c.json<ApiResponse>(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : '生成失败',
-      },
-      500,
-    );
-  }
-});
+  },
+);
 
 /**
  * 校验 SQL（不调用 AI）
  * POST /api/v1/query/validate
  */
-queryRoutes.post('/validate', async (c) => {
-  const body = await c.req.json<{ sql: string }>();
-  const { sql } = body;
+queryRoutes.post(
+  '/validate',
+  validator('json', (body, c) => {
+    const result = parseValidateSqlRequest(body);
+    if (!result.success) {
+      return c.json<ApiResponse>({ success: false, error: result.error }, 400);
+    }
+    return result.data;
+  }),
+  async (c) => {
+    const { sql } = c.req.valid('json');
+    const result = validateAndSanitizeSql(sql);
 
-  if (!sql) {
-    return c.json<ApiResponse>(
-      {
-        success: false,
-        error: '缺少 SQL',
-      },
-      400,
-    );
-  }
-
-  const result = validateAndSanitizeSql(sql);
-
-  return c.json<ApiResponse<{ valid: boolean; sql?: string; error?: string }>>({
-    success: true,
-    data: result,
-  });
-});
+    return c.json<ApiResponse<{ valid: boolean; sql?: string; error?: string }>>({
+      success: true,
+      data: result,
+    });
+  },
+);
 
 export { queryRoutes };

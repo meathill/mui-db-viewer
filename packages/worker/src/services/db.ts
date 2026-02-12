@@ -1,9 +1,6 @@
-import type { DatabaseConnection, Env } from '../types';
+import type { DatabaseConnection, Env, RowUpdate, TableQueryOptions } from '../types';
+import { createDatabaseDriver } from './drivers/factory';
 import type { IDatabaseDriver } from './drivers/interface';
-import { TiDBDriver } from './drivers/tidb';
-import { MySQLDriver } from './drivers/mysql';
-import { PostgresDriver } from './drivers/postgres';
-import { D1Driver } from './drivers/d1';
 
 export class DatabaseService {
   private driver: IDatabaseDriver;
@@ -17,21 +14,7 @@ export class DatabaseService {
   }
 
   private createDriver(): IDatabaseDriver {
-    switch (this.config.type) {
-      case 'tidb':
-        return new TiDBDriver(this.config, this.password);
-      case 'mysql':
-        return new MySQLDriver(this.config, this.password);
-      case 'postgres':
-        return new PostgresDriver(this.config, this.password);
-      case 'd1':
-        if (!this.env?.DB) {
-          throw new Error('D1 database binding not found in environment');
-        }
-        return new D1Driver(this.env.DB);
-      default:
-        throw new Error(`Unsupported database type: ${this.config.type}`);
-    }
+    return createDatabaseDriver(this.config, this.password, this.env);
   }
 
   async connect() {
@@ -50,28 +33,19 @@ export class DatabaseService {
     return this.driver.getTableSchema(tableName);
   }
 
-  async getTableData(
-    tableName: string,
-    options: {
-      page?: number;
-      pageSize?: number;
-      sortField?: string;
-      sortOrder?: 'asc' | 'desc';
-      filters?: Record<string, any>;
-    } = {},
-  ) {
+  async getTableData(tableName: string, options: TableQueryOptions = {}) {
     return this.driver.getTableData(tableName, options);
   }
 
-  async deleteRows(tableName: string, ids: any[]) {
+  async deleteRows(tableName: string, ids: Array<string | number>) {
     return this.driver.deleteRows(tableName, ids);
   }
 
-  async insertRow(tableName: string, data: Record<string, any>) {
+  async insertRow(tableName: string, data: Record<string, unknown>) {
     return this.driver.insertRow(tableName, data);
   }
 
-  async updateRows(tableName: string, rows: Array<{ pk: any; data: Record<string, any> }>) {
+  async updateRows(tableName: string, rows: RowUpdate[]) {
     return this.driver.updateRows(tableName, rows);
   }
 }

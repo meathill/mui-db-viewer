@@ -1,6 +1,8 @@
 import type { D1Database } from '@cloudflare/workers-types';
+import type { RowUpdate, TableColumn, TableQueryFilters, TableQueryOptions } from '../../types';
 import type { IDatabaseDriver } from './interface';
-import { parseSearchExpression, expressionToSql } from '../search-parser';
+import { findPrimaryKeyField } from './helpers';
+import { buildQuestionMarkWhereClause } from './where-clause-builder';
 
 export class D1Driver implements IDatabaseDriver {
   constructor(private db: D1Database) {}
@@ -17,37 +19,38 @@ export class D1Driver implements IDatabaseDriver {
     const { results } = await this.db
       .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name != '_cf_KV' AND name != 'sqlite_sequence'")
       .all();
-    return results.map((row: any) => row.name);
+    return results.map((row) => String((row as { name: unknown }).name));
   }
 
-  async getTableSchema(tableName: string) {
+  async getTableSchema(tableName: string): Promise<TableColumn[]> {
     const { results } = await this.db.prepare(`PRAGMA table_info(\`${tableName}\`)`).all();
     // Map SQLite PRAGMA output to { Field, Type, Key, ... }
-    return results.map((row: any) => ({
-      Field: row.name,
-      Type: row.type,
-      Key: row.pk ? 'PRI' : '',
-      Default: row.dflt_value,
-      Null: row.notnull ? 'NO' : 'YES',
-    }));
+    return results.map((row) => {
+      const schemaRow = row as {
+        name: string;
+        type: string;
+        pk: number;
+        dflt_value: unknown;
+        notnull: number;
+      };
+
+      return {
+        Field: schemaRow.name,
+        Type: schemaRow.type,
+        Key: schemaRow.pk ? 'PRI' : '',
+        Default: schemaRow.dflt_value,
+        Null: schemaRow.notnull ? 'NO' : 'YES',
+      };
+    });
   }
 
-  async getTableData(
-    tableName: string,
-    options: {
-      page?: number;
-      pageSize?: number;
-      sortField?: string;
-      sortOrder?: 'asc' | 'desc';
-      filters?: Record<string, any>;
-    } = {},
-  ) {
+  async getTableData(tableName: string, options: TableQueryOptions = {}) {
     const page = options.page || 1;
     const pageSize = options.pageSize || 20;
     const offset = (page - 1) * pageSize;
 
     let query = `SELECT * FROM \`${tableName}\``;
-    const params: any[] = [];
+    const params: unknown[] = [];
 
     const { whereClause, params: whereParams } = await this.buildWhereClause(tableName, options.filters);
     if (whereClause) {
@@ -69,7 +72,7 @@ export class D1Driver implements IDatabaseDriver {
       .all();
 
     let countQuery = `SELECT COUNT(*) as total FROM \`${tableName}\``;
-    const countParams: any[] = [];
+    const countParams: unknown[] = [];
 
     if (whereClause) {
       countQuery += ` ${whereClause}`;
@@ -80,7 +83,7 @@ export class D1Driver implements IDatabaseDriver {
       .prepare(countQuery)
       .bind(...countParams)
       .all();
-    const total = countResults && countResults.length > 0 ? Number((countResults[0] as any).total) : 0;
+    const total = countResults && countResults.length > 0 ? Number((countResults[0] as { total: unknown }).total) : 0;
 
     return {
       data: results,
@@ -91,9 +94,9 @@ export class D1Driver implements IDatabaseDriver {
     };
   }
 
-  async deleteRows(tableName: string, ids: any[]) {
+  async deleteRows(tableName: string, ids: Array<string | number>) {
     const schema = await this.getTableSchema(tableName);
-    const primaryKey = schema.find((col: any) => col.Key === 'PRI')?.Field;
+    const primaryKey = findPrimaryKeyField(schema);
 
     if (!primaryKey) {
       throw new Error(`Table ${tableName} does not have a primary key`);
@@ -108,7 +111,7 @@ export class D1Driver implements IDatabaseDriver {
     return { success: true, count: ids.length };
   }
 
-  async insertRow(tableName: string, data: Record<string, any>) {
+  async insertRow(tableName: string, data: Record<string, unknown>) {
     const keys = Object.keys(data);
     const values = Object.values(data);
     const placeholders = values.map(() => '?').join(',');
@@ -122,9 +125,9 @@ export class D1Driver implements IDatabaseDriver {
     return { success: true };
   }
 
-  async updateRows(tableName: string, rows: Array<{ pk: any; data: Record<string, any> }>) {
+  async updateRows(tableName: string, rows: RowUpdate[]) {
     const schema = await this.getTableSchema(tableName);
-    const primaryKey = schema.find((col: any) => col.Key === 'PRI')?.Field;
+    const primaryKey = findPrimaryKeyField(schema);
 
     if (!primaryKey) {
       throw new Error(`Table ${tableName} does not have a primary key`);
@@ -148,63 +151,7 @@ export class D1Driver implements IDatabaseDriver {
     return { success: true, count: rows.length };
   }
 
-  private async buildWhereClause(tableName: string, filters?: Record<string, any>) {
-    if (!filters || Object.keys(filters).length === 0) {
-      return { whereClause: '', params: [] as any[] };
-    }
-
-    const conditions: string[] = [];
-    const params: any[] = [];
-    const search = filters._search;
-
-    if (search) {
-      const parsed = parseSearchExpression(search);
-
-      if (parsed.isExpression && parsed.expression) {
-        const schema = await this.getTableSchema(tableName);
-        const validColumns = schema.map((col: any) => col.Field);
-        const sqlResult = expressionToSql(parsed.expression, validColumns);
-
-        if (sqlResult) {
-          return { whereClause: sqlResult.whereClause, params: sqlResult.params };
-        }
-      }
-
-      if (!parsed.isExpression || !parsed.expression) {
-        const schema = await this.getTableSchema(tableName);
-        const searchConditions: string[] = [];
-        schema.forEach((col: any) => {
-          const type = (col.Type || '').toLowerCase();
-          if (type.includes('char') || type.includes('text') || type.includes('date') || type.includes('time')) {
-            searchConditions.push(`\`${col.Field}\` LIKE ?`);
-            params.push(`%${search}%`);
-          } else if (
-            type.includes('int') ||
-            type.includes('float') ||
-            type.includes('real') ||
-            type.includes('numeric')
-          ) {
-            searchConditions.push(`\`${col.Field}\` = ?`);
-            params.push(search);
-          }
-        });
-        if (searchConditions.length > 0) {
-          conditions.push(`(${searchConditions.join(' OR ')})`);
-        }
-      }
-    }
-
-    for (const [key, value] of Object.entries(filters)) {
-      if (key === '_search') continue;
-      if (value !== undefined && value !== '') {
-        conditions.push(`\`${key}\` = ?`);
-        params.push(value);
-      }
-    }
-
-    if (conditions.length > 0) {
-      return { whereClause: `WHERE ${conditions.join(' AND ')}`, params };
-    }
-    return { whereClause: '', params: [] as any[] };
+  private async buildWhereClause(tableName: string, filters?: TableQueryFilters) {
+    return buildQuestionMarkWhereClause(filters, () => this.getTableSchema(tableName));
   }
 }

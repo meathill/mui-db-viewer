@@ -1,6 +1,7 @@
 import { Client } from 'pg';
-import type { DatabaseConnection } from '../../types';
+import type { DatabaseConnection, RowUpdate, TableColumn, TableQueryFilters, TableQueryOptions } from '../../types';
 import type { IDatabaseDriver } from './interface';
+import { findPrimaryKeyField, getColumnFieldNames } from './helpers';
 import { parseSearchExpression, expressionToSqlPg } from '../search-parser';
 
 export class PostgresDriver implements IDatabaseDriver {
@@ -47,7 +48,7 @@ export class PostgresDriver implements IDatabaseDriver {
     return res.rows.map((row) => row.table_name);
   }
 
-  async getTableSchema(tableName: string) {
+  async getTableSchema(tableName: string): Promise<TableColumn[]> {
     await this.connect();
     const res = await this.client!.query(
       `SELECT column_name as "Field", data_type as "Type", is_nullable as "Null",
@@ -69,16 +70,7 @@ export class PostgresDriver implements IDatabaseDriver {
     return res.rows;
   }
 
-  async getTableData(
-    tableName: string,
-    options: {
-      page?: number;
-      pageSize?: number;
-      sortField?: string;
-      sortOrder?: 'asc' | 'desc';
-      filters?: Record<string, any>;
-    } = {},
-  ) {
+  async getTableData(tableName: string, options: TableQueryOptions = {}) {
     await this.connect();
 
     const page = options.page || 1;
@@ -86,7 +78,7 @@ export class PostgresDriver implements IDatabaseDriver {
     const offset = (page - 1) * pageSize;
 
     let query = `SELECT * FROM "${tableName}"`;
-    const params: any[] = [];
+    const params: unknown[] = [];
 
     const { whereClause, params: whereParams } = await this.buildWhereClause(tableName, options.filters);
     if (whereClause) {
@@ -105,7 +97,7 @@ export class PostgresDriver implements IDatabaseDriver {
     const res = await this.client!.query(query, params);
 
     let countQuery = `SELECT COUNT(*) as total FROM "${tableName}"`;
-    const countParams: any[] = [];
+    const countParams: unknown[] = [];
 
     if (whereClause) {
       // Re-index params for count query
@@ -149,10 +141,10 @@ export class PostgresDriver implements IDatabaseDriver {
     };
   }
 
-  async deleteRows(tableName: string, ids: any[]) {
+  async deleteRows(tableName: string, ids: Array<string | number>) {
     await this.connect();
     const schema = await this.getTableSchema(tableName);
-    const primaryKey = schema.find((col: any) => col.Key === 'PRI')?.Field;
+    const primaryKey = findPrimaryKeyField(schema);
 
     if (!primaryKey) {
       throw new Error(`Table ${tableName} does not have a primary key`);
@@ -164,7 +156,7 @@ export class PostgresDriver implements IDatabaseDriver {
     return { success: true, count: ids.length };
   }
 
-  async insertRow(tableName: string, data: Record<string, any>) {
+  async insertRow(tableName: string, data: Record<string, unknown>) {
     await this.connect();
     const keys = Object.keys(data);
     const values = Object.values(data);
@@ -176,10 +168,10 @@ export class PostgresDriver implements IDatabaseDriver {
     return { success: true };
   }
 
-  async updateRows(tableName: string, rows: Array<{ pk: any; data: Record<string, any> }>) {
+  async updateRows(tableName: string, rows: RowUpdate[]) {
     await this.connect();
     const schema = await this.getTableSchema(tableName);
-    const primaryKey = schema.find((col: any) => col.Key === 'PRI')?.Field;
+    const primaryKey = findPrimaryKeyField(schema);
 
     if (!primaryKey) {
       throw new Error(`Table ${tableName} does not have a primary key`);
@@ -200,13 +192,13 @@ export class PostgresDriver implements IDatabaseDriver {
     return { success: true, count: rows.length };
   }
 
-  private async buildWhereClause(tableName: string, filters?: Record<string, any>, startIndex: number = 1) {
+  private async buildWhereClause(tableName: string, filters?: TableQueryFilters, startIndex: number = 1) {
     if (!filters || Object.keys(filters).length === 0) {
-      return { whereClause: '', params: [] as any[] };
+      return { whereClause: '', params: [] as unknown[] };
     }
 
     const conditions: string[] = [];
-    const params: any[] = [];
+    const params: unknown[] = [];
     let pIdx = startIndex;
     const search = filters._search;
 
@@ -215,7 +207,7 @@ export class PostgresDriver implements IDatabaseDriver {
 
       if (parsed.isExpression && parsed.expression) {
         const schema = await this.getTableSchema(tableName);
-        const validColumns = schema.map((col: any) => col.Field);
+        const validColumns = getColumnFieldNames(schema);
         const sqlResult = expressionToSqlPg(parsed.expression, validColumns, startIndex);
 
         if (sqlResult) {
@@ -226,7 +218,7 @@ export class PostgresDriver implements IDatabaseDriver {
       if (!parsed.isExpression || !parsed.expression) {
         const schema = await this.getTableSchema(tableName);
         const searchConditions: string[] = [];
-        schema.forEach((col: any) => {
+        schema.forEach((col) => {
           const type = col.Type.toLowerCase();
           if (type.includes('char') || type.includes('text')) {
             searchConditions.push(`"${col.Field}"::text LIKE $${pIdx}`);
@@ -260,6 +252,6 @@ export class PostgresDriver implements IDatabaseDriver {
       return { whereClause: `WHERE ${conditions.join(' AND ')}`, params };
     }
 
-    return { whereClause: '', params: [] as any[] };
+    return { whereClause: '', params: [] as unknown[] };
   }
 }

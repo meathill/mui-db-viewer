@@ -5,7 +5,7 @@
 export interface DatabaseConnection {
   id: string;
   name: string;
-  type: 'tidb' | 'd1' | 'supabase' | 'mysql' | 'postgres';
+  type: DatabaseType;
   host: string;
   port: string;
   database: string;
@@ -16,9 +16,51 @@ export interface DatabaseConnection {
   updatedAt: string;
 }
 
+export const DATABASE_TYPES = ['tidb', 'd1', 'supabase', 'mysql', 'postgres'] as const;
+export type DatabaseType = (typeof DATABASE_TYPES)[number];
+
+export type DatabaseFieldValue = string | number | boolean | null;
+
+export interface TableColumn {
+  Field: string;
+  Type: string;
+  Null?: string;
+  Key?: string;
+  Default?: unknown;
+  Extra?: string;
+}
+
+export type TableRow = Record<string, unknown>;
+
+export interface TableQueryFilters {
+  _search?: string;
+  [key: string]: string | undefined;
+}
+
+export interface TableQueryOptions {
+  page?: number;
+  pageSize?: number;
+  sortField?: string;
+  sortOrder?: 'asc' | 'desc';
+  filters?: TableQueryFilters;
+}
+
+export interface TableQueryResult<Row extends TableRow = TableRow> {
+  data: Row[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+export interface RowUpdate {
+  pk: string | number;
+  data: Record<string, unknown>;
+}
+
 export interface CreateDatabaseRequest {
   name: string;
-  type: string;
+  type: DatabaseType;
   host: string;
   port: string;
   database: string;

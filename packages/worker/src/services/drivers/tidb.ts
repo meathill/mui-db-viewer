@@ -1,7 +1,8 @@
 import { connect, Connection } from '@tidbcloud/serverless';
-import type { DatabaseConnection } from '../../types';
+import type { DatabaseConnection, RowUpdate, TableColumn, TableQueryFilters, TableQueryOptions } from '../../types';
 import type { IDatabaseDriver } from './interface';
-import { parseSearchExpression, expressionToSql } from '../search-parser';
+import { findPrimaryKeyField } from './helpers';
+import { buildQuestionMarkWhereClause } from './where-clause-builder';
 
 export class TiDBDriver implements IDatabaseDriver {
   private connection: Connection | null = null;
@@ -37,22 +38,13 @@ export class TiDBDriver implements IDatabaseDriver {
     return (rows as any[]).map((row) => Object.values(row)[0] as string);
   }
 
-  async getTableSchema(tableName: string) {
+  async getTableSchema(tableName: string): Promise<TableColumn[]> {
     await this.connect();
     const rows = await this.connection!.execute(`DESCRIBE \`${tableName}\``);
-    return rows as any[];
+    return rows as TableColumn[];
   }
 
-  async getTableData(
-    tableName: string,
-    options: {
-      page?: number;
-      pageSize?: number;
-      sortField?: string;
-      sortOrder?: 'asc' | 'desc';
-      filters?: Record<string, any>;
-    } = {},
-  ) {
+  async getTableData(tableName: string, options: TableQueryOptions = {}) {
     await this.connect();
 
     const page = options.page || 1;
@@ -60,7 +52,7 @@ export class TiDBDriver implements IDatabaseDriver {
     const offset = (page - 1) * pageSize;
 
     let query = `SELECT * FROM \`${tableName}\``;
-    const params: any[] = [];
+    const params: unknown[] = [];
 
     const { whereClause, params: whereParams } = await this.buildWhereClause(tableName, options.filters);
     if (whereClause) {
@@ -79,7 +71,7 @@ export class TiDBDriver implements IDatabaseDriver {
     const rows = await this.connection!.execute(query, params);
 
     let countQuery = `SELECT COUNT(*) as total FROM \`${tableName}\``;
-    const countParams: any[] = [];
+    const countParams: unknown[] = [];
 
     if (whereClause) {
       countQuery += ` ${whereClause}`;
@@ -87,10 +79,13 @@ export class TiDBDriver implements IDatabaseDriver {
     }
 
     const countRows = await this.connection!.execute(countQuery, countParams);
-    const total = Array.isArray(countRows) && countRows.length > 0 ? Number((countRows as any[])[0].total) : 0;
+    const total =
+      Array.isArray(countRows) && countRows.length > 0
+        ? Number((countRows as Array<Record<string, unknown>>)[0].total)
+        : 0;
 
     return {
-      data: rows as any[],
+      data: rows as Array<Record<string, unknown>>,
       total,
       page,
       pageSize,
@@ -98,10 +93,10 @@ export class TiDBDriver implements IDatabaseDriver {
     };
   }
 
-  async deleteRows(tableName: string, ids: any[]) {
+  async deleteRows(tableName: string, ids: Array<string | number>) {
     await this.connect();
     const schema = await this.getTableSchema(tableName);
-    const primaryKey = schema.find((col: any) => col.Key === 'PRI')?.Field;
+    const primaryKey = findPrimaryKeyField(schema);
 
     if (!primaryKey) {
       throw new Error(`Table ${tableName} does not have a primary key`);
@@ -113,7 +108,7 @@ export class TiDBDriver implements IDatabaseDriver {
     return { success: true, count: ids.length };
   }
 
-  async insertRow(tableName: string, data: Record<string, any>) {
+  async insertRow(tableName: string, data: Record<string, unknown>) {
     await this.connect();
     const keys = Object.keys(data);
     const values = Object.values(data);
@@ -125,10 +120,10 @@ export class TiDBDriver implements IDatabaseDriver {
     return { success: true };
   }
 
-  async updateRows(tableName: string, rows: Array<{ pk: any; data: Record<string, any> }>) {
+  async updateRows(tableName: string, rows: RowUpdate[]) {
     await this.connect();
     const schema = await this.getTableSchema(tableName);
-    const primaryKey = schema.find((col: any) => col.Key === 'PRI')?.Field;
+    const primaryKey = findPrimaryKeyField(schema);
 
     if (!primaryKey) {
       throw new Error(`Table ${tableName} does not have a primary key`);
@@ -149,69 +144,7 @@ export class TiDBDriver implements IDatabaseDriver {
     return { success: true, count: rows.length };
   }
 
-  private async buildWhereClause(tableName: string, filters?: Record<string, any>) {
-    if (!filters || Object.keys(filters).length === 0) {
-      return { whereClause: '', params: [] as any[] };
-    }
-
-    const conditions: string[] = [];
-    const params: any[] = [];
-    const search = filters._search;
-
-    if (search) {
-      // 尝试表达式解析
-      const parsed = parseSearchExpression(search);
-
-      if (parsed.isExpression && parsed.expression) {
-        const schema = await this.getTableSchema(tableName);
-        const validColumns = schema.map((col: any) => col.Field);
-        const sqlResult = expressionToSql(parsed.expression, validColumns);
-
-        if (sqlResult) {
-          // 表达式解析成功
-          return { whereClause: sqlResult.whereClause, params: sqlResult.params };
-        }
-        // 列名无效，回退到全局搜索
-      }
-
-      // 全局文本搜索（回退逻辑）
-      if (!parsed.isExpression || !parsed.expression) {
-        const schema = await this.getTableSchema(tableName);
-        const searchConditions: string[] = [];
-        schema.forEach((col: any) => {
-          const type = col.Type.toLowerCase();
-          if (type.includes('char') || type.includes('text') || type.includes('date') || type.includes('time')) {
-            searchConditions.push(`\`${col.Field}\` LIKE ?`);
-            params.push(`%${search}%`);
-          } else if (
-            type.includes('int') ||
-            type.includes('float') ||
-            type.includes('double') ||
-            type.includes('decimal')
-          ) {
-            searchConditions.push(`\`${col.Field}\` = ?`);
-            params.push(search);
-          }
-        });
-        if (searchConditions.length > 0) {
-          conditions.push(`(${searchConditions.join(' OR ')})`);
-        }
-      }
-    }
-
-    for (const [key, value] of Object.entries(filters)) {
-      if (key === '_search') continue;
-
-      if (value !== undefined && value !== '') {
-        conditions.push(`\`${key}\` = ?`);
-        params.push(value);
-      }
-    }
-
-    if (conditions.length > 0) {
-      return { whereClause: `WHERE ${conditions.join(' AND ')}`, params };
-    }
-
-    return { whereClause: '', params: [] as any[] };
+  private async buildWhereClause(tableName: string, filters?: TableQueryFilters) {
+    return buildQuestionMarkWhereClause(filters, () => this.getTableSchema(tableName));
   }
 }
