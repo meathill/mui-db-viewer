@@ -9,12 +9,16 @@
     "test": "vitest"
   },
   "dependencies": {
+    "@tidbcloud/serverless": "^0.2.0",
     "hono": "^4.11.7",
-    "mysql2": "^3.17.0"
+    "mysql2": "^3.17.0",
+    "pg": "^8.18.0"
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.12.10",
+    "@cloudflare/workers-types": "^4.20260212.0",
     "@types/node": "^20.19.31",
+    "@types/pg": "^8.16.0",
     "typescript": "^5.9.3",
     "vitest": "^4.0.18",
     "wrangler": "^4.62.0"

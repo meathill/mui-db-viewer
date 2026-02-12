@@ -121,6 +121,31 @@ export const api = {
       }
       return result.data;
     },
+
+    async deleteRows(id: string, tableName: string, ids: any[]): Promise<void> {
+      const result = await request('POST', `/api/v1/databases/${id}/tables/${tableName}/rows/delete`, { ids });
+      if (!result.success) {
+        throw new Error(result.error || '删除失败');
+      }
+    },
+
+    async insertRow(id: string, tableName: string, data: Record<string, any>): Promise<void> {
+      const result = await request('POST', `/api/v1/databases/${id}/tables/${tableName}/rows`, data);
+      if (!result.success) {
+        throw new Error(result.error || '插入失败');
+      }
+    },
+
+    async updateRows(
+      id: string,
+      tableName: string,
+      rows: Array<{ pk: any; data: Record<string, any> }>,
+    ): Promise<void> {
+      const result = await request('PUT', `/api/v1/databases/${id}/tables/${tableName}/rows`, { rows });
+      if (!result.success) {
+        throw new Error(result.error || '更新失败');
+      }
+    },
   },
 
   query: {

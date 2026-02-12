@@ -19,7 +19,8 @@ import { Card, CardPanel } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectTrigger, SelectValue, SelectPopup, SelectItem } from '@/components/ui/select';
-import { api, type DatabaseConnection } from '@/lib/api';
+import { api } from '@/lib/api';
+import { useDatabaseStore } from '@/stores/database-store';
 
 interface Message {
   id: string;
@@ -35,7 +36,8 @@ export default function QueryPage() {
   const [input, setInput] = useState('');
   const [selectedDb, setSelectedDb] = useState('');
   const [loading, setLoading] = useState(false);
-  const [databases, setDatabases] = useState<DatabaseConnection[]>([]);
+  const databases = useDatabaseStore((state) => state.databases);
+  const fetchDatabases = useDatabaseStore((state) => state.fetchDatabases);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -43,16 +45,10 @@ export default function QueryPage() {
   }, [messages]);
 
   useEffect(() => {
-    const fetchDatabases = async () => {
-      try {
-        const dbs = await api.databases.list();
-        setDatabases(dbs);
-      } catch (error) {
-        console.error('Failed to fetch databases:', error);
-      }
-    };
-    fetchDatabases();
-  }, []);
+    void fetchDatabases().catch((fetchError) => {
+      console.error('Failed to fetch databases:', fetchError);
+    });
+  }, [fetchDatabases]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

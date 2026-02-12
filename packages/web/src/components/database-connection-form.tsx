@@ -7,7 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardHeader, CardTitle, CardDescription, CardPanel, CardFooter } from '@/components/ui/card';
 import { Select, SelectTrigger, SelectValue, SelectPopup, SelectItem } from '@/components/ui/select';
-import { api } from '@/lib/api';
+import type { CreateDatabaseRequest } from '@/lib/api';
+import { useDatabaseStore } from '@/stores/database-store';
 
 const DB_TYPES = [
   { value: 'tidb', label: 'TiDB Cloud' },
@@ -17,21 +18,14 @@ const DB_TYPES = [
   { value: 'postgres', label: 'PostgreSQL' },
 ];
 
-interface ConnectionFormData {
-  name: string;
-  type: string;
-  host: string;
-  port: string;
-  database: string;
-  username: string;
-  password: string;
-}
+type ConnectionFormData = CreateDatabaseRequest;
 
 interface DatabaseConnectionFormProps {
   onSuccess?: () => void;
 }
 
 export function DatabaseConnectionForm({ onSuccess }: DatabaseConnectionFormProps) {
+  const createDatabase = useDatabaseStore((state) => state.createDatabase);
   const [formData, setFormData] = useState<ConnectionFormData>({
     name: '',
     type: '',
@@ -68,7 +62,7 @@ export function DatabaseConnectionForm({ onSuccess }: DatabaseConnectionFormProp
     setError(null);
 
     try {
-      await api.databases.create(formData);
+      await createDatabase(formData);
       onSuccess?.();
     } catch (err) {
       setError(err instanceof Error ? err.message : '保存失败');

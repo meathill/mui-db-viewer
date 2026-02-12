@@ -13,38 +13,34 @@ import { Dialog, DialogTrigger, DialogPortal, DialogBackdrop, DialogPopup } from
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/menu';
 import { DatabaseConnectionForm } from '@/components/database-connection-form';
 import { Empty, EmptyMedia, EmptyTitle, EmptyDescription, EmptyContent } from '@/components/ui/empty';
-import { api, type DatabaseConnection } from '@/lib/api';
+import { useDatabaseStore } from '@/stores/database-store';
 
 export default function DatabasesPage() {
-  const [databases, setDatabases] = useState<DatabaseConnection[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const databases = useDatabaseStore((state) => state.databases);
+  const loading = useDatabaseStore((state) => state.loading);
+  const error = useDatabaseStore((state) => state.error);
+  const fetchDatabases = useDatabaseStore((state) => state.fetchDatabases);
+  const deleteDatabase = useDatabaseStore((state) => state.deleteDatabase);
 
-  const fetchDatabases = async () => {
-    try {
-      const dbs = await api.databases.list();
-      setDatabases(dbs);
-    } catch (error) {
-      console.error('Failed to fetch databases:', error);
-    }
-  };
-
-  const handleDelete = async (id: string) => {
+  async function handleDelete(id: string) {
     if (!confirm('确定要删除这个数据库连接吗？')) {
       return;
     }
 
     try {
-      await api.databases.delete(id);
-      fetchDatabases();
-    } catch (error) {
-      console.error('Failed to delete database:', error);
+      await deleteDatabase(id);
+    } catch (deleteError) {
+      console.error('Failed to delete database:', deleteError);
       alert('删除失败');
     }
-  };
+  }
 
   useEffect(() => {
-    fetchDatabases();
-  }, []);
+    void fetchDatabases().catch((fetchError) => {
+      console.error('Failed to fetch databases:', fetchError);
+    });
+  }, [fetchDatabases]);
 
   return (
     <SidebarProvider>
@@ -76,7 +72,6 @@ export default function DatabasesPage() {
                 <DatabaseConnectionForm
                   onSuccess={() => {
                     setDialogOpen(false);
-                    fetchDatabases();
                   }}
                 />
               </DialogPopup>
@@ -85,7 +80,9 @@ export default function DatabasesPage() {
         </header>
 
         <main className="flex-1 overflow-auto p-6">
-          {databases.length === 0 ? (
+          {loading && databases.length === 0 ? (
+            <div className="text-muted-foreground text-sm">加载数据库连接中...</div>
+          ) : databases.length === 0 ? (
             <Empty>
               <EmptyMedia variant="icon">
                 <DatabaseIcon className="size-5" />
@@ -163,6 +160,7 @@ export default function DatabasesPage() {
               ))}
             </div>
           )}
+          {error && <p className="mt-4 text-destructive text-sm">{error}</p>}
         </main>
       </SidebarInset>
     </SidebarProvider>

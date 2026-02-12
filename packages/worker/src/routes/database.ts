@@ -5,15 +5,7 @@
 
 import { Hono } from 'hono';
 import { createHsmClient } from '../services/hsm';
-import type { DatabaseConnection, CreateDatabaseRequest, ApiResponse } from '../types';
-
-import { D1Database } from '@cloudflare/workers-types';
-
-interface Env {
-  HSM_URL: string;
-  HSM_SECRET: string;
-  DB: D1Database;
-}
+import type { DatabaseConnection, CreateDatabaseRequest, ApiResponse, Env } from '../types';
 
 const databaseRoutes = new Hono<{ Bindings: Env }>();
 
@@ -254,7 +246,7 @@ databaseRoutes.get('/:id/tables', async (c) => {
     const password = await hsm.decrypt(connection.keyPath);
 
     // 连接数据库
-    const dbService = new DatabaseService(connection, password);
+    const dbService = new DatabaseService(connection, password, c.env);
     const tables = await dbService.getTables();
     await dbService.disconnect();
 
@@ -267,7 +259,7 @@ databaseRoutes.get('/:id/tables', async (c) => {
     return c.json<ApiResponse>(
       {
         success: false,
-        error: error instanceof Error ? error.message : '获取表列表失败',
+        error: `[Debug: HSM_URL=${c.env.HSM_URL}] ${error instanceof Error ? error.message : '获取表列表失败'}`,
       },
       500,
     );
@@ -321,6 +313,10 @@ databaseRoutes.get('/:id/tables/:tableName/data', async (c) => {
       filters[field] = query[key];
     }
   }
+  // 全局搜索支持
+  if (query._search) {
+    filters._search = query._search;
+  }
 
   try {
     // 从 HSM 获取密码
@@ -331,7 +327,7 @@ databaseRoutes.get('/:id/tables/:tableName/data', async (c) => {
     const password = await hsm.decrypt(connection.keyPath);
 
     // 连接数据库
-    const dbService = new DatabaseService(connection, password);
+    const dbService = new DatabaseService(connection, password, c.env);
     const result = await dbService.getTableData(tableName, {
       page,
       pageSize,
@@ -364,10 +360,153 @@ databaseRoutes.get('/:id/tables/:tableName/data', async (c) => {
     return c.json<ApiResponse>(
       {
         success: false,
-        error: error instanceof Error ? error.message : '获取表数据失败',
+        error: `[Debug: HSM_URL=${c.env.HSM_URL}] ${error instanceof Error ? error.message : '获取表数据失败'}`,
       },
       500,
     );
+  }
+});
+
+/**
+ * 删除表数据
+ * POST /api/v1/databases/:id/tables/:tableName/rows/delete
+ */
+databaseRoutes.post('/:id/tables/:tableName/rows/delete', async (c) => {
+  const id = c.req.param('id');
+  const tableName = c.req.param('tableName');
+  const { ids } = await c.req.json<{ ids: any[] }>();
+
+  if (!ids || !Array.isArray(ids) || ids.length === 0) {
+    return c.json<ApiResponse>({ success: false, error: '请选择要删除的行' }, 400);
+  }
+
+  const result = await c.env.DB.prepare(`SELECT * FROM database_connections WHERE id = ?`).bind(id).first();
+
+  if (!result) {
+    return c.json<ApiResponse>({ success: false, error: '数据库连接不存在' }, 404);
+  }
+
+  const connectionKeyPath = result.key_path as string;
+
+  try {
+    const hsm = createHsmClient({ url: c.env.HSM_URL, secret: c.env.HSM_SECRET });
+    const password = await hsm.decrypt(connectionKeyPath);
+
+    const connection: DatabaseConnection = {
+      id: result.id as string,
+      name: result.name as string,
+      type: result.type as DatabaseConnection['type'],
+      host: result.host as string,
+      port: result.port as string,
+      database: result.database_name as string,
+      username: result.username as string,
+      keyPath: result.key_path as string,
+      createdAt: result.created_at as string,
+      updatedAt: result.updated_at as string,
+    };
+
+    const dbService = new DatabaseService(connection, password, c.env);
+    await dbService.deleteRows(tableName, ids);
+    await dbService.disconnect();
+
+    return c.json<ApiResponse>({ success: true });
+  } catch (error) {
+    console.error('删除行失败:', error);
+    return c.json<ApiResponse>({ success: false, error: error instanceof Error ? error.message : '删除失败' }, 500);
+  }
+});
+
+/**
+ * 插入表数据
+ * POST /api/v1/databases/:id/tables/:tableName/rows
+ */
+databaseRoutes.post('/:id/tables/:tableName/rows', async (c) => {
+  const id = c.req.param('id');
+  const tableName = c.req.param('tableName');
+  const data = await c.req.json<Record<string, any>>();
+
+  const result = await c.env.DB.prepare(`SELECT * FROM database_connections WHERE id = ?`).bind(id).first();
+
+  if (!result) {
+    return c.json<ApiResponse>({ success: false, error: '数据库连接不存在' }, 404);
+  }
+
+  const connectionKeyPath = result.key_path as string;
+
+  try {
+    const hsm = createHsmClient({ url: c.env.HSM_URL, secret: c.env.HSM_SECRET });
+    const password = await hsm.decrypt(connectionKeyPath);
+
+    const connection: DatabaseConnection = {
+      id: result.id as string,
+      name: result.name as string,
+      type: result.type as DatabaseConnection['type'],
+      host: result.host as string,
+      port: result.port as string,
+      database: result.database_name as string,
+      username: result.username as string,
+      keyPath: result.key_path as string,
+      createdAt: result.created_at as string,
+      updatedAt: result.updated_at as string,
+    };
+
+    const dbService = new DatabaseService(connection, password, c.env);
+    await dbService.insertRow(tableName, data);
+    await dbService.disconnect();
+
+    return c.json<ApiResponse>({ success: true });
+  } catch (error) {
+    console.error('插入行失败:', error);
+    return c.json<ApiResponse>({ success: false, error: error instanceof Error ? error.message : '插入失败' }, 500);
+  }
+});
+
+/**
+ * 批量更新表数据
+ * PUT /api/v1/databases/:id/tables/:tableName/rows
+ */
+databaseRoutes.put('/:id/tables/:tableName/rows', async (c) => {
+  const id = c.req.param('id');
+  const tableName = c.req.param('tableName');
+  const { rows } = await c.req.json<{ rows: Array<{ pk: any; data: Record<string, any> }> }>();
+
+  if (!rows || !Array.isArray(rows) || rows.length === 0) {
+    return c.json<ApiResponse>({ success: false, error: '缺少有效的更新数据' }, 400);
+  }
+
+  const result = await c.env.DB.prepare(`SELECT * FROM database_connections WHERE id = ?`).bind(id).first();
+
+  if (!result) {
+    return c.json<ApiResponse>({ success: false, error: '数据库连接不存在' }, 404);
+  }
+
+  const connectionKeyPath = result.key_path as string;
+
+  try {
+    const hsm = createHsmClient({ url: c.env.HSM_URL, secret: c.env.HSM_SECRET });
+    const password = await hsm.decrypt(connectionKeyPath);
+
+    const connection: DatabaseConnection = {
+      id: result.id as string,
+      name: result.name as string,
+      type: result.type as DatabaseConnection['type'],
+      host: result.host as string,
+      port: result.port as string,
+      database: result.database_name as string,
+      username: result.username as string,
+      keyPath: result.key_path as string,
+      createdAt: result.created_at as string,
+      updatedAt: result.updated_at as string,
+    };
+
+    const dbService = new DatabaseService(connection, password, c.env);
+    const updateResult = await dbService.updateRows(tableName, rows);
+    await dbService.disconnect();
+
+    return c.json<ApiResponse>({ success: true, data: updateResult });
+  } catch (error) {
+    console.error('更新行失败:', error);
+    return c.json<ApiResponse>({ success: false, error: error instanceof Error ? error.message : '更新失败' }, 500);
   }
 });
 

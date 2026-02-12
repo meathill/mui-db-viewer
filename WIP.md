@@ -79,3 +79,39 @@ pnpm --filter web test --run
 ## 当前任务
 
 **测试覆盖完成！共 76 个测试用例。准备进入 Phase 5: PWA 配置**
+
+---
+
+## 当前任务：使用 Zustand 优化数据库连接状态管理
+
+### 背景
+
+- `dashboard`、`databases`、`query` 页面都在各自拉取数据库列表并维护本地状态，存在重复请求和重复状态管理逻辑。
+- 已安装 `zustand`，可用全局 store 统一数据库连接状态，减少重复代码并提升状态一致性。
+
+### 目标
+
+- 新增数据库连接全局 store，统一维护：
+  - 数据库列表
+  - 加载状态
+  - 错误状态
+  - 拉取/刷新能力
+- 重构以下页面改为消费 store：
+  - `packages/web/src/components/dashboard.tsx`
+  - `packages/web/src/app/databases/page.tsx`
+  - `packages/web/src/app/query/page.tsx`
+
+### Todo
+
+- [x] 新增测试：`database-store` 的加载成功/失败与刷新逻辑
+- [x] 调整页面测试：从直接 mock `api.databases.list` 改为通过 store 驱动或兼容 store mock
+- [x] 实现 `database-store`（类型完整，不使用 `any`）
+- [x] 重构 `dashboard` / `databases` / `query` 使用 store
+- [x] 运行并通过 web 相关单元测试
+- [x] 清理 `WIP` 任务状态并记录结论
+
+### 结果
+
+- 新增 `database-store`，将数据库连接列表的加载、刷新、创建、删除行为统一到单一状态源。
+- `dashboard`、`databases`、`query` 已改为消费全局 store，移除重复请求与重复本地状态。
+- 新增 store 单测 5 个，并更新页面测试；`pnpm --filter web test --run` 全部通过（6 个文件 / 28 个测试）。

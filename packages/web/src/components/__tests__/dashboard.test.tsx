@@ -1,7 +1,8 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Dashboard } from '../dashboard';
-import { api } from '@/lib/api';
+import { api, type DatabaseConnection } from '@/lib/api';
+import { useDatabaseStore } from '@/stores/database-store';
 
 // Mock the API client
 vi.mock('@/lib/api', () => ({
@@ -36,28 +37,47 @@ vi.mock('@/components/ui/dialog', () => ({
 describe('Dashboard Component', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    useDatabaseStore.getState().reset();
   });
 
   it('renders correctly and fetches database count', async () => {
-    // Mock the API response
-    const mockDatabases = [
-      { id: '1', name: 'DB 1' },
-      { id: '2', name: 'DB 2' },
+    const mockDatabases: DatabaseConnection[] = [
+      {
+        id: '1',
+        name: 'DB 1',
+        type: 'tidb',
+        host: '127.0.0.1',
+        port: '4000',
+        database: 'app',
+        username: 'root',
+        keyPath: '/keys/1',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      },
+      {
+        id: '2',
+        name: 'DB 2',
+        type: 'mysql',
+        host: '127.0.0.2',
+        port: '3306',
+        database: 'analytics',
+        username: 'admin',
+        keyPath: '/keys/2',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      },
     ];
-    (api.databases.list as any).mockResolvedValue(mockDatabases);
+    vi.mocked(api.databases.list).mockResolvedValue(mockDatabases);
 
     render(<Dashboard />);
 
-    // Check initial render
     expect(screen.getByText('仪表盘')).toBeTruthy();
     expect(screen.getByText('已连接数据库')).toBeTruthy();
 
-    // Check if api was called
     await waitFor(() => {
       expect(api.databases.list).toHaveBeenCalledTimes(1);
     });
 
-    // Check if count updated
     await screen.findByText('2');
   });
 });

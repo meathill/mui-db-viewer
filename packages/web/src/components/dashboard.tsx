@@ -10,29 +10,23 @@ import { Separator } from '@/components/ui/separator';
 import { DatabaseIcon, ActivityIcon, AlertTriangleIcon, TrendingUpIcon } from 'lucide-react';
 import { Dialog, DialogPortal, DialogBackdrop, DialogPopup } from '@/components/ui/dialog';
 import { DatabaseConnectionForm } from '@/components/database-connection-form';
-import { api } from '@/lib/api';
+import { useDatabaseStore } from '@/stores/database-store';
 
 export function Dashboard() {
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [dbCount, setDbCount] = useState(0);
-
-  const fetchDatabases = async () => {
-    try {
-      const dbs = await api.databases.list();
-      setDbCount(dbs.length);
-    } catch (error) {
-      console.error('Failed to fetch databases:', error);
-    }
-  };
+  const databases = useDatabaseStore((state) => state.databases);
+  const fetchDatabases = useDatabaseStore((state) => state.fetchDatabases);
 
   useEffect(() => {
-    fetchDatabases();
-  }, []);
+    void fetchDatabases().catch((error) => {
+      console.error('Failed to fetch databases:', error);
+    });
+  }, [fetchDatabases]);
 
   const statsCards = [
     {
       title: '已连接数据库',
-      value: dbCount.toString(),
+      value: databases.length.toString(),
       description: '添加你的第一个数据库',
       icon: DatabaseIcon,
       color: 'from-blue-500 to-cyan-500',
@@ -157,7 +151,6 @@ export function Dashboard() {
               <DatabaseConnectionForm
                 onSuccess={() => {
                   setDialogOpen(false);
-                  fetchDatabases();
                 }}
               />
             </DialogPopup>
