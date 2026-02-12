@@ -316,3 +316,59 @@ pnpm --filter web test --run
 - 测试结果：
   - `pnpm --filter worker test --run`：`9` 文件 `86` 测试通过
   - `pnpm test`：全仓通过
+
+### 子任务 6：继续分拆 `combobox` 大文件（web）
+
+#### Todo
+
+- [x] 将 `packages/web/src/components/ui/combobox.tsx` 拆为多模块
+- [x] 保持原导入路径 `@/components/ui/combobox` 兼容
+- [x] 运行 `web` 与全仓测试回归
+
+#### 结果
+
+- 新增目录模块：
+  - `packages/web/src/components/ui/combobox/context.ts`
+  - `packages/web/src/components/ui/combobox/root.tsx`
+  - `packages/web/src/components/ui/combobox/input.tsx`
+  - `packages/web/src/components/ui/combobox/popup.tsx`
+  - `packages/web/src/components/ui/combobox/chips.tsx`
+  - `packages/web/src/components/ui/combobox/index.tsx`
+- 保留入口文件：
+  - `packages/web/src/components/ui/combobox.tsx`（仅做统一 re-export）
+- 拆分后单文件行数：
+  - `popup.tsx` 162 行
+  - `input.tsx` 112 行
+  - 其余模块均低于 100 行
+- 测试结果：
+  - `pnpm --filter web test --run`：`10` 文件 `48` 测试通过
+  - `pnpm test`：全仓通过
+
+### 子任务 7：继续分拆 `menu` 大文件（web）
+
+#### Todo
+
+- [x] 将 `packages/web/src/components/ui/menu.tsx` 拆为多模块
+- [x] 保持原导入路径 `@/components/ui/menu` 与别名导出兼容
+- [x] 运行 `web` 与全仓测试回归
+
+#### 结果
+
+- 新增目录模块：
+  - `packages/web/src/components/ui/menu/base.tsx`
+  - `packages/web/src/components/ui/menu/items.tsx`
+  - `packages/web/src/components/ui/menu/submenu.tsx`
+  - `packages/web/src/components/ui/menu/index.tsx`
+- 保留入口文件：
+  - `packages/web/src/components/ui/menu.tsx`（仅做统一 re-export）
+- 拆分后单文件行数：
+  - `items.tsx` 162 行
+  - `submenu.tsx` 64 行
+  - `base.tsx` 56 行
+  - 入口文件 36 行
+- 导出兼容性：
+  - `Menu*` 与 `DropdownMenu*` 双命名导出全部保留
+  - 既有调用方无需修改导入路径与标识符
+- 测试结果：
+  - `pnpm --filter web test --run`：`10` 文件 `48` 测试通过
+  - `pnpm test`：全仓通过（`worker 86` + `web 48`）
