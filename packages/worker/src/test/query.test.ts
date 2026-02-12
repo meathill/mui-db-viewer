@@ -31,7 +31,7 @@ describe('Query Routes', () => {
 
     // 注入环境变量
     app.use('*', async (c, next) => {
-      // @ts-expect-error mock env
+      // @ts-ignore mock env
       c.env = {
         OPENAI_API_KEY: 'test-api-key',
         OPENAI_MODEL: 'gpt-4o-mini',

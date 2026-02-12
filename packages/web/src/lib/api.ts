@@ -78,6 +78,49 @@ export const api = {
         throw new Error(result.error || '删除数据库连接失败');
       }
     },
+
+    async getTables(id: string): Promise<string[]> {
+      const result = await request<string[]>('GET', `/api/v1/databases/${id}/tables`);
+      if (!result.success || !result.data) {
+        throw new Error(result.error || '获取表列表失败');
+      }
+      return result.data;
+    },
+
+    async getTableData(
+      id: string,
+      tableName: string,
+      params: {
+        page?: number;
+        pageSize?: number;
+        sortField?: string;
+        sortOrder?: 'asc' | 'desc';
+        [key: string]: any;
+      } = {},
+    ): Promise<{ rows: any[]; total: number; columns: any[] }> {
+      // 构建查询参数
+      const searchParams = new URLSearchParams();
+      if (params.page) searchParams.set('page', params.page.toString());
+      if (params.pageSize) searchParams.set('pageSize', params.pageSize.toString());
+      if (params.sortField) searchParams.set('sortField', params.sortField);
+      if (params.sortOrder) searchParams.set('sortOrder', params.sortOrder);
+
+      // 添加过滤参数
+      Object.keys(params).forEach((key) => {
+        if (!['page', 'pageSize', 'sortField', 'sortOrder'].includes(key)) {
+          searchParams.set(`filter_${key}`, params[key]);
+        }
+      });
+
+      const result = await request<{ rows: any[]; total: number; columns: any[] }>(
+        'GET',
+        `/api/v1/databases/${id}/tables/${tableName}/data?${searchParams.toString()}`,
+      );
+      if (!result.success || !result.data) {
+        throw new Error(result.error || '获取表数据失败');
+      }
+      return result.data;
+    },
   },
 
   query: {

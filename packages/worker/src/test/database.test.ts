@@ -26,7 +26,7 @@ describe('Database Routes', () => {
 
     // 添加中间件注入环境变量
     app.use('*', async (c, next) => {
-      // @ts-expect-error mock env
+      // @ts-ignore mock env
       c.env = {
         HSM_URL: 'https://hsm.example.com',
         HSM_SECRET: 'test-secret',

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/app-sidebar';
 import { MagicSearch } from '@/components/magic-search';
@@ -35,6 +36,7 @@ export function Dashboard() {
       description: '添加你的第一个数据库',
       icon: DatabaseIcon,
       color: 'from-blue-500 to-cyan-500',
+      href: '/databases',
     },
     {
       title: '今日查询',
@@ -84,25 +86,44 @@ export function Dashboard() {
             <section>
               <h2 className="mb-4 text-xl font-semibold">概览</h2>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                {statsCards.map((card) => (
-                  <Card
-                    key={card.title}
-                    className="overflow-hidden">
-                    <CardHeader className="pb-2">
-                      <div className="flex items-center justify-between">
-                        <CardDescription>{card.title}</CardDescription>
-                        <div
-                          className={`flex size-8 items-center justify-center rounded-lg bg-gradient-to-br ${card.color} text-white`}>
-                          <card.icon className="size-4" />
+                {statsCards.map((card) => {
+                  const content = (
+                    <Card className="overflow-hidden transition-all hover:shadow-md h-full">
+                      <CardHeader className="pb-2">
+                        <div className="flex items-center justify-between">
+                          <CardDescription>{card.title}</CardDescription>
+                          <div
+                            className={`flex size-8 items-center justify-center rounded-lg bg-gradient-to-br ${card.color} text-white`}>
+                            <card.icon className="size-4" />
+                          </div>
                         </div>
-                      </div>
-                      <CardTitle className="text-3xl">{card.value}</CardTitle>
-                    </CardHeader>
-                    <CardPanel className="pt-0">
-                      <p className="text-muted-foreground text-sm">{card.description}</p>
-                    </CardPanel>
-                  </Card>
-                ))}
+                        <CardTitle className="text-3xl">{card.value}</CardTitle>
+                      </CardHeader>
+                      <CardPanel className="pt-0">
+                        <p className="text-muted-foreground text-sm">{card.description}</p>
+                      </CardPanel>
+                    </Card>
+                  );
+
+                  if (card.href) {
+                    return (
+                      <Link
+                        key={card.title}
+                        href={card.href}
+                        className="block h-full">
+                        {content}
+                      </Link>
+                    );
+                  }
+
+                  return (
+                    <div
+                      key={card.title}
+                      className="h-full">
+                      {content}
+                    </div>
+                  );
+                })}
               </div>
             </section>
 

@@ -4,14 +4,18 @@
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy --minify",
+    "build": "tsc --noEmit && wrangler deploy --dry-run --outdir dist",
     "cf-typegen": "wrangler types --env-interface CloudflareBindings",
     "test": "vitest"
   },
   "dependencies": {
-    "hono": "^4.11.7"
+    "hono": "^4.11.7",
+    "mysql2": "^3.17.0"
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.12.10",
+    "@types/node": "^20.19.31",
+    "typescript": "^5.9.3",
     "vitest": "^4.0.18",
     "wrangler": "^4.62.0"
   }

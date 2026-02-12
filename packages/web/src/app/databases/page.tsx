@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { PlusIcon, DatabaseIcon, MoreHorizontalIcon, TrashIcon } from 'lucide-react';
+import Link from 'next/link';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/app-sidebar';
 import { Button } from '@/components/ui/button';
@@ -104,7 +105,11 @@ export default function DatabasesPage() {
                 <Card
                   key={db.id}
                   className="group relative">
-                  <CardHeader>
+                  <Link
+                    href={`/databases/${db.id}`}
+                    className="absolute inset-0 z-0"
+                  />
+                  <CardHeader className="relative z-10">
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-3">
                         <div className="flex size-10 items-center justify-center rounded-xl bg-blue-100 text-blue-600 dark:bg-blue-950 dark:text-blue-400">
@@ -121,14 +126,17 @@ export default function DatabasesPage() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="size-8 opacity-0 group-hover:opacity-100">
+                              className="size-8 opacity-0 group-hover:opacity-100 relative z-20">
                               <MoreHorizontalIcon className="size-4" />
                             </Button>
                           }
                         />
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem
-                            onClick={() => handleDelete(db.id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDelete(db.id);
+                            }}
                             className="text-destructive">
                             <TrashIcon className="mr-2 size-4" />
                             删除连接
@@ -137,7 +145,7 @@ export default function DatabasesPage() {
                       </DropdownMenu>
                     </div>
                   </CardHeader>
-                  <CardPanel className="pt-0">
+                  <CardPanel className="pt-0 relative z-10 pointer-events-none">
                     <div className="flex items-center justify-between">
                       <Badge
                         variant="outline"
