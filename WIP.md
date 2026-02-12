@@ -372,3 +372,29 @@ pnpm --filter web test --run
 - 测试结果：
   - `pnpm --filter web test --run`：`10` 文件 `48` 测试通过
   - `pnpm test`：全仓通过（`worker 86` + `web 48`）
+
+### 子任务 8：提取 `question-mark` 方言驱动通用 CRUD 逻辑（worker）
+
+#### Todo
+
+- [x] 抽取 `mysql` / `tidb` 共用的增删改查与分页统计逻辑
+- [x] 保留两类驱动的连接建立细节，避免行为回归
+- [x] 补充共享基类测试，覆盖 SQL 生成与错误分支
+- [x] 运行 `worker` 与全仓测试回归
+
+#### 结果
+
+- 新增抽象基类：
+  - `packages/worker/src/services/drivers/question-mark-sql-driver.ts`
+- 驱动层改造：
+  - `packages/worker/src/services/drivers/mysql.ts`
+  - `packages/worker/src/services/drivers/tidb.ts`
+- 新增测试：
+  - `packages/worker/src/test/question-mark-sql-driver.test.ts`（7 用例）
+- 重构收益：
+  - `mysql.ts` 从 146 行降到 46 行（仅保留连接与执行器实现）
+  - `tidb.ts` 从 140+ 行降到 40 行（仅保留连接与执行器实现）
+  - 新数据库类型若使用 `?` 占位符 SQL，可直接复用该抽象基类
+- 测试结果：
+  - `pnpm --filter worker test --run`：`10` 文件 `93` 测试通过
+  - `pnpm test`：全仓通过（`worker 93` + `web 48`）
