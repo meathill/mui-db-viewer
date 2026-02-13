@@ -4,6 +4,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import QueryPage from '../page';
 import { api, type DatabaseConnection } from '@/lib/api';
 import { useDatabaseStore } from '@/stores/database-store';
+import { useQueryStore } from '@/stores/query-store';
 
 // Mock API
 vi.mock('@/lib/api', () => ({
@@ -67,6 +68,7 @@ describe('QueryPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     useDatabaseStore.getState().reset();
+    useQueryStore.getState().reset();
   });
 
   const mockDbs: DatabaseConnection[] = [

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useRef, useEffect, type FormEvent, type KeyboardEvent } from 'react';
 import {
   SparklesIcon,
   SendIcon,
@@ -19,23 +19,22 @@ import { Card, CardPanel } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectTrigger, SelectValue, SelectPopup, SelectItem } from '@/components/ui/select';
-import { api } from '@/lib/api';
 import { useDatabaseStore } from '@/stores/database-store';
-
-interface Message {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  sql?: string;
-  warning?: string;
-  result?: Record<string, unknown>[];
-}
+import { useQueryStore } from '@/stores/query-store';
+import { useShallow } from 'zustand/react/shallow';
 
 export default function QueryPage() {
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput] = useState('');
-  const [selectedDb, setSelectedDb] = useState('');
-  const [loading, setLoading] = useState(false);
+  const { messages, input, selectedDatabaseId, loading, setInput, setSelectedDatabaseId, sendQuery } = useQueryStore(
+    useShallow((state) => ({
+      messages: state.messages,
+      input: state.input,
+      selectedDatabaseId: state.selectedDatabaseId,
+      loading: state.loading,
+      setInput: state.setInput,
+      setSelectedDatabaseId: state.setSelectedDatabaseId,
+      sendQuery: state.sendQuery,
+    })),
+  );
   const databases = useDatabaseStore((state) => state.databases);
   const fetchDatabases = useDatabaseStore((state) => state.fetchDatabases);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -50,42 +49,18 @@ export default function QueryPage() {
     });
   }, [fetchDatabases]);
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!input.trim() || !selectedDb || loading) return;
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    void sendQuery();
+  }
 
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      role: 'user',
-      content: input,
-    };
-
-    setMessages((prev) => [...prev, userMessage]);
-    setInput('');
-    setLoading(true);
-
-    try {
-      const result = await api.query.generate(selectedDb, input);
-
-      const aiMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: result.explanation || '根据您的查询，我生成了以下 SQL 语句：',
-        sql: result.sql,
-        warning: result.warning,
-      };
-
-      setMessages((prev) => [...prev, aiMessage]);
-    } catch (error) {
-      const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: `生成失败：${error instanceof Error ? error.message : '未知错误'}`,
-      };
-      setMessages((prev) => [...prev, errorMessage]);
-    } finally {
-      setLoading(false);
+  function handleTextareaKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+    if (event.key !== 'Enter' || event.shiftKey) {
+      return;
     }
+
+    event.preventDefault();
+    void sendQuery();
   }
 
   function handleExecuteSql(sql: string) {
@@ -111,8 +86,8 @@ export default function QueryPage() {
             <h1 className="font-semibold">AI 查询</h1>
           </div>
           <Select
-            value={selectedDb}
-            onValueChange={(v) => v && setSelectedDb(v)}>
+            value={selectedDatabaseId}
+            onValueChange={(value) => value && setSelectedDatabaseId(value)}>
             <SelectTrigger className="w-48">
               <DatabaseIcon className="mr-2 size-4" />
               <SelectValue placeholder="选择数据库" />
@@ -226,23 +201,18 @@ export default function QueryPage() {
             className="mx-auto max-w-3xl">
             <div className="flex gap-3">
               <Textarea
-                placeholder={selectedDb ? '描述你的查询需求...' : '请先选择数据库'}
+                placeholder={selectedDatabaseId ? '描述你的查询需求...' : '请先选择数据库'}
                 value={input}
-                onChange={(e) => setInput(e.target.value)}
-                disabled={!selectedDb || loading}
+                onChange={(event) => setInput(event.target.value)}
+                disabled={!selectedDatabaseId || loading}
                 className="min-h-[48px] max-h-32 resize-none"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSubmit(e);
-                  }
-                }}
+                onKeyDown={handleTextareaKeyDown}
               />
               <Button
                 type="submit"
                 size="icon"
                 className="size-12 shrink-0"
-                disabled={!input.trim() || !selectedDb || loading}>
+                disabled={!input.trim() || !selectedDatabaseId || loading}>
                 {loading ? <Loader2Icon className="size-4 animate-spin" /> : <SendIcon className="size-4" />}
               </Button>
             </div>

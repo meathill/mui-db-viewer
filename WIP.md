@@ -474,3 +474,31 @@ pnpm --filter web test --run
 - 测试结果：
   - `pnpm --filter worker test --run`：`11` 文件 `96` 测试通过
   - `pnpm test`：全仓通过（`worker 96` + `web 48`）
+
+### 子任务 12：收敛 Query 页面本地状态到 Zustand（web）
+
+#### Todo
+
+- [x] 新增 query 专用 store，集中管理输入/选库/消息/加载状态
+- [x] 页面改为消费 store，移除重复本地状态逻辑
+- [x] 补 store 单测，覆盖发送成功/失败/前置条件分支
+- [x] 更新页面测试初始化，避免 store 状态串扰
+- [x] 运行 `web` 与全仓测试回归
+
+#### 结果
+
+- 新增 Zustand store：
+  - `packages/web/src/stores/query-store.ts`
+- 页面接入：
+  - `packages/web/src/app/query/page.tsx`
+  - 改为通过 `useQueryStore` 统一维护 `messages/input/selectedDatabaseId/loading`
+  - 提交逻辑改为 store action `sendQuery`，页面只负责事件绑定和 UI 呈现
+- 测试补强：
+  - `packages/web/src/stores/__tests__/query-store.test.ts`（3 用例）
+  - `packages/web/src/app/query/__tests__/page.test.tsx` 增加 `query-store` reset，隔离测试状态
+- 重构收益：
+  - Query 交互状态从页面内聚合到单一状态源，后续可复用到多会话/历史记录能力
+  - 页面行为更可测，副作用集中在 store action
+- 测试结果：
+  - `pnpm --filter web test --run`：`11` 文件 `51` 测试通过
+  - `pnpm test`：全仓通过（`worker 96` + `web 51`）
