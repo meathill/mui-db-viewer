@@ -521,3 +521,32 @@ pnpm --filter web test --run
 - 测试结果：
   - `pnpm --filter web test --run`：`11` 文件 `53` 测试通过
   - `pnpm test`：全仓通过（`worker 96` + `web 53`）
+
+### 子任务 14：继续分拆 `autocomplete` 大文件（web）
+
+#### Todo
+
+- [x] 将 `packages/web/src/components/ui/autocomplete.tsx` 拆为多模块
+- [x] 保持原导入路径 `@/components/ui/autocomplete` 兼容
+- [x] 运行 `web` 与全仓测试回归
+
+#### 结果
+
+- 新增目录模块：
+  - `packages/web/src/components/ui/autocomplete/base.tsx`
+  - `packages/web/src/components/ui/autocomplete/input.tsx`
+  - `packages/web/src/components/ui/autocomplete/popup.tsx`
+  - `packages/web/src/components/ui/autocomplete/index.tsx`
+- 保留入口文件：
+  - `packages/web/src/components/ui/autocomplete.tsx`（仅做统一 re-export）
+- 拆分后单文件行数：
+  - `popup.tsx` 156 行
+  - `input.tsx` 75 行
+  - `base.tsx` 35 行
+  - 入口文件 20 行
+- 导出兼容性：
+  - `Autocomplete*` 系列导出与 `useAutocompleteFilter` 全部保留
+  - 调用方无需调整导入路径
+- 测试结果：
+  - `pnpm --filter web test --run`：`11` 文件 `53` 测试通过
+  - `pnpm test`：全仓通过（`worker 96` + `web 53`）
