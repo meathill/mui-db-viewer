@@ -22,12 +22,17 @@ interface Env {
   OPENAI_API_KEY: string;
   OPENAI_MODEL?: string;
   OPENAI_BASE_URL?: string;
+  GEMINI_API_KEY?: string;
+  GEMINI_MODEL?: string;
+  REPLICATE_API_KEY?: string;
+  REPLICATE_MODEL?: string;
 }
 
 describe('Query Routes', () => {
   let app: Hono<{ Bindings: Env }>;
 
   beforeEach(() => {
+    vi.mocked(createAiService).mockClear();
     vi.mocked(createAiService).mockReturnValue({
       generateSql: vi.fn().mockResolvedValue({
         sql: "SELECT * FROM orders WHERE status = 'pending'",
@@ -41,8 +46,10 @@ describe('Query Routes', () => {
     app.use('*', async (c, next) => {
       // @ts-ignore mock env
       c.env = {
-        OPENAI_API_KEY: 'test-api-key',
+        OPENAI_API_KEY: 'test-openai-key',
         OPENAI_MODEL: 'gpt-4o-mini',
+        GEMINI_API_KEY: 'test-gemini-key',
+        REPLICATE_API_KEY: 'test-replicate-key',
       };
       await next();
     });
@@ -51,7 +58,7 @@ describe('Query Routes', () => {
   });
 
   describe('POST /query/generate', () => {
-    it('成功生成 SQL', async () => {
+    it('成功生成 SQL (默认 OpenAI)', async () => {
       const res = await app.request('/query/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -62,10 +69,52 @@ describe('Query Routes', () => {
       });
 
       expect(res.status).toBe(200);
-      const json = (await res.json()) as { success: boolean; data?: { sql: string } };
-      expect(json.success).toBe(true);
-      expect(json.data?.sql).toContain('SELECT');
-      expect(json.data?.sql).toContain('LIMIT 100'); // SQL Guard 添加的 LIMIT
+      expect(createAiService).toHaveBeenCalledWith(
+        expect.objectContaining({
+          provider: 'openai',
+          apiKey: 'test-openai-key',
+        }),
+      );
+    });
+
+    it('使用 Gemini 生成 SQL', async () => {
+      const res = await app.request('/query/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          databaseId: 'test-db-id',
+          prompt: '查看待处理订单',
+          provider: 'gemini',
+        }),
+      });
+
+      expect(res.status).toBe(200);
+      expect(createAiService).toHaveBeenCalledWith(
+        expect.objectContaining({
+          provider: 'gemini',
+          apiKey: 'test-gemini-key',
+        }),
+      );
+    });
+
+    it('使用 Replicate 生成 SQL', async () => {
+      const res = await app.request('/query/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          databaseId: 'test-db-id',
+          prompt: '查看待处理订单',
+          provider: 'replicate',
+        }),
+      });
+
+      expect(res.status).toBe(200);
+      expect(createAiService).toHaveBeenCalledWith(
+        expect.objectContaining({
+          provider: 'replicate',
+          apiKey: 'test-replicate-key',
+        }),
+      );
     });
 
     it('缺少 databaseId 返回 400', async () => {

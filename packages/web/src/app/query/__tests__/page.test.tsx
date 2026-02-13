@@ -14,6 +14,7 @@ vi.mock('@/lib/api', () => ({
     },
     query: {
       generate: vi.fn(),
+      execute: vi.fn(),
     },
   },
 }));
@@ -153,7 +154,7 @@ describe('QueryPage', () => {
     expect(screen.getByText('已生成 SQL')).toBeDefined();
     expect(screen.getByText('请先校验 SQL')).toBeDefined();
     expect(screen.getByText('SELECT * FROM orders')).toBeDefined();
-    expect(screen.getByText('正在生成 SQL...')).toBeDefined();
+    expect(screen.getByText('AI 正在思考...')).toBeDefined();
   });
 
   it('提交查询后应调用 API 并追加消息', async () => {
@@ -213,7 +214,7 @@ describe('QueryPage', () => {
     fireEvent.click(submitButton!);
 
     expect(api.query.generate).toHaveBeenCalledTimes(1);
-    expect(screen.getByText('正在生成 SQL...')).toBeDefined();
+    expect(screen.getByText('AI 正在思考...')).toBeDefined();
     expect((textarea as HTMLTextAreaElement).disabled).toBe(true);
     expect(submitButton?.disabled).toBe(true);
 
@@ -285,9 +286,16 @@ describe('QueryPage', () => {
     expect(writeText).toHaveBeenCalledWith('SELECT * FROM orders');
   });
 
-  it('点击执行按钮应输出 SQL 执行日志', async () => {
+  it('点击执行按钮应调用 executeSql', async () => {
     vi.mocked(api.databases.list).mockResolvedValue(mockDbs);
-    const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    vi.mocked(api.query.execute).mockResolvedValue({
+      rows: [{ id: 1, total: 100 }],
+      total: 1,
+      columns: [
+        { Field: 'id', Type: 'int' },
+        { Field: 'total', Type: 'int' },
+      ],
+    });
 
     useQueryStore.setState({
       messages: [
@@ -310,7 +318,6 @@ describe('QueryPage', () => {
     expect(executeButton).toBeTruthy();
     fireEvent.click(executeButton!);
 
-    expect(consoleLogSpy).toHaveBeenCalledWith('执行 SQL:', 'SELECT * FROM orders');
-    consoleLogSpy.mockRestore();
+    expect(api.query.execute).toHaveBeenCalledWith('1', 'SELECT * FROM orders');
   });
 });

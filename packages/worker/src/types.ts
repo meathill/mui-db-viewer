@@ -68,6 +68,29 @@ export interface CreateDatabaseRequest {
   password: string;
 }
 
+export interface SavedQuery {
+  id: string;
+  name: string;
+  description?: string;
+  sql: string;
+  databaseId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateSavedQueryRequest {
+  name: string;
+  description?: string;
+  sql: string;
+  databaseId: string;
+}
+
+export interface UpdateSavedQueryRequest {
+  name?: string;
+  description?: string;
+  sql?: string;
+}
+
 export interface ApiResponse<T = unknown> {
   success: boolean;
   data?: T;

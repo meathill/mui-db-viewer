@@ -8,6 +8,7 @@ import { cors } from 'hono/cors';
 import { databaseRoutes } from './routes/database';
 import { fileRoutes } from './routes/file-routes';
 import { queryRoutes } from './routes/query';
+import { savedQueryRoutes } from './routes/saved-query-routes';
 
 interface Env {
   HSM_URL: string;
@@ -42,5 +43,8 @@ app.route('/api/v1/query', queryRoutes);
 
 // 文件浏览路由
 app.route('/api/v1/files', fileRoutes);
+
+// 保存查询路由
+app.route('/api/v1/saved-queries', savedQueryRoutes);
 
 export default app;

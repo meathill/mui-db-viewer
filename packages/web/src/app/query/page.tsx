@@ -1,11 +1,12 @@
 'use client';
 
-import { useRef, useEffect, type FormEvent, type KeyboardEvent } from 'react';
+import { useRef, useEffect, useState, type FormEvent, type KeyboardEvent } from 'react';
 import {
   SparklesIcon,
   SendIcon,
   CopyIcon,
   PlayIcon,
+  SaveIcon,
   DatabaseIcon,
   UserIcon,
   Loader2Icon,
@@ -19,25 +20,31 @@ import { Card, CardPanel } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectTrigger, SelectValue, SelectPopup, SelectItem } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { SaveQueryDialog } from '@/components/save-query-dialog';
 import { useDatabaseStore } from '@/stores/database-store';
 import { useQueryStore } from '@/stores/query-store';
 import { useShallow } from 'zustand/react/shallow';
 
 export default function QueryPage() {
-  const { messages, input, selectedDatabaseId, loading, setInput, setSelectedDatabaseId, sendQuery } = useQueryStore(
-    useShallow((state) => ({
-      messages: state.messages,
-      input: state.input,
-      selectedDatabaseId: state.selectedDatabaseId,
-      loading: state.loading,
-      setInput: state.setInput,
-      setSelectedDatabaseId: state.setSelectedDatabaseId,
-      sendQuery: state.sendQuery,
-    })),
-  );
+  const { messages, input, selectedDatabaseId, loading, setInput, setSelectedDatabaseId, sendQuery, executeSql } =
+    useQueryStore(
+      useShallow((state) => ({
+        messages: state.messages,
+        input: state.input,
+        selectedDatabaseId: state.selectedDatabaseId,
+        loading: state.loading,
+        setInput: state.setInput,
+        setSelectedDatabaseId: state.setSelectedDatabaseId,
+        sendQuery: state.sendQuery,
+        executeSql: state.executeSql,
+      })),
+    );
   const databases = useDatabaseStore((state) => state.databases);
   const fetchDatabases = useDatabaseStore((state) => state.fetchDatabases);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
+  const [currentSql, setCurrentSql] = useState('');
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -63,13 +70,17 @@ export default function QueryPage() {
     void sendQuery();
   }
 
-  function handleExecuteSql(sql: string) {
-    console.log('执行 SQL:', sql);
-    // TODO: 实际执行 SQL
+  function handleExecuteSql(messageId: string, sql: string) {
+    void executeSql(messageId, sql);
   }
 
   function handleCopySql(sql: string) {
     navigator.clipboard.writeText(sql);
+  }
+
+  function handleSaveSql(sql: string) {
+    setCurrentSql(sql);
+    setSaveDialogOpen(true);
   }
 
   return (
@@ -144,7 +155,7 @@ export default function QueryPage() {
                           </div>
                         )}
                         {message.sql && (
-                          <Card>
+                          <Card className="w-full">
                             <CardPanel className="p-0">
                               <div className="flex items-center justify-between border-b px-4 py-2">
                                 <Badge variant="outline">SQL</Badge>
@@ -153,14 +164,24 @@ export default function QueryPage() {
                                     variant="ghost"
                                     size="icon"
                                     className="size-7"
-                                    onClick={() => handleCopySql(message.sql!)}>
+                                    onClick={() => handleCopySql(message.sql!)}
+                                    title="复制">
                                     <CopyIcon className="size-3.5" />
                                   </Button>
                                   <Button
                                     variant="ghost"
                                     size="icon"
+                                    className="size-7"
+                                    onClick={() => handleSaveSql(message.sql!)}
+                                    title="保存">
+                                    <SaveIcon className="size-3.5" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
                                     className="size-7 text-green-600"
-                                    onClick={() => handleExecuteSql(message.sql!)}>
+                                    onClick={() => handleExecuteSql(message.id, message.sql!)}
+                                    title="执行">
                                     <PlayIcon className="size-3.5" />
                                   </Button>
                                 </div>
@@ -168,6 +189,48 @@ export default function QueryPage() {
                               <pre className="overflow-x-auto p-4 text-sm">
                                 <code>{message.sql}</code>
                               </pre>
+                            </CardPanel>
+                          </Card>
+                        )}
+                        {message.error && (
+                          <div className="rounded-md bg-destructive/10 p-3 text-destructive text-sm">
+                            执行出错: {message.error}
+                          </div>
+                        )}
+                        {message.result && (
+                          <Card className="w-full overflow-hidden">
+                            <CardPanel className="p-0">
+                              <div className="border-b px-4 py-2 font-medium text-xs text-muted-foreground">
+                                查询结果 ({message.result.length} 行)
+                              </div>
+                              <div className="max-h-[300px] overflow-auto">
+                                <Table>
+                                  <TableHeader>
+                                    <TableRow>
+                                      {Object.keys(message.result[0] || {}).map((key) => (
+                                        <TableHead
+                                          key={key}
+                                          className="whitespace-nowrap">
+                                          {key}
+                                        </TableHead>
+                                      ))}
+                                    </TableRow>
+                                  </TableHeader>
+                                  <TableBody>
+                                    {message.result.map((row, i) => (
+                                      <TableRow key={i}>
+                                        {Object.values(row).map((val, j) => (
+                                          <TableCell
+                                            key={j}
+                                            className="whitespace-nowrap">
+                                            {typeof val === 'object' ? JSON.stringify(val) : String(val)}
+                                          </TableCell>
+                                        ))}
+                                      </TableRow>
+                                    ))}
+                                  </TableBody>
+                                </Table>
+                              </div>
                             </CardPanel>
                           </Card>
                         )}
@@ -186,13 +249,20 @@ export default function QueryPage() {
                   <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 text-white">
                     <Loader2Icon className="size-4 animate-spin" />
                   </div>
-                  <div className="text-muted-foreground text-sm">正在生成 SQL...</div>
+                  <div className="text-muted-foreground text-sm">AI 正在思考...</div>
                 </div>
               )}
               <div ref={messagesEndRef} />
             </div>
           )}
         </main>
+
+        <SaveQueryDialog
+          open={saveDialogOpen}
+          onOpenChange={setSaveDialogOpen}
+          sql={currentSql}
+          databaseId={selectedDatabaseId}
+        />
 
         {/* 输入区域 */}
         <footer className="border-t p-4">

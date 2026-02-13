@@ -3,6 +3,7 @@
  * 封装与 Worker 后端的交互
  */
 
+import { useSettingsStore } from '@/stores/settings-store';
 import { buildTableDataSearchParams, type TableQueryParams } from './table-query';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8787';
@@ -63,6 +64,23 @@ export interface TableDataResult<Row extends TableRow = TableRow> {
 export interface RowUpdate {
   pk: string | number;
   data: Record<string, unknown>;
+}
+
+export interface SavedQuery {
+  id: string;
+  name: string;
+  description?: string;
+  sql: string;
+  databaseId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateSavedQueryRequest {
+  name: string;
+  description?: string;
+  sql: string;
+  databaseId: string;
 }
 
 interface ApiResponse<T = unknown> {
@@ -163,10 +181,39 @@ export const api = {
       databaseId: string,
       prompt: string,
     ): Promise<{ sql: string; explanation?: string; warning?: string }> {
+      const {
+        provider,
+        openaiApiKey,
+        openaiModel,
+        openaiBaseUrl,
+        geminiApiKey,
+        geminiModel,
+        replicateApiKey,
+        replicateModel,
+      } = useSettingsStore.getState();
+
+      const payload: Record<string, unknown> = {
+        databaseId,
+        prompt,
+        provider,
+      };
+
+      if (provider === 'openai') {
+        if (openaiApiKey) payload.apiKey = openaiApiKey;
+        if (openaiModel) payload.model = openaiModel;
+        if (openaiBaseUrl) payload.baseUrl = openaiBaseUrl;
+      } else if (provider === 'gemini') {
+        if (geminiApiKey) payload.apiKey = geminiApiKey;
+        if (geminiModel) payload.model = geminiModel;
+      } else if (provider === 'replicate') {
+        if (replicateApiKey) payload.apiKey = replicateApiKey;
+        if (replicateModel) payload.model = replicateModel;
+      }
+
       const result = await request<{ sql: string; explanation?: string; warning?: string }>(
         'POST',
         '/api/v1/query/generate',
-        { databaseId, prompt },
+        payload,
       );
       if (!result.success || !result.data) {
         throw new Error(result.error || '生成 SQL 失败');
@@ -183,6 +230,16 @@ export const api = {
       }
       return result.data;
     },
+
+    async execute(databaseId: string, sql: string): Promise<TableDataResult> {
+      const result = await request<TableDataResult>('POST', `/api/v1/databases/${databaseId}/query`, {
+        sql,
+      });
+      if (!result.success || !result.data) {
+        throw new Error(result.error || '执行 SQL 失败');
+      }
+      return result.data;
+    },
   },
 
   files: {
@@ -193,6 +250,32 @@ export const api = {
         throw new Error(result.error || '读取目录失败');
       }
       return result.data;
+    },
+  },
+
+  savedQueries: {
+    async create(data: CreateSavedQueryRequest): Promise<SavedQuery> {
+      const result = await request<SavedQuery>('POST', '/api/v1/saved-queries', data);
+      if (!result.success || !result.data) {
+        throw new Error(result.error || '创建失败');
+      }
+      return result.data;
+    },
+
+    async list(databaseId?: string): Promise<SavedQuery[]> {
+      const params = databaseId ? `?databaseId=${databaseId}` : '';
+      const result = await request<SavedQuery[]>('GET', `/api/v1/saved-queries${params}`);
+      if (!result.success || !result.data) {
+        throw new Error(result.error || '获取列表失败');
+      }
+      return result.data;
+    },
+
+    async delete(id: string): Promise<void> {
+      const result = await request('DELETE', `/api/v1/saved-queries/${id}`);
+      if (!result.success) {
+        throw new Error(result.error || '删除失败');
+      }
     },
   },
 };

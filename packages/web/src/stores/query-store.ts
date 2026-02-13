@@ -10,6 +10,7 @@ export interface QueryMessage {
   sql?: string;
   warning?: string;
   result?: Record<string, unknown>[];
+  error?: string;
 }
 
 interface QueryStoreState {
@@ -23,6 +24,7 @@ interface QueryStoreActions {
   setInput: (value: string) => void;
   setSelectedDatabaseId: (databaseId: string) => void;
   sendQuery: () => Promise<void>;
+  executeSql: (messageId: string, sql: string) => Promise<void>;
   reset: () => void;
 }
 
@@ -100,6 +102,30 @@ export const useQueryStore = create<QueryStore>((set, get) => ({
 
       set((state) => ({
         messages: [...state.messages, assistantErrorMessage],
+      }));
+    } finally {
+      set({ loading: false });
+    }
+  },
+
+  async executeSql(messageId, sql) {
+    const { selectedDatabaseId } = get();
+    if (!selectedDatabaseId) return;
+
+    // Optional: set some loading state
+    set({ loading: true });
+
+    try {
+      const result = await api.query.execute(selectedDatabaseId, sql);
+
+      set((state) => ({
+        messages: state.messages.map((msg) =>
+          msg.id === messageId ? { ...msg, result: result.rows, error: undefined } : msg,
+        ),
+      }));
+    } catch (error) {
+      set((state) => ({
+        messages: state.messages.map((msg) => (msg.id === messageId ? { ...msg, error: getErrorMessage(error) } : msg)),
       }));
     } finally {
       set({ loading: false });

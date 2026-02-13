@@ -1,6 +1,6 @@
 'use client';
 
-import { DatabaseIcon, HomeIcon, MessageSquareIcon, SettingsIcon, AlertCircleIcon } from 'lucide-react';
+import { DatabaseIcon, HomeIcon, MessageSquareIcon, SettingsIcon, AlertCircleIcon, BookmarkIcon } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -19,6 +19,7 @@ import {
 const navItems = [
   { href: '/', label: '仪表盘', icon: HomeIcon },
   { href: '/query', label: '查询', icon: MessageSquareIcon },
+  { href: '/saved-queries', label: '收藏查询', icon: BookmarkIcon },
   { href: '/databases', label: '数据库', icon: DatabaseIcon },
   { href: '/alerts', label: '告警', icon: AlertCircleIcon },
 ];

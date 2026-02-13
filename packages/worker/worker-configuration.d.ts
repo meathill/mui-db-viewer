@@ -12,6 +12,13 @@ declare namespace Cloudflare {
     HSM_URL: string;
     HSM_SECRET: string;
     HSM: Fetcher /* hsm */;
+    OPENAI_API_KEY: string;
+    OPENAI_BASE_URL: string;
+    OPENAI_MODEL: string;
+    GEMINI_API_KEY: string;
+    GEMINI_MODEL: string;
+    REPLICATE_API_KEY: string;
+    REPLICATE_MODEL: string;
   }
 }
 interface CloudflareBindings extends Cloudflare.Env {}

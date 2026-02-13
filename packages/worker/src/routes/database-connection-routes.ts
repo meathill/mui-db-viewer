@@ -9,7 +9,7 @@ import {
   parseTableQueryOptions,
   withDatabaseService,
 } from './database-shared';
-import { parseCreateDatabaseRequest } from './request-validation';
+import { parseCreateDatabaseRequest, parseValidateSqlRequest } from './request-validation';
 
 export interface TableDataResponse {
   rows: TableRow[];
@@ -38,6 +38,69 @@ export async function loadTableData(
     };
   });
 }
+
+databaseConnectionRoutes.post(
+  '/:id/query',
+  validator('json', (body, c) => {
+    const result = parseValidateSqlRequest(body);
+    if (!result.success) {
+      return c.json<ApiResponse>({ success: false, error: result.error }, 400);
+    }
+    return result.data;
+  }),
+  async (c) => {
+    const id = c.req.param('id');
+    const { sql } = c.req.valid('json');
+    const connection = await findConnectionById(c.env, id);
+
+    if (!connection) {
+      return c.json<ApiResponse>(
+        {
+          success: false,
+          error: '数据库连接不存在',
+        },
+        404,
+      );
+    }
+
+    try {
+      const result = await withDatabaseService(c.env, connection, async (dbService) => {
+        // TODO: dbService.query needs to return columns info if possible, or we infer it
+        // For now, assuming dbService.query returns rows.
+        // We might need to extend DatabaseDriver interface to support raw query that returns metadata.
+        return dbService.query(sql);
+      });
+
+      // Simple inference for columns if not provided by driver yet
+      const rows = result as TableRow[];
+      const columns: TableColumn[] =
+        rows.length > 0
+          ? Object.keys(rows[0]).map((key) => ({
+              Field: key,
+              Type: typeof rows[0][key],
+            }))
+          : [];
+
+      return c.json<ApiResponse<TableDataResponse>>({
+        success: true,
+        data: {
+          rows,
+          total: rows.length,
+          columns,
+        },
+      });
+    } catch (error) {
+      console.error('执行 SQL 失败:', error);
+      return c.json<ApiResponse>(
+        {
+          success: false,
+          error: getErrorMessage(error, '执行 SQL 失败'),
+        },
+        500,
+      );
+    }
+  },
+);
 
 databaseConnectionRoutes.post(
   '/',

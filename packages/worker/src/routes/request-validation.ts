@@ -87,13 +87,50 @@ const updateRowsRequestSchema = z.object({
 });
 
 const generateSqlRequestSchema = z.object({
-  databaseId: nonEmptyStringSchema,
-  prompt: nonEmptyStringSchema,
+  databaseId: z.string().trim().min(1),
+  prompt: z.string().trim().min(1),
+  provider: z.enum(['openai', 'gemini', 'replicate']).optional(),
+  apiKey: z.string().optional(),
+  model: z.string().optional(),
+  baseUrl: z.string().optional(),
 });
 
 const validateSqlRequestSchema = z.object({
-  sql: nonEmptyStringSchema,
+  sql: z.string().trim().min(1),
 });
+
+const createSavedQuerySchema = z.object({
+  name: nonEmptyStringSchema,
+  description: z.string().optional(),
+  sql: nonEmptyStringSchema,
+  databaseId: nonEmptyStringSchema,
+});
+
+const updateSavedQuerySchema = z.object({
+  name: z.string().trim().min(1).optional(),
+  description: z.string().optional(),
+  sql: z.string().trim().min(1).optional(),
+});
+
+export function parseCreateSavedQueryRequest(
+  payload: unknown,
+): ValidationResult<{ name: string; description?: string; sql: string; databaseId: string }> {
+  const result = createSavedQuerySchema.safeParse(payload);
+  if (!result.success) {
+    return { success: false, error: '缺少必填字段' };
+  }
+  return { success: true, data: result.data };
+}
+
+export function parseUpdateSavedQueryRequest(
+  payload: unknown,
+): ValidationResult<{ name?: string; description?: string; sql?: string }> {
+  const result = updateSavedQuerySchema.safeParse(payload);
+  if (!result.success) {
+    return { success: false, error: '无效的更新数据' };
+  }
+  return { success: true, data: result.data };
+}
 
 export function isValidRowIdArray(value: unknown): value is Array<string | number> {
   return rowIdArraySchema.safeParse(value).success;
@@ -130,7 +167,14 @@ export function parseUpdateRowsRequest(payload: unknown): ValidationResult<{ row
   return { success: true, data: result.data };
 }
 
-export function parseGenerateSqlRequest(payload: unknown): ValidationResult<{ databaseId: string; prompt: string }> {
+export function parseGenerateSqlRequest(payload: unknown): ValidationResult<{
+  databaseId: string;
+  prompt: string;
+  provider?: 'openai' | 'gemini' | 'replicate';
+  apiKey?: string;
+  model?: string;
+  baseUrl?: string;
+}> {
   const result = generateSqlRequestSchema.safeParse(payload);
   if (!result.success) {
     return { success: false, error: '缺少 databaseId 或 prompt' };
