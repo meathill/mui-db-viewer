@@ -664,3 +664,24 @@ pnpm --filter web test --run
 - 测试结果：
   - `pnpm --filter worker test --run src/test/database-row-routes.test.ts`：`1` 文件 `11` 测试通过
   - `pnpm test`：全仓通过（`worker 105` + `web 67`）
+
+### 子任务 20：文档清理与更新收尾（README/TESTING/DEV_NOTE）
+
+#### Todo
+
+- [x] 更新 README，补充当前状态管理与可扩展架构要点
+- [x] 更新 TESTING，补充分层测试实践与执行建议
+- [x] 更新 DEV_NOTE，补充近期重构沉淀的长期约定
+
+#### 结果
+
+- `README.md`：
+  - 补充 Query 状态管理与多方言条件构建能力说明
+  - 增加“维护约定”章节，明确路由、store、驱动扩展的落点
+- `TESTING.md`：
+  - 补充推荐执行顺序（文件级 -> 包级 -> 全仓）
+  - 增补 Query GUI 与 store 相关覆盖重点
+  - 增加 `console.error` 预期输出判定说明
+- `DEV_NOTE.md`：
+  - 新增 Query 模块约定（store 归一与关键交互测试）
+  - 新增 SQL 构建复用约定（统一构建器扩展策略）

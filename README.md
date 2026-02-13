@@ -13,6 +13,8 @@ AI 驱动的数据库管理工具（Monorepo）。
 - 连接凭据通过 HSM 加密存储
 - AI 生成 SQL（含安全校验）
 - 数据表浏览：分页、排序、过滤、增删改
+- Query 页面会话状态集中管理（Zustand）
+- 多数据库方言查询条件构建能力（`?` / PostgreSQL `$n` 占位符）
 
 ## 技术栈
 
@@ -44,6 +46,12 @@ pnpm --filter web dev
 ```bash
 pnpm --filter worker dev
 ```
+
+## 维护约定
+
+- Worker 路由保持薄层，通用流程优先抽到 `routes/database-shared` 与 `routes/request-validation`。
+- Web 跨组件状态优先收敛到 store，页面组件聚焦展示与事件绑定。
+- 新增数据库类型时优先复用既有驱动抽象与条件构建器，避免在路由/页面散落方言分支。
 
 ## 相关文档
 
