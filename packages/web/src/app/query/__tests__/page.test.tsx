@@ -224,4 +224,93 @@ describe('QueryPage', () => {
 
     await screen.findByText('查询完成');
   });
+
+  it('按 Enter 应提交查询，Shift+Enter 不提交', async () => {
+    vi.mocked(api.databases.list).mockResolvedValue(mockDbs);
+    vi.mocked(api.query.generate).mockResolvedValue({
+      sql: 'SELECT * FROM orders',
+      explanation: '查询成功',
+    });
+
+    useQueryStore.getState().setSelectedDatabaseId('1');
+
+    render(<QueryPage />);
+    await waitFor(() => {
+      expect(api.databases.list).toHaveBeenCalled();
+    });
+
+    const textarea = screen.getByPlaceholderText('描述你的查询需求...');
+    fireEvent.change(textarea, { target: { value: '查询最近订单' } });
+    fireEvent.keyDown(textarea, { key: 'Enter', code: 'Enter' });
+
+    await waitFor(() => {
+      expect(api.query.generate).toHaveBeenCalledWith('1', '查询最近订单');
+    });
+
+    fireEvent.change(textarea, { target: { value: '不应发送' } });
+    fireEvent.keyDown(textarea, { key: 'Enter', code: 'Enter', shiftKey: true });
+
+    expect(api.query.generate).toHaveBeenCalledTimes(1);
+  });
+
+  it('点击复制按钮应复制 SQL 到剪贴板', async () => {
+    vi.mocked(api.databases.list).mockResolvedValue(mockDbs);
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    });
+
+    useQueryStore.setState({
+      messages: [
+        {
+          id: 'a-1',
+          role: 'assistant',
+          content: '已生成 SQL',
+          sql: 'SELECT * FROM orders',
+        },
+      ],
+      input: '',
+      selectedDatabaseId: '1',
+      loading: false,
+    });
+
+    const { container } = render(<QueryPage />);
+    await screen.findByText('SELECT * FROM orders');
+
+    const copyButton = container.querySelector('svg.lucide-copy')?.closest('button');
+    expect(copyButton).toBeTruthy();
+    fireEvent.click(copyButton!);
+
+    expect(writeText).toHaveBeenCalledWith('SELECT * FROM orders');
+  });
+
+  it('点击执行按钮应输出 SQL 执行日志', async () => {
+    vi.mocked(api.databases.list).mockResolvedValue(mockDbs);
+    const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+
+    useQueryStore.setState({
+      messages: [
+        {
+          id: 'a-1',
+          role: 'assistant',
+          content: '已生成 SQL',
+          sql: 'SELECT * FROM orders',
+        },
+      ],
+      input: '',
+      selectedDatabaseId: '1',
+      loading: false,
+    });
+
+    const { container } = render(<QueryPage />);
+    await screen.findByText('SELECT * FROM orders');
+
+    const executeButton = container.querySelector('svg.lucide-play')?.closest('button');
+    expect(executeButton).toBeTruthy();
+    fireEvent.click(executeButton!);
+
+    expect(consoleLogSpy).toHaveBeenCalledWith('执行 SQL:', 'SELECT * FROM orders');
+    consoleLogSpy.mockRestore();
+  });
 });

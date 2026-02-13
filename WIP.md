@@ -602,3 +602,23 @@ pnpm --filter web test --run
   - `pnpm --filter worker test --run src/test/database-connection-routes.test.ts`：`1` 文件 `9` 测试通过
   - `pnpm --filter web test --run src/lib/__tests__/api.test.ts src/app/query/__tests__/page.test.tsx`：`2` 文件 `26` 测试通过
   - `pnpm test`：全仓通过（`worker 101` + `web 61`）
+
+### 子任务 17：补充 Query 页面关键交互分支测试（web GUI）
+
+#### Todo
+
+- [x] 补充 `Enter` 键发送查询与 `Shift+Enter` 不发送分支
+- [x] 补充 SQL 卡片复制按钮行为测试
+- [x] 补充 SQL 卡片执行按钮行为测试
+- [x] 运行 `web` 与全仓测试回归
+
+#### 结果
+
+- Query 页面 GUI 测试增强：
+  - `packages/web/src/app/query/__tests__/page.test.tsx` 新增 3 个交互分支用例：
+    - `Enter` 发送查询、`Shift+Enter` 不发送
+    - 点击复制按钮调用 `navigator.clipboard.writeText`
+    - 点击执行按钮触发执行日志输出
+- 测试结果：
+  - `pnpm --filter web test --run src/app/query/__tests__/page.test.tsx`：`1` 文件 `8` 测试通过
+  - `pnpm test`：全仓通过（`worker 101` + `web 64`）
