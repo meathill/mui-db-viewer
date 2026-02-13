@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import QueryPage from '../page';
@@ -154,5 +154,74 @@ describe('QueryPage', () => {
     expect(screen.getByText('请先校验 SQL')).toBeDefined();
     expect(screen.getByText('SELECT * FROM orders')).toBeDefined();
     expect(screen.getByText('正在生成 SQL...')).toBeDefined();
+  });
+
+  it('提交查询后应调用 API 并追加消息', async () => {
+    vi.mocked(api.databases.list).mockResolvedValue(mockDbs);
+    vi.mocked(api.query.generate).mockResolvedValue({
+      sql: 'SELECT * FROM users',
+      explanation: '查询用户',
+    });
+
+    useQueryStore.getState().setSelectedDatabaseId('1');
+
+    const { container } = render(<QueryPage />);
+    await waitFor(() => {
+      expect(api.databases.list).toHaveBeenCalled();
+    });
+
+    const textarea = screen.getByPlaceholderText('描述你的查询需求...');
+    fireEvent.change(textarea, { target: { value: '查询全部用户' } });
+
+    const submitButton = container.querySelector('button[type="submit"]');
+    expect(submitButton).toBeTruthy();
+    fireEvent.click(submitButton!);
+
+    await waitFor(() => {
+      expect(api.query.generate).toHaveBeenCalledWith('1', '查询全部用户');
+    });
+
+    await screen.findByText('查询全部用户');
+    expect(screen.getByText('查询用户')).toBeDefined();
+    expect(screen.getByText('SELECT * FROM users')).toBeDefined();
+  });
+
+  it('生成中应禁用输入与提交并阻止重复请求', async () => {
+    vi.mocked(api.databases.list).mockResolvedValue(mockDbs);
+
+    let resolveGenerate: ((result: { sql: string; explanation?: string }) => void) | null = null;
+    vi.mocked(api.query.generate).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveGenerate = resolve;
+        }),
+    );
+
+    useQueryStore.getState().setSelectedDatabaseId('1');
+
+    const { container } = render(<QueryPage />);
+    await waitFor(() => {
+      expect(api.databases.list).toHaveBeenCalled();
+    });
+
+    const textarea = screen.getByPlaceholderText('描述你的查询需求...');
+    fireEvent.change(textarea, { target: { value: '查询订单' } });
+
+    const submitButton = container.querySelector('button[type="submit"]') as HTMLButtonElement | null;
+    expect(submitButton).not.toBeNull();
+    fireEvent.click(submitButton!);
+    fireEvent.click(submitButton!);
+
+    expect(api.query.generate).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('正在生成 SQL...')).toBeDefined();
+    expect((textarea as HTMLTextAreaElement).disabled).toBe(true);
+    expect(submitButton?.disabled).toBe(true);
+
+    resolveGenerate?.({
+      sql: 'SELECT * FROM orders',
+      explanation: '查询完成',
+    });
+
+    await screen.findByText('查询完成');
   });
 });

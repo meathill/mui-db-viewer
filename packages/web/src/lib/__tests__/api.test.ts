@@ -234,6 +234,22 @@ describe('API Client', () => {
 
         await expect(api.query.generate('id', 'prompt')).rejects.toThrow('API 限流');
       });
+
+      it('后端未返回错误文案时使用默认错误提示', async () => {
+        mockFetch.mockResolvedValueOnce({
+          json: () => Promise.resolve({ success: false }),
+        });
+
+        await expect(api.query.generate('id', 'prompt')).rejects.toThrow('生成 SQL 失败');
+      });
+
+      it('后端缺少 data 时使用默认错误提示', async () => {
+        mockFetch.mockResolvedValueOnce({
+          json: () => Promise.resolve({ success: true }),
+        });
+
+        await expect(api.query.generate('id', 'prompt')).rejects.toThrow('生成 SQL 失败');
+      });
     });
 
     describe('validate', () => {
@@ -258,6 +274,22 @@ describe('API Client', () => {
 
         expect(result.valid).toBe(false);
         expect(result.error).toBe('禁止使用 DELETE');
+      });
+
+      it('校验接口失败但无 error 字段时使用默认文案', async () => {
+        mockFetch.mockResolvedValueOnce({
+          json: () => Promise.resolve({ success: false }),
+        });
+
+        await expect(api.query.validate('SELECT 1')).rejects.toThrow('校验 SQL 失败');
+      });
+
+      it('校验接口缺少 data 时使用默认文案', async () => {
+        mockFetch.mockResolvedValueOnce({
+          json: () => Promise.resolve({ success: true }),
+        });
+
+        await expect(api.query.validate('SELECT 1')).rejects.toThrow('校验 SQL 失败');
       });
     });
   });

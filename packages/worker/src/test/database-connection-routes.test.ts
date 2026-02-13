@@ -73,6 +73,27 @@ describe('database connection routes', () => {
     expect(json.error).toBe('缺少必填字段');
   });
 
+  it('POST /databases 必填字段为空白字符时返回 400', async () => {
+    const res = await client.request('/databases', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: '   ',
+        type: 'tidb',
+        host: 'localhost',
+        port: '3306',
+        database: 'test_db',
+        username: 'root',
+        password: 'secret',
+      }),
+    });
+
+    expect(res.status).toBe(400);
+    const json = (await res.json()) as { success: boolean; error?: string };
+    expect(json.success).toBe(false);
+    expect(json.error).toBe('缺少必填字段');
+  });
+
   it('POST /databases 不传端口时使用默认值 3306', async () => {
     const res = await client.request('/databases', {
       method: 'POST',
@@ -88,6 +109,27 @@ describe('database connection routes', () => {
     });
 
     const json = (await res.json()) as { data?: { port: string } };
+    expect(json.data?.port).toBe('3306');
+  });
+
+  it('POST /databases 端口为空白字符时使用默认值 3306', async () => {
+    const res = await client.request('/databases', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: '空白端口',
+        type: 'tidb',
+        host: 'localhost',
+        port: '   ',
+        database: 'test_db',
+        username: 'root',
+        password: 'secret',
+      }),
+    });
+
+    expect(res.status).toBe(201);
+    const json = (await res.json()) as { success: boolean; data?: { port: string } };
+    expect(json.success).toBe(true);
     expect(json.data?.port).toBe('3306');
   });
 

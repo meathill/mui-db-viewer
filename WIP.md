@@ -574,3 +574,31 @@ pnpm --filter web test --run
   - `pnpm --filter worker test --run`：`11` 文件 `99` 测试通过
   - `pnpm --filter web test --run`：`11` 文件 `55` 测试通过
   - `pnpm test`：全仓通过（`worker 99` + `web 55`）
+
+### 子任务 16：补充 API/GUI/连接校验边界测试（worker + web）
+
+#### Todo
+
+- [x] 补充 web `api.query.generate/validate` 默认错误文案分支测试
+- [x] 补充 Query 页面交互测试（提交后消息追加、loading 中提交按钮状态）
+- [x] 补充 worker 创建连接接口的空白字段校验测试
+- [x] 运行 `worker`、`web` 与全仓测试回归
+
+#### 结果
+
+- Web API 测试增强：
+  - `packages/web/src/lib/__tests__/api.test.ts` 新增 `query.generate/validate` 的默认报错分支覆盖：
+    - `success: false` 且无 `error` 时使用默认文案
+    - `success: true` 但缺少 `data` 时使用默认文案
+- Query 页面 GUI 测试增强：
+  - `packages/web/src/app/query/__tests__/page.test.tsx` 新增交互用例：
+    - 提交查询后调用 `api.query.generate` 并渲染用户/助手消息与 SQL
+    - 生成进行中禁用输入与提交按钮，且重复点击不触发重复请求
+- Worker 路由测试增强：
+  - `packages/worker/src/test/database-connection-routes.test.ts` 新增创建连接边界：
+    - 必填字段仅空白字符时返回 `400`
+    - 端口为空白字符时回退默认端口 `3306`
+- 测试结果：
+  - `pnpm --filter worker test --run src/test/database-connection-routes.test.ts`：`1` 文件 `9` 测试通过
+  - `pnpm --filter web test --run src/lib/__tests__/api.test.ts src/app/query/__tests__/page.test.tsx`：`2` 文件 `26` 测试通过
+  - `pnpm test`：全仓通过（`worker 101` + `web 61`）
