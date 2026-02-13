@@ -103,4 +103,60 @@ describe('database-store', () => {
     expect(api.databases.list).toHaveBeenCalledTimes(2);
     expect(state.databases).toEqual(second);
   });
+
+  it('并发 fetchDatabases 应复用同一个进行中的请求', async () => {
+    const databases = [createMockDatabase({ id: 'db-1', name: '生产库' })];
+    let resolveList: ((value: DatabaseConnection[]) => void) | null = null;
+
+    vi.mocked(api.databases.list).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveList = resolve;
+        }),
+    );
+
+    const first = useDatabaseStore.getState().fetchDatabases();
+    const second = useDatabaseStore.getState().fetchDatabases();
+
+    expect(api.databases.list).toHaveBeenCalledTimes(1);
+
+    resolveList?.(databases);
+    await Promise.all([first, second]);
+
+    const state = useDatabaseStore.getState();
+    expect(state.databases).toEqual(databases);
+    expect(state.hasLoaded).toBe(true);
+  });
+
+  it('加载失败且异常不是 Error 时应使用默认错误文案', async () => {
+    vi.mocked(api.databases.list).mockRejectedValue('offline');
+
+    await expect(useDatabaseStore.getState().fetchDatabases()).rejects.toBe('offline');
+
+    const state = useDatabaseStore.getState();
+    expect(state.error).toBe('获取数据库列表失败');
+    expect(state.hasLoaded).toBe(false);
+    expect(state.loading).toBe(false);
+  });
+
+  it('createDatabase 成功后应追加到列表并标记为已加载', async () => {
+    const created = createMockDatabase({ id: 'db-3', name: '新建库' });
+    vi.mocked(api.databases.create).mockResolvedValue(created);
+
+    const result = await useDatabaseStore.getState().createDatabase({
+      name: '新建库',
+      type: 'tidb',
+      host: 'localhost',
+      port: '4000',
+      database: 'app',
+      username: 'root',
+      password: 'secret',
+    });
+
+    const state = useDatabaseStore.getState();
+    expect(result).toEqual(created);
+    expect(state.databases).toEqual([created]);
+    expect(state.hasLoaded).toBe(true);
+    expect(state.error).toBeNull();
+  });
 });

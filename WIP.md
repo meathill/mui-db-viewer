@@ -622,3 +622,23 @@ pnpm --filter web test --run
 - 测试结果：
   - `pnpm --filter web test --run src/app/query/__tests__/page.test.tsx`：`1` 文件 `8` 测试通过
   - `pnpm test`：全仓通过（`worker 101` + `web 64`）
+
+### 子任务 18：补充 database-store 状态边界测试（web）
+
+#### Todo
+
+- [x] 补充并发 `fetchDatabases` 的去重请求行为测试
+- [x] 补充 `fetchDatabases` 非 `Error` 异常的兜底文案测试
+- [x] 补充 `createDatabase` 成功写入状态测试
+- [x] 运行 `web` 与全仓测试回归
+
+#### 结果
+
+- 状态测试增强：
+  - `packages/web/src/stores/__tests__/database-store.test.ts` 新增 3 个用例：
+    - 并发 `fetchDatabases` 只发起一次请求（复用 in-flight promise）
+    - 非 `Error` 异常时回退默认错误文案 `获取数据库列表失败`
+    - `createDatabase` 成功后正确写入 `databases/hasLoaded/error` 状态
+- 测试结果：
+  - `pnpm --filter web test --run src/stores/__tests__/database-store.test.ts`：`1` 文件 `8` 测试通过
+  - `pnpm test`：全仓通过（`worker 101` + `web 67`）
