@@ -685,3 +685,38 @@ pnpm --filter web test --run
 - `DEV_NOTE.md`：
   - 新增 Query 模块约定（store 归一与关键交互测试）
   - 新增 SQL 构建复用约定（统一构建器扩展策略）
+
+### 子任务 21：将“收藏查询”迁移到 Query 独立侧边栏（web）
+
+#### Todo
+
+- [ ] 从 `AppSidebar` 移除“收藏查询”全局导航项
+- [ ] 新增 Query 独立侧边栏组件，承载“AI 查询 / 收藏查询”入口
+- [ ] 在 `query` 与 `saved-queries` 页面接入 Query 独立侧边栏
+- [ ] 补充组件与页面测试覆盖迁移行为
+- [ ] 运行 `web` 测试回归
+- [ ] 运行全仓测试回归
+
+#### 结果
+
+- [x] 从 `AppSidebar` 移除“收藏查询”全局导航项
+- [x] 新增 Query 独立侧边栏组件，承载“AI 查询 / 收藏查询”入口
+- [x] 在 `query` 与 `saved-queries` 页面接入 Query 独立侧边栏
+- [x] 补充组件与页面测试覆盖迁移行为
+- [x] 运行 `web` 测试回归
+- [ ] 运行全仓测试回归
+
+- 代码改动：
+  - `packages/web/src/components/app-sidebar.tsx`：移除主侧边栏 `收藏查询`
+  - `packages/web/src/components/query/query-sidebar.tsx`：新增 Query 独立侧边栏（桌面侧栏 + 移动端横向导航）
+  - `packages/web/src/app/query/page.tsx`：接入 Query 独立侧边栏
+  - `packages/web/src/app/saved-queries/page.tsx`：接入 Query 独立侧边栏
+- 测试改动：
+  - `packages/web/src/components/__tests__/app-sidebar.test.tsx`（新增）
+  - `packages/web/src/components/query/__tests__/query-sidebar.test.tsx`（新增）
+  - `packages/web/src/app/query/__tests__/page.test.tsx`（增加 QuerySidebar mock 断言）
+  - `packages/web/src/app/saved-queries/__tests__/page.test.tsx`（增加 QuerySidebar mock 断言）
+- 测试结果：
+  - `pnpm --filter web test --run src/components/__tests__/app-sidebar.test.tsx src/components/query/__tests__/query-sidebar.test.tsx src/app/query/__tests__/page.test.tsx src/app/saved-queries/__tests__/page.test.tsx`：`4` 文件 `14` 测试通过
+  - `pnpm --filter web test --run`：`15` 文件 `74` 测试通过
+  - `pnpm test`：失败（`worker` 现存用例 `packages/worker/src/test/ai.test.ts` 的错误文案断言与实现不一致，期望 `AI 服务调用失败`，实际 `OpenAI 调用失败: Rate limit exceeded`）

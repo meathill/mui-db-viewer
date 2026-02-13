@@ -45,6 +45,10 @@ vi.mock('@/components/app-sidebar', () => ({
   AppSidebar: () => <div>App Sidebar</div>,
 }));
 
+vi.mock('@/components/query/query-sidebar', () => ({
+  QuerySidebar: () => <div>Query Sidebar</div>,
+}));
+
 vi.mock('@/components/ui/select', () => ({
   Select: ({ children, value }: SelectProps) => (
     <div
@@ -114,6 +118,7 @@ describe('QueryPage', () => {
 
     await screen.findByText('Production DB');
     await screen.findByText('Test DB');
+    expect(screen.getByText('Query Sidebar')).toBeDefined();
   });
 
   it('无消息时展示引导文案', async () => {

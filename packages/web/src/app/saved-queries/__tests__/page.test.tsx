@@ -52,6 +52,10 @@ vi.mock('@/components/app-sidebar', () => ({
   AppSidebar: () => <div>App Sidebar</div>,
 }));
 
+vi.mock('@/components/query/query-sidebar', () => ({
+  QuerySidebar: () => <div>Query Sidebar</div>,
+}));
+
 describe('SavedQueriesPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -77,6 +81,7 @@ describe('SavedQueriesPage', () => {
     await screen.findByText('Query One');
     expect(screen.getByText('Desc One')).toBeDefined();
     expect(screen.getByText('SELECT 1')).toBeDefined();
+    expect(screen.getByText('Query Sidebar')).toBeDefined();
   });
 
   it('shows empty state when no queries', async () => {
