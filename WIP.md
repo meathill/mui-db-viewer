@@ -642,3 +642,25 @@ pnpm --filter web test --run
 - 测试结果：
   - `pnpm --filter web test --run src/stores/__tests__/database-store.test.ts`：`1` 文件 `8` 测试通过
   - `pnpm test`：全仓通过（`worker 101` + `web 67`）
+
+### 子任务 19：补充 database-row-routes 输入与连接边界测试（worker）
+
+#### Todo
+
+- [x] 补充删除行接口连接不存在返回 `404` 测试
+- [x] 补充新增行接口连接不存在返回 `404` 测试
+- [x] 补充新增行接口无效请求体返回 `400` 测试
+- [x] 补充更新行接口无效请求体返回 `400` 测试
+- [x] 运行 `worker` 与全仓测试回归
+
+#### 结果
+
+- Worker 行路由测试增强：
+  - `packages/worker/src/test/database-row-routes.test.ts` 新增 4 个分支用例：
+    - 删除行接口连接不存在时返回 `404`
+    - 新增行接口连接不存在时返回 `404`
+    - 新增行接口请求体非法时返回 `400`
+    - 更新行接口请求体非法时返回 `400`
+- 测试结果：
+  - `pnpm --filter worker test --run src/test/database-row-routes.test.ts`：`1` 文件 `11` 测试通过
+  - `pnpm test`：全仓通过（`worker 105` + `web 67`）

@@ -116,6 +116,21 @@ describe('database row routes', () => {
     expect(json.error).toBe('请选择要删除的行');
   });
 
+  it('POST /databases/:id/tables/:tableName/rows/delete 连接不存在时返回 404', async () => {
+    client.setConnectionRow(null);
+
+    const res = await client.request('/databases/missing/tables/users/rows/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids: [1] }),
+    });
+
+    expect(res.status).toBe(404);
+    const json = (await res.json()) as { success: boolean; error?: string };
+    expect(json.success).toBe(false);
+    expect(json.error).toBe('数据库连接不存在');
+  });
+
   it('POST /databases/:id/tables/:tableName/rows 成功插入行', async () => {
     const res = await client.request('/databases/test-id/tables/users/rows', {
       method: 'POST',
@@ -126,6 +141,34 @@ describe('database row routes', () => {
     expect(res.status).toBe(200);
     const json = (await res.json()) as { success: boolean };
     expect(json.success).toBe(true);
+  });
+
+  it('POST /databases/:id/tables/:tableName/rows 无效请求体返回 400', async () => {
+    const res = await client.request('/databases/test-id/tables/users/rows', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify([]),
+    });
+
+    expect(res.status).toBe(400);
+    const json = (await res.json()) as { success: boolean; error?: string };
+    expect(json.success).toBe(false);
+    expect(json.error).toBe('无效的数据格式');
+  });
+
+  it('POST /databases/:id/tables/:tableName/rows 连接不存在时返回 404', async () => {
+    client.setConnectionRow(null);
+
+    const res = await client.request('/databases/missing/tables/users/rows', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Charlie' }),
+    });
+
+    expect(res.status).toBe(404);
+    const json = (await res.json()) as { success: boolean; error?: string };
+    expect(json.success).toBe(false);
+    expect(json.error).toBe('数据库连接不存在');
   });
 
   it('PUT /databases/:id/tables/:tableName/rows 成功更新行', async () => {
@@ -140,6 +183,21 @@ describe('database row routes', () => {
     expect(res.status).toBe(200);
     const json = (await res.json()) as { success: boolean };
     expect(json.success).toBe(true);
+  });
+
+  it('PUT /databases/:id/tables/:tableName/rows 无效请求体返回 400', async () => {
+    const res = await client.request('/databases/test-id/tables/users/rows', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        rows: [],
+      }),
+    });
+
+    expect(res.status).toBe(400);
+    const json = (await res.json()) as { success: boolean; error?: string };
+    expect(json.success).toBe(false);
+    expect(json.error).toBe('缺少有效的更新数据');
   });
 
   it('PUT /databases/:id/tables/:tableName/rows 连接不存在时返回 404', async () => {
