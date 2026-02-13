@@ -449,3 +449,28 @@ pnpm --filter web test --run
 - 测试结果：
   - `pnpm --filter web test --run`：`10` 文件 `48` 测试通过
   - `pnpm test`：全仓通过（`worker 94` + `web 48`）
+
+### 子任务 11：统一 PostgreSQL/QuestionMark WHERE 构建逻辑（worker）
+
+#### Todo
+
+- [x] 在 `where-clause-builder` 提取可复用方言流程
+- [x] 为 PostgreSQL 新增统一构建函数，替换 driver 内部手写逻辑
+- [x] 清理 `PostgresDriver` 中冗余注释与重复分支
+- [x] 补充 PostgreSQL 方言测试并回归
+
+#### 结果
+
+- `where-clause-builder` 增强：
+  - 新增内部通用流程 `buildWhereClauseByDialect`
+  - 保留 `buildQuestionMarkWhereClause`
+  - 新增 `buildPostgresWhereClause`
+- `PostgresDriver` 改造：
+  - `packages/worker/src/services/drivers/postgres.ts` 的 `buildWhereClause` 改为调用 `buildPostgresWhereClause`
+  - 删除重复的搜索表达式处理分支，保留既有行为兼容
+- 测试补强：
+  - `packages/worker/src/test/where-clause-builder.test.ts` 新增 2 个 PostgreSQL 方言用例
+  - 覆盖 `$n` 占位符索引与表达式起始索引行为
+- 测试结果：
+  - `pnpm --filter worker test --run`：`11` 文件 `96` 测试通过
+  - `pnpm test`：全仓通过（`worker 96` + `web 48`）

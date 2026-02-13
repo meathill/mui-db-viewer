@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { TableColumn } from '../types';
-import { buildQuestionMarkWhereClause } from '../services/drivers/where-clause-builder';
+import { buildPostgresWhereClause, buildQuestionMarkWhereClause } from '../services/drivers/where-clause-builder';
 
 function createSchema(): TableColumn[] {
   return [
@@ -66,6 +66,38 @@ describe('where-clause-builder', () => {
     expect(result).toEqual({
       whereClause: '',
       params: [],
+    });
+  });
+
+  it('PostgreSQL 方言应生成 $n 占位符并支持字段过滤', async () => {
+    const loadSchema = vi.fn(async () => createSchema());
+
+    const result = await buildPostgresWhereClause(
+      {
+        _search: 'Alice',
+        status: 'active',
+      },
+      loadSchema,
+    );
+
+    expect(result.whereClause).toBe('WHERE ("name"::text LIKE $1 OR "created_at"::text LIKE $2) AND "status" = $3');
+    expect(result.params).toEqual(['%Alice%', '%Alice%', 'active']);
+  });
+
+  it('PostgreSQL 表达式搜索应遵循传入的起始参数索引', async () => {
+    const loadSchema = vi.fn(async () => createSchema());
+
+    const result = await buildPostgresWhereClause(
+      {
+        _search: 'id > 10',
+      },
+      loadSchema,
+      3,
+    );
+
+    expect(result).toEqual({
+      whereClause: 'WHERE "id" > $3',
+      params: [10],
     });
   });
 });

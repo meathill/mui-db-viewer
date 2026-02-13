@@ -1,5 +1,5 @@
 import type { TableColumn, TableQueryFilters } from '../../types';
-import { parseSearchExpression, expressionToSql } from '../search-parser';
+import { parseSearchExpression, expressionToSql, expressionToSqlPg, type ParsedExpression } from '../search-parser';
 import { getColumnFieldNames } from './helpers';
 
 interface WhereClauseResult {
@@ -8,6 +8,19 @@ interface WhereClauseResult {
 }
 
 type LoadSchema = () => Promise<TableColumn[]>;
+
+interface DialectOptions {
+  startIndex: number;
+  requireNumericSearchValue: boolean;
+  buildExpressionSql: (
+    expression: ParsedExpression,
+    validColumns: string[],
+    startIndex: number,
+  ) => { whereClause: string; params: Array<string | number> } | null;
+  buildTextSearchCondition: (field: string, index: number) => string;
+  buildNumericSearchCondition: (field: string, index: number) => string;
+  buildEqualsCondition: (field: string, index: number) => string;
+}
 
 const TEXT_LIKE_TYPES = ['char', 'text', 'date', 'time'];
 const NUMERIC_EQUAL_TYPES = ['int', 'float', 'double', 'decimal', 'real', 'numeric'];
@@ -20,7 +33,11 @@ function isNumericLikeType(type: string): boolean {
   return NUMERIC_EQUAL_TYPES.some((keyword) => type.includes(keyword));
 }
 
-export async function buildQuestionMarkWhereClause(filters: TableQueryFilters | undefined, loadSchema: LoadSchema) {
+async function buildWhereClauseByDialect(
+  filters: TableQueryFilters | undefined,
+  loadSchema: LoadSchema,
+  options: DialectOptions,
+) {
   if (!filters || Object.keys(filters).length === 0) {
     return { whereClause: '', params: [] } satisfies WhereClauseResult;
   }
@@ -28,6 +45,7 @@ export async function buildQuestionMarkWhereClause(filters: TableQueryFilters | 
   const conditions: string[] = [];
   const params: unknown[] = [];
   const search = filters._search;
+  let parameterIndex = options.startIndex;
   let schemaCache: TableColumn[] | null = null;
 
   async function getSchema() {
@@ -44,7 +62,7 @@ export async function buildQuestionMarkWhereClause(filters: TableQueryFilters | 
     if (parsed.isExpression && parsed.expression) {
       const schema = await getSchema();
       const validColumns = getColumnFieldNames(schema);
-      const sqlResult = expressionToSql(parsed.expression, validColumns);
+      const sqlResult = options.buildExpressionSql(parsed.expression, validColumns, options.startIndex);
 
       if (sqlResult) {
         return { whereClause: sqlResult.whereClause, params: sqlResult.params } satisfies WhereClauseResult;
@@ -58,14 +76,20 @@ export async function buildQuestionMarkWhereClause(filters: TableQueryFilters | 
       schema.forEach((column) => {
         const type = (column.Type || '').toLowerCase();
         if (isTextLikeType(type)) {
-          searchConditions.push(`\`${column.Field}\` LIKE ?`);
+          searchConditions.push(options.buildTextSearchCondition(column.Field, parameterIndex));
           params.push(`%${search}%`);
+          parameterIndex += 1;
           return;
         }
 
         if (isNumericLikeType(type)) {
-          searchConditions.push(`\`${column.Field}\` = ?`);
+          if (options.requireNumericSearchValue && Number.isNaN(Number(search))) {
+            return;
+          }
+
+          searchConditions.push(options.buildNumericSearchCondition(column.Field, parameterIndex));
           params.push(search);
+          parameterIndex += 1;
         }
       });
 
@@ -81,8 +105,9 @@ export async function buildQuestionMarkWhereClause(filters: TableQueryFilters | 
     }
 
     if (value !== undefined && value !== '') {
-      conditions.push(`\`${key}\` = ?`);
+      conditions.push(options.buildEqualsCondition(key, parameterIndex));
       params.push(value);
+      parameterIndex += 1;
     }
   }
 
@@ -91,4 +116,30 @@ export async function buildQuestionMarkWhereClause(filters: TableQueryFilters | 
   }
 
   return { whereClause: '', params: [] } satisfies WhereClauseResult;
+}
+
+export async function buildQuestionMarkWhereClause(filters: TableQueryFilters | undefined, loadSchema: LoadSchema) {
+  return buildWhereClauseByDialect(filters, loadSchema, {
+    startIndex: 1,
+    requireNumericSearchValue: false,
+    buildExpressionSql: (expression, validColumns) => expressionToSql(expression, validColumns),
+    buildTextSearchCondition: (field) => `\`${field}\` LIKE ?`,
+    buildNumericSearchCondition: (field) => `\`${field}\` = ?`,
+    buildEqualsCondition: (field) => `\`${field}\` = ?`,
+  });
+}
+
+export async function buildPostgresWhereClause(
+  filters: TableQueryFilters | undefined,
+  loadSchema: LoadSchema,
+  startIndex: number = 1,
+) {
+  return buildWhereClauseByDialect(filters, loadSchema, {
+    startIndex,
+    requireNumericSearchValue: true,
+    buildExpressionSql: (expression, validColumns, initialIndex) => expressionToSqlPg(expression, validColumns, initialIndex),
+    buildTextSearchCondition: (field, index) => `"${field}"::text LIKE $${index}`,
+    buildNumericSearchCondition: (field, index) => `"${field}" = $${index}`,
+    buildEqualsCondition: (field, index) => `"${field}" = $${index}`,
+  });
 }

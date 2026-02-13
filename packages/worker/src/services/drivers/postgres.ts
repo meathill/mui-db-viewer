@@ -1,8 +1,8 @@
 import { Client } from 'pg';
 import type { DatabaseConnection, RowUpdate, TableColumn, TableQueryFilters, TableQueryOptions } from '../../types';
 import type { IDatabaseDriver } from './interface';
-import { findPrimaryKeyField, getColumnFieldNames } from './helpers';
-import { parseSearchExpression, expressionToSqlPg } from '../search-parser';
+import { findPrimaryKeyField } from './helpers';
+import { buildPostgresWhereClause } from './where-clause-builder';
 
 export class PostgresDriver implements IDatabaseDriver {
   private client: Client | null = null;
@@ -64,9 +64,6 @@ export class PostgresDriver implements IDatabaseDriver {
        WHERE table_name = $1`,
       [tableName],
     );
-    // Map Postgres types to something similar to MySQL for frontend compatibility if needed,
-    // or just return as is and handle in frontend.
-    // The current frontend expects "Field", "Type", "Key".
     return res.rows;
   }
 
@@ -98,21 +95,6 @@ export class PostgresDriver implements IDatabaseDriver {
 
     let countQuery = `SELECT COUNT(*) as total FROM "${tableName}"`;
     const countParams: unknown[] = [];
-
-    if (whereClause) {
-      // Re-index params for count query
-      // Actually buildWhereClause returns parameterized string like $1, $2? No, standard SQL uses $1, $2 for PG?
-      // Wait, standard `pg` uses $1, $2, ... not ?
-      // My buildWhereClause below needs to be adjusted for Postgres $n syntax or usage.
-      // But `pg` client doesn't support generic `?`.
-      // I need to override `buildWhereClause` or make it smart.
-      countQuery += ` ${whereClause}`; // This will have $1, $2, etc.
-      // The whereClause indexes must match the countParams.
-      // Since countQuery only has whereClause, the indexes should start from 1.
-      // But if I reused the string from previous call...
-      // Let's rebuild it or reuse.
-    }
-    // Re-building for count to correct indices
     const { whereClause: countWhere, params: countWhereParams } = await this.buildWhereClause(
       tableName,
       options.filters,
@@ -122,12 +104,6 @@ export class PostgresDriver implements IDatabaseDriver {
       countQuery = `SELECT COUNT(*) as total FROM "${tableName}" ${countWhere}`;
       countParams.push(...countWhereParams);
     }
-
-    // Correction: The query above reused `whereClause` which was built with indices starting from 1.
-    // That works for the main query if it's at the start, but we added LIMIT/OFFSET at the end.
-    // The LIMIT/OFFSET params are pushed LAST.
-    // So if whereClause used $1..$N, then LIMIT is $N+1, OFFSET is $N+2.
-    // This looks correct.
 
     const countRes = await this.client!.query(countQuery, countParams);
     const total = Number(countRes.rows[0].total);
@@ -193,65 +169,6 @@ export class PostgresDriver implements IDatabaseDriver {
   }
 
   private async buildWhereClause(tableName: string, filters?: TableQueryFilters, startIndex: number = 1) {
-    if (!filters || Object.keys(filters).length === 0) {
-      return { whereClause: '', params: [] as unknown[] };
-    }
-
-    const conditions: string[] = [];
-    const params: unknown[] = [];
-    let pIdx = startIndex;
-    const search = filters._search;
-
-    if (search) {
-      const parsed = parseSearchExpression(search);
-
-      if (parsed.isExpression && parsed.expression) {
-        const schema = await this.getTableSchema(tableName);
-        const validColumns = getColumnFieldNames(schema);
-        const sqlResult = expressionToSqlPg(parsed.expression, validColumns, startIndex);
-
-        if (sqlResult) {
-          return { whereClause: sqlResult.whereClause, params: sqlResult.params };
-        }
-      }
-
-      if (!parsed.isExpression || !parsed.expression) {
-        const schema = await this.getTableSchema(tableName);
-        const searchConditions: string[] = [];
-        schema.forEach((col) => {
-          const type = col.Type.toLowerCase();
-          if (type.includes('char') || type.includes('text')) {
-            searchConditions.push(`"${col.Field}"::text LIKE $${pIdx}`);
-            params.push(`%${search}%`);
-            pIdx++;
-          } else if (type.includes('int') || type.includes('float') || type.includes('numeric')) {
-            if (!isNaN(Number(search))) {
-              searchConditions.push(`"${col.Field}" = $${pIdx}`);
-              params.push(search);
-              pIdx++;
-            }
-          }
-        });
-        if (searchConditions.length > 0) {
-          conditions.push(`(${searchConditions.join(' OR ')})`);
-        }
-      }
-    }
-
-    for (const [key, value] of Object.entries(filters)) {
-      if (key === '_search') continue;
-
-      if (value !== undefined && value !== '') {
-        conditions.push(`"${key}" = $${pIdx}`);
-        params.push(value);
-        pIdx++;
-      }
-    }
-
-    if (conditions.length > 0) {
-      return { whereClause: `WHERE ${conditions.join(' AND ')}`, params };
-    }
-
-    return { whereClause: '', params: [] as unknown[] };
+    return buildPostgresWhereClause(filters, () => this.getTableSchema(tableName), startIndex);
   }
 }
