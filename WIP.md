@@ -502,3 +502,22 @@ pnpm --filter web test --run
 - 测试结果：
   - `pnpm --filter web test --run`：`11` 文件 `51` 测试通过
   - `pnpm test`：全仓通过（`worker 96` + `web 51`）
+
+### 子任务 13：补齐 Query 页面 GUI 渲染测试（web）
+
+#### Todo
+
+- [x] 为 Query 页面新增空态展示测试
+- [x] 为 Query 页面新增消息流与 SQL 卡片展示测试
+- [x] 覆盖 loading 渲染分支与滚动副作用 mock
+- [x] 运行 `web` 与全仓测试回归
+
+#### 结果
+
+- 测试增强：
+  - `packages/web/src/app/query/__tests__/page.test.tsx` 新增 2 个 GUI 渲染测试
+  - 覆盖空态引导文案、warning 展示、SQL 渲染、loading 文案
+  - 在测试中显式 mock `scrollIntoView`，避免 DOM 环境差异导致波动
+- 测试结果：
+  - `pnpm --filter web test --run`：`11` 文件 `53` 测试通过
+  - `pnpm test`：全仓通过（`worker 96` + `web 53`）

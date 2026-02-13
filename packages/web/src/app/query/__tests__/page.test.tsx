@@ -69,6 +69,10 @@ describe('QueryPage', () => {
     vi.clearAllMocks();
     useDatabaseStore.getState().reset();
     useQueryStore.getState().reset();
+    Object.defineProperty(window.HTMLElement.prototype, 'scrollIntoView', {
+      configurable: true,
+      value: vi.fn(),
+    });
   });
 
   const mockDbs: DatabaseConnection[] = [
@@ -109,5 +113,46 @@ describe('QueryPage', () => {
 
     await screen.findByText('Production DB');
     await screen.findByText('Test DB');
+  });
+
+  it('无消息时展示引导文案', async () => {
+    vi.mocked(api.databases.list).mockResolvedValue(mockDbs);
+
+    render(<QueryPage />);
+
+    await screen.findByText('开始 AI 查询');
+    expect(screen.getByText(/用自然语言描述你的查询需求/)).toBeDefined();
+  });
+
+  it('有会话消息且加载中时展示 SQL 与 loading 提示', async () => {
+    vi.mocked(api.databases.list).mockResolvedValue(mockDbs);
+
+    useQueryStore.setState({
+      messages: [
+        {
+          id: 'u-1',
+          role: 'user',
+          content: '查询订单',
+        },
+        {
+          id: 'a-1',
+          role: 'assistant',
+          content: '已生成 SQL',
+          sql: 'SELECT * FROM orders',
+          warning: '请先校验 SQL',
+        },
+      ],
+      input: '',
+      selectedDatabaseId: '1',
+      loading: true,
+    });
+
+    render(<QueryPage />);
+
+    await screen.findByText('查询订单');
+    expect(screen.getByText('已生成 SQL')).toBeDefined();
+    expect(screen.getByText('请先校验 SQL')).toBeDefined();
+    expect(screen.getByText('SELECT * FROM orders')).toBeDefined();
+    expect(screen.getByText('正在生成 SQL...')).toBeDefined();
   });
 });
