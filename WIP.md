@@ -398,3 +398,54 @@ pnpm --filter web test --run
 - 测试结果：
   - `pnpm --filter worker test --run`：`10` 文件 `93` 测试通过
   - `pnpm test`：全仓通过（`worker 93` + `web 48`）
+
+### 子任务 9：分拆数据库路由测试大文件（worker）
+
+#### Todo
+
+- [x] 将 `packages/worker/src/test/database.test.ts` 按职责拆分
+- [x] 抽取测试初始化与 mock 工具，避免重复 setup
+- [x] 补充请求校验失败分支测试
+- [x] 运行 `worker` 与全仓测试回归
+
+#### 结果
+
+- 删除原聚合测试：
+  - `packages/worker/src/test/database.test.ts`
+- 新增测试辅助：
+  - `packages/worker/src/test/database-route-test-utils.ts`
+- 新增拆分测试：
+  - `packages/worker/src/test/database-connection-routes.test.ts`
+  - `packages/worker/src/test/database-row-routes.test.ts`
+- 测试补强：
+  - 新增 `POST /rows/delete` 在空 `ids` 时返回 `400` 的断言
+- 拆分收益：
+  - 原单文件 372 行拆分为 `100 + 132 + 161` 三个职责清晰文件
+  - 路由连接管理与行操作测试边界分离，后续扩展新数据库类型更易维护
+- 测试结果：
+  - `pnpm --filter worker test --run`：`11` 文件 `94` 测试通过
+  - `pnpm test`：全仓通过（`worker 94` + `web 48`）
+
+### 子任务 10：继续分拆数据库详情页入口（web）
+
+#### Todo
+
+- [x] 将详情页状态与行为控制逻辑提取到独立 hook
+- [x] 提取空状态 UI，进一步收敛页面职责
+- [x] 保持页面导入路径与行为兼容
+- [x] 运行 `web` 与全仓测试回归
+
+#### 结果
+
+- 新增控制器 hook：
+  - `packages/web/src/components/database-detail/use-database-detail-controller.ts`
+- 新增空状态组件：
+  - `packages/web/src/components/database-detail/empty-state.tsx`
+- 页面改造：
+  - `packages/web/src/app/databases/[id]/page.tsx`
+- 拆分收益：
+  - 页面入口从 `312` 行降到 `129` 行，职责聚焦于布局与组件编排
+  - 表格编辑、行选择、插入/更新/删除、分页与筛选行为可在 hook 层复用
+- 测试结果：
+  - `pnpm --filter web test --run`：`10` 文件 `48` 测试通过
+  - `pnpm test`：全仓通过（`worker 94` + `web 48`）
