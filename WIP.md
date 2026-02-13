@@ -550,3 +550,27 @@ pnpm --filter web test --run
 - 测试结果：
   - `pnpm --filter web test --run`：`11` 文件 `53` 测试通过
   - `pnpm test`：全仓通过（`worker 96` + `web 53`）
+
+### 子任务 15：补充 Query 路径函数/API 测试（worker + web）
+
+#### Todo
+
+- [x] 补充 worker `query` 路由异常与告警分支测试
+- [x] 补充 web `query-store` 默认文案与兜底错误分支测试
+- [x] 运行 `worker`、`web` 与全仓测试回归
+
+#### 结果
+
+- Worker 测试增强：
+  - `packages/worker/src/test/query.test.ts` 新增用例：
+    - SQL Guard 拒绝语句时返回 `warning`
+    - AI 服务抛错时返回 `500`
+    - `validate` 接口空白 SQL 返回 `400`
+- Web 测试增强：
+  - `packages/web/src/stores/__tests__/query-store.test.ts` 新增用例：
+    - `explanation` 为空时使用默认文案
+    - 非 `Error` 异常对象时使用兜底错误文案
+- 测试结果：
+  - `pnpm --filter worker test --run`：`11` 文件 `99` 测试通过
+  - `pnpm --filter web test --run`：`11` 文件 `55` 测试通过
+  - `pnpm test`：全仓通过（`worker 99` + `web 55`）

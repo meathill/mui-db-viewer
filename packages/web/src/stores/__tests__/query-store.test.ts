@@ -68,4 +68,38 @@ describe('query-store', () => {
       content: '生成失败：服务不可用',
     });
   });
+
+  it('当解释为空时应使用默认解释文案', async () => {
+    vi.mocked(api.query.generate).mockResolvedValue({
+      sql: 'SELECT 1',
+      explanation: '',
+    });
+
+    useQueryStore.getState().setSelectedDatabaseId('db-1');
+    useQueryStore.getState().setInput('测试');
+
+    await useQueryStore.getState().sendQuery();
+
+    const state = useQueryStore.getState();
+    expect(state.messages[1]).toMatchObject({
+      role: 'assistant',
+      content: '根据您的查询，我生成了以下 SQL 语句：',
+      sql: 'SELECT 1',
+    });
+  });
+
+  it('未知异常对象应使用兜底错误文案', async () => {
+    vi.mocked(api.query.generate).mockRejectedValue('network down');
+
+    useQueryStore.getState().setSelectedDatabaseId('db-1');
+    useQueryStore.getState().setInput('测试');
+
+    await useQueryStore.getState().sendQuery();
+
+    const state = useQueryStore.getState();
+    expect(state.messages[1]).toMatchObject({
+      role: 'assistant',
+      content: '生成失败：未知错误',
+    });
+  });
 });

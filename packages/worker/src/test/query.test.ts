@@ -4,6 +4,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Hono } from 'hono';
+import { createAiService } from '../services/ai';
 
 // Mock AI 服务 - 必须在导入路由之前
 vi.mock('../services/ai', () => ({
@@ -27,6 +28,13 @@ describe('Query Routes', () => {
   let app: Hono<{ Bindings: Env }>;
 
   beforeEach(() => {
+    vi.mocked(createAiService).mockReturnValue({
+      generateSql: vi.fn().mockResolvedValue({
+        sql: "SELECT * FROM orders WHERE status = 'pending'",
+        explanation: '查询待处理订单',
+      }),
+    } as ReturnType<typeof createAiService>);
+
     app = new Hono<{ Bindings: Env }>();
 
     // 注入环境变量
@@ -88,6 +96,54 @@ describe('Query Routes', () => {
       const json = (await res.json()) as { success: boolean };
       expect(json.success).toBe(false);
     });
+
+    it('当 SQL Guard 拒绝语句时返回 warning', async () => {
+      vi.mocked(createAiService).mockReturnValueOnce({
+        generateSql: vi.fn().mockResolvedValue({
+          sql: 'DELETE FROM orders',
+          explanation: '删除订单',
+        }),
+      } as ReturnType<typeof createAiService>);
+
+      const res = await app.request('/query/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          databaseId: 'test-db-id',
+          prompt: '删除订单',
+        }),
+      });
+
+      expect(res.status).toBe(200);
+      const json = (await res.json()) as {
+        success: boolean;
+        data?: { sql: string; warning?: string; explanation?: string };
+      };
+      expect(json.success).toBe(true);
+      expect(json.data?.sql).toBe('DELETE FROM orders');
+      expect(json.data?.warning).toContain('只允许');
+      expect(json.data?.explanation).toBe('删除订单');
+    });
+
+    it('AI 服务异常时返回 500', async () => {
+      vi.mocked(createAiService).mockReturnValueOnce({
+        generateSql: vi.fn().mockRejectedValue(new Error('OpenAI timeout')),
+      } as ReturnType<typeof createAiService>);
+
+      const res = await app.request('/query/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          databaseId: 'test-db-id',
+          prompt: '查看待处理订单',
+        }),
+      });
+
+      expect(res.status).toBe(500);
+      const json = (await res.json()) as { success: boolean; error?: string };
+      expect(json.success).toBe(false);
+      expect(json.error).toBe('OpenAI timeout');
+    });
   });
 
   describe('POST /query/validate', () => {
@@ -141,6 +197,21 @@ describe('Query Routes', () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),
+      });
+
+      expect(res.status).toBe(400);
+      const json = (await res.json()) as { success: boolean; error?: string };
+      expect(json.success).toBe(false);
+      expect(json.error).toBe('缺少 SQL');
+    });
+
+    it('空白 SQL 返回 400', async () => {
+      const res = await app.request('/query/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sql: '   ',
+        }),
       });
 
       expect(res.status).toBe(400);
