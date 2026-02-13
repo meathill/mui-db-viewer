@@ -12,8 +12,8 @@ vi.mock('@/stores/database-store', () => ({
     }),
 }));
 
-vi.mock('@/components/ui/select', () => ({
-  Select: ({ children, onValueChange }: { children: ReactNode; onValueChange: (value: string) => void }) => (
+vi.mock('@/components/ui/tabs', () => ({
+  Tabs: ({ children, onValueChange }: { children: ReactNode; onValueChange: (value: string) => void }) => (
     <div>
       <button
         type="button"
@@ -24,10 +24,8 @@ vi.mock('@/components/ui/select', () => ({
       {children}
     </div>
   ),
-  SelectTrigger: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  SelectValue: ({ placeholder }: { placeholder: string }) => <div>{placeholder}</div>,
-  SelectPopup: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  SelectItem: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  TabsList: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  TabsTrigger: ({ children }: { children: ReactNode }) => <div>{children}</div>,
 }));
 
 describe('DatabaseConnectionForm', () => {

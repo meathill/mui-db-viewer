@@ -104,9 +104,9 @@ export default function DatabasesPage() {
                   className="group relative">
                   <Link
                     href={`/databases/${db.id}`}
-                    className="absolute inset-0 z-0"
+                    className="absolute inset-0 z-1"
                   />
-                  <CardHeader className="relative z-10">
+                  <CardHeader className="relative">
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-3">
                         <div className="flex size-10 items-center justify-center rounded-xl bg-blue-100 text-blue-600 dark:bg-blue-950 dark:text-blue-400">

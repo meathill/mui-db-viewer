@@ -30,6 +30,19 @@ export interface CreateDatabaseRequest {
   password?: string;
 }
 
+export interface FileEntry {
+  name: string;
+  path: string;
+  isDirectory: boolean;
+  size?: number;
+}
+
+export interface FileBrowseResult {
+  currentPath: string;
+  parentPath: string;
+  files: FileEntry[];
+}
+
 export interface TableColumn {
   Field: string;
   Type: string;
@@ -167,6 +180,17 @@ export const api = {
       });
       if (!result.success || !result.data) {
         throw new Error(result.error || '校验 SQL 失败');
+      }
+      return result.data;
+    },
+  },
+
+  files: {
+    async browse(dirPath?: string): Promise<FileBrowseResult> {
+      const params = dirPath ? `?path=${encodeURIComponent(dirPath)}` : '';
+      const result = await request<FileBrowseResult>('GET', `/api/v1/files${params}`);
+      if (!result.success || !result.data) {
+        throw new Error(result.error || '读取目录失败');
       }
       return result.data;
     },

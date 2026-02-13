@@ -1,12 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { DatabaseIcon, EyeIcon, EyeOffIcon, Loader2Icon, CheckCircleIcon } from 'lucide-react';
+import { DatabaseIcon, EyeIcon, EyeOffIcon, Loader2Icon, CheckCircleIcon, FolderOpenIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardHeader, CardTitle, CardDescription, CardPanel, CardFooter } from '@/components/ui/card';
-import { Select, SelectTrigger, SelectValue, SelectPopup, SelectItem } from '@/components/ui/select';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { FileBrowserDialog } from '@/components/file-browser-dialog';
 import type { CreateDatabaseRequest } from '@/lib/api';
 import { useDatabaseStore } from '@/stores/database-store';
 
@@ -27,6 +28,13 @@ interface DatabaseConnectionFormProps {
 
 const LOCAL_DB_TYPES = new Set(['sqlite']);
 
+function getDescription(type: string): string {
+  if (LOCAL_DB_TYPES.has(type)) {
+    return '选择本地 SQLite 数据库文件，数据不离开你的设备';
+  }
+  return '配置你的数据库连接信息，密码将通过 HSM 加密存储';
+}
+
 export function DatabaseConnectionForm({ onSuccess }: DatabaseConnectionFormProps) {
   const createDatabase = useDatabaseStore((state) => state.createDatabase);
   const [formData, setFormData] = useState<ConnectionFormData>({
@@ -43,6 +51,7 @@ export function DatabaseConnectionForm({ onSuccess }: DatabaseConnectionFormProp
   const [saving, setSaving] = useState(false);
   const [testResult, setTestResult] = useState<'success' | 'error' | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [fileBrowserOpen, setFileBrowserOpen] = useState(false);
 
   const isLocal = LOCAL_DB_TYPES.has(formData.type);
 
@@ -76,12 +85,24 @@ export function DatabaseConnectionForm({ onSuccess }: DatabaseConnectionFormProp
     }
   }
 
+  function handleFileSelect(filePath: string) {
+    handleChange('database', filePath);
+    // 自动从文件名生成连接名称（如果未填写）
+    if (!formData.name) {
+      const fileName = filePath.split('/').pop() || '';
+      const nameWithoutExt = fileName.replace(/\.(db|sqlite|sqlite3|s3db)$/i, '');
+      if (nameWithoutExt) {
+        handleChange('name', nameWithoutExt);
+      }
+    }
+  }
+
   const isValid = isLocal
     ? formData.name && formData.type && formData.database
     : formData.name && formData.type && formData.host && formData.database && formData.username && formData.password;
 
   return (
-    <Card className="mx-auto max-w-2xl">
+    <Card className="max-w-2xl">
       <CardHeader>
         <div className="flex items-center gap-3">
           <div className="flex size-10 items-center justify-center rounded-xl bg-blue-100 text-blue-600 dark:bg-blue-950 dark:text-blue-400">
@@ -89,13 +110,32 @@ export function DatabaseConnectionForm({ onSuccess }: DatabaseConnectionFormProp
           </div>
           <div>
             <CardTitle>添加数据库连接</CardTitle>
-            <CardDescription>配置你的数据库连接信息，密码将通过 HSM 加密存储</CardDescription>
+            <CardDescription>{getDescription(formData.type)}</CardDescription>
           </div>
         </div>
       </CardHeader>
 
       <form onSubmit={handleSubmit}>
         <CardPanel className="space-y-6">
+          {/* 数据库类型 */}
+          <div className="space-y-2">
+            <Label>数据库类型</Label>
+            <Tabs
+              value={formData.type}
+              onValueChange={(v) => v && handleChange('type', v)}>
+              <TabsList className="w-full flex-wrap h-auto">
+                {DB_TYPES.map((db) => (
+                  <TabsTrigger
+                    key={db.value}
+                    value={db.value}
+                    className="flex-1 min-w-[30%]">
+                    {db.label}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
+          </div>
+
           {/* 连接名称 */}
           <div className="space-y-2">
             <Label htmlFor="name">连接名称</Label>
@@ -107,38 +147,32 @@ export function DatabaseConnectionForm({ onSuccess }: DatabaseConnectionFormProp
             />
           </div>
 
-          {/* 数据库类型 */}
-          <div className="space-y-2">
-            <Label>数据库类型</Label>
-            <Select
-              value={formData.type}
-              onValueChange={(v) => v && handleChange('type', v)}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="选择数据库类型" />
-              </SelectTrigger>
-              <SelectPopup>
-                {DB_TYPES.map((db) => (
-                  <SelectItem
-                    key={db.value}
-                    value={db.value}>
-                    {db.label}
-                  </SelectItem>
-                ))}
-              </SelectPopup>
-            </Select>
-          </div>
-
           {isLocal ? (
             /* SQLite 等本地数据库：只需文件路径 */
             <div className="space-y-2">
               <Label htmlFor="database">数据库文件路径</Label>
-              <Input
-                id="database"
-                placeholder="例如：/path/to/database.db"
-                value={formData.database}
-                onChange={(e) => handleChange('database', e.target.value)}
+              <div className="flex gap-2">
+                <Input
+                  id="database"
+                  placeholder="例如：/path/to/database.db"
+                  value={formData.database}
+                  onChange={(e) => handleChange('database', e.target.value)}
+                  className="flex-1 font-mono text-sm"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setFileBrowserOpen(true)}>
+                  <FolderOpenIcon className="mr-1.5 size-4" />
+                  浏览
+                </Button>
+              </div>
+              <p className="text-muted-foreground text-xs">输入绝对路径或点击"浏览"选择文件</p>
+              <FileBrowserDialog
+                open={fileBrowserOpen}
+                onOpenChange={setFileBrowserOpen}
+                onSelect={handleFileSelect}
               />
-              <p className="text-muted-foreground text-xs">输入本地 SQLite 数据库文件的绝对路径</p>
             </div>
           ) : (
             <>

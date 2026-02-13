@@ -6,6 +6,7 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { databaseRoutes } from './routes/database';
+import { fileRoutes } from './routes/file-routes';
 import { queryRoutes } from './routes/query';
 
 interface Env {
@@ -38,5 +39,8 @@ app.route('/api/v1/databases', databaseRoutes);
 
 // 查询路由
 app.route('/api/v1/query', queryRoutes);
+
+// 文件浏览路由
+app.route('/api/v1/files', fileRoutes);
 
 export default app;
