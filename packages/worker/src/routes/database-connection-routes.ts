@@ -52,7 +52,8 @@ databaseConnectionRoutes.post(
     const body = c.req.valid('json');
 
     const id = crypto.randomUUID();
-    const keyPath = `vibedb/databases/${id}/password`;
+    const isSqlite = body.type === 'sqlite';
+    const keyPath = isSqlite ? '' : `vibedb/databases/${id}/password`;
     const now = new Date().toISOString();
 
     const connection: DatabaseConnection = {
@@ -69,11 +70,13 @@ databaseConnectionRoutes.post(
     };
 
     try {
-      const hsm = createHsmClient({
-        url: c.env.HSM_URL,
-        secret: c.env.HSM_SECRET,
-      });
-      await hsm.encrypt(keyPath, body.password);
+      if (!isSqlite) {
+        const hsm = createHsmClient({
+          url: c.env.HSM_URL,
+          secret: c.env.HSM_SECRET,
+        });
+        await hsm.encrypt(keyPath, body.password);
+      }
 
       await c.env.DB.prepare(
         `INSERT INTO database_connections (id, name, type, host, port, database_name, username, key_path, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -155,11 +158,13 @@ databaseConnectionRoutes.delete('/:id', async (c) => {
   }
 
   try {
-    const hsm = createHsmClient({
-      url: c.env.HSM_URL,
-      secret: c.env.HSM_SECRET,
-    });
-    await hsm.delete(connection.keyPath);
+    if (connection.type !== 'sqlite' && connection.keyPath) {
+      const hsm = createHsmClient({
+        url: c.env.HSM_URL,
+        secret: c.env.HSM_SECRET,
+      });
+      await hsm.delete(connection.keyPath);
+    }
     await c.env.DB.prepare(`DELETE FROM database_connections WHERE id = ?`).bind(id).run();
 
     return c.json<ApiResponse>({ success: true });

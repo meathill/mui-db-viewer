@@ -16,6 +16,7 @@ const DB_TYPES = [
   { value: 'supabase', label: 'Supabase' },
   { value: 'mysql', label: 'MySQL' },
   { value: 'postgres', label: 'PostgreSQL' },
+  { value: 'sqlite', label: 'SQLite' },
 ];
 
 type ConnectionFormData = CreateDatabaseRequest;
@@ -23,6 +24,8 @@ type ConnectionFormData = CreateDatabaseRequest;
 interface DatabaseConnectionFormProps {
   onSuccess?: () => void;
 }
+
+const LOCAL_DB_TYPES = new Set(['sqlite']);
 
 export function DatabaseConnectionForm({ onSuccess }: DatabaseConnectionFormProps) {
   const createDatabase = useDatabaseStore((state) => state.createDatabase);
@@ -40,6 +43,8 @@ export function DatabaseConnectionForm({ onSuccess }: DatabaseConnectionFormProp
   const [saving, setSaving] = useState(false);
   const [testResult, setTestResult] = useState<'success' | 'error' | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const isLocal = LOCAL_DB_TYPES.has(formData.type);
 
   function handleChange(field: keyof ConnectionFormData, value: string) {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -71,8 +76,9 @@ export function DatabaseConnectionForm({ onSuccess }: DatabaseConnectionFormProp
     }
   }
 
-  const isValid =
-    formData.name && formData.type && formData.host && formData.database && formData.username && formData.password;
+  const isValid = isLocal
+    ? formData.name && formData.type && formData.database
+    : formData.name && formData.type && formData.host && formData.database && formData.username && formData.password;
 
   return (
     <Card className="mx-auto max-w-2xl">
@@ -122,71 +128,87 @@ export function DatabaseConnectionForm({ onSuccess }: DatabaseConnectionFormProp
             </Select>
           </div>
 
-          {/* Host 和 Port */}
-          <div className="grid gap-4 sm:grid-cols-3">
-            <div className="space-y-2 sm:col-span-2">
-              <Label htmlFor="host">主机地址</Label>
-              <Input
-                id="host"
-                placeholder="例如：db.example.com"
-                value={formData.host}
-                onChange={(e) => handleChange('host', e.target.value)}
-              />
-            </div>
+          {isLocal ? (
+            /* SQLite 等本地数据库：只需文件路径 */
             <div className="space-y-2">
-              <Label htmlFor="port">端口</Label>
+              <Label htmlFor="database">数据库文件路径</Label>
               <Input
-                id="port"
-                placeholder="3306"
-                value={formData.port}
-                onChange={(e) => handleChange('port', e.target.value)}
+                id="database"
+                placeholder="例如：/path/to/database.db"
+                value={formData.database}
+                onChange={(e) => handleChange('database', e.target.value)}
               />
+              <p className="text-muted-foreground text-xs">输入本地 SQLite 数据库文件的绝对路径</p>
             </div>
-          </div>
+          ) : (
+            <>
+              {/* Host 和 Port */}
+              <div className="grid gap-4 sm:grid-cols-3">
+                <div className="space-y-2 sm:col-span-2">
+                  <Label htmlFor="host">主机地址</Label>
+                  <Input
+                    id="host"
+                    placeholder="例如：db.example.com"
+                    value={formData.host}
+                    onChange={(e) => handleChange('host', e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="port">端口</Label>
+                  <Input
+                    id="port"
+                    placeholder="3306"
+                    value={formData.port}
+                    onChange={(e) => handleChange('port', e.target.value)}
+                  />
+                </div>
+              </div>
 
-          {/* 数据库名 */}
-          <div className="space-y-2">
-            <Label htmlFor="database">数据库名</Label>
-            <Input
-              id="database"
-              placeholder="输入数据库名称"
-              value={formData.database}
-              onChange={(e) => handleChange('database', e.target.value)}
-            />
-          </div>
+              {/* 数据库名 */}
+              <div className="space-y-2">
+                <Label htmlFor="database">数据库名</Label>
+                <Input
+                  id="database"
+                  placeholder="输入数据库名称"
+                  value={formData.database}
+                  onChange={(e) => handleChange('database', e.target.value)}
+                />
+              </div>
 
-          {/* 用户名 */}
-          <div className="space-y-2">
-            <Label htmlFor="username">用户名</Label>
-            <Input
-              id="username"
-              placeholder="输入数据库用户名"
-              value={formData.username}
-              onChange={(e) => handleChange('username', e.target.value)}
-            />
-          </div>
+              {/* 用户名 */}
+              <div className="space-y-2">
+                <Label htmlFor="username">用户名</Label>
+                <Input
+                  id="username"
+                  placeholder="输入数据库用户名"
+                  value={formData.username}
+                  onChange={(e) => handleChange('username', e.target.value)}
+                />
+              </div>
 
-          {/* 密码 */}
-          <div className="space-y-2">
-            <Label htmlFor="password">密码</Label>
-            <div className="relative">
-              <Input
-                id="password"
-                type={showPassword ? 'text' : 'password'}
-                placeholder="输入数据库密码"
-                value={formData.password}
-                onChange={(e) => handleChange('password', e.target.value)}
-                className="pr-10"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-                {showPassword ? <EyeOffIcon className="size-4" /> : <EyeIcon className="size-4" />}
-              </button>
-            </div>
-            <p className="text-muted-foreground text-xs">密码将通过 HSM 加密，后端不会接触明文</p>
-          </div>
+              {/* 密码 */}
+              <div className="space-y-2">
+                <Label htmlFor="password">密码</Label>
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="输入数据库密码"
+                    value={formData.password}
+                    onChange={(e) => handleChange('password', e.target.value)}
+                    className="pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                    {showPassword ? <EyeOffIcon className="size-4" /> : <EyeIcon className="size-4" />}
+                  </button>
+                </div>
+                <p className="text-muted-foreground text-xs">密码将通过 HSM 加密，后端不会接触明文</p>
+              </div>
+            </>
+          )}
         </CardPanel>
 
         <CardFooter className="flex flex-col gap-3 border-t">

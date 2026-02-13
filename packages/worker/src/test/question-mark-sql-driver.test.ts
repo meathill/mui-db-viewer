@@ -54,10 +54,7 @@ function toQueryRows(columns: TableColumn[]): QueryRows {
 describe('question-mark-sql-driver', () => {
   it('getTables 返回表名并触发连接', async () => {
     const driver = new MockQuestionMarkSqlDriver();
-    driver.queueResult([
-      { Tables_in_app: 'users' },
-      { Tables_in_app: 'orders' },
-    ]);
+    driver.queueResult([{ Tables_in_app: 'users' }, { Tables_in_app: 'orders' }]);
 
     const tables = await driver.getTables();
 

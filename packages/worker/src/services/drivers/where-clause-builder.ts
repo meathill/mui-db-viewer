@@ -137,7 +137,8 @@ export async function buildPostgresWhereClause(
   return buildWhereClauseByDialect(filters, loadSchema, {
     startIndex,
     requireNumericSearchValue: true,
-    buildExpressionSql: (expression, validColumns, initialIndex) => expressionToSqlPg(expression, validColumns, initialIndex),
+    buildExpressionSql: (expression, validColumns, initialIndex) =>
+      expressionToSqlPg(expression, validColumns, initialIndex),
     buildTextSearchCondition: (field, index) => `"${field}"::text LIKE $${index}`,
     buildNumericSearchCondition: (field, index) => `"${field}" = $${index}`,
     buildEqualsCondition: (field, index) => `"${field}" = $${index}`,

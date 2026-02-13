@@ -16,7 +16,7 @@ export interface DatabaseConnection {
   updatedAt: string;
 }
 
-export const DATABASE_TYPES = ['tidb', 'd1', 'supabase', 'mysql', 'postgres'] as const;
+export const DATABASE_TYPES = ['tidb', 'd1', 'supabase', 'mysql', 'postgres', 'sqlite'] as const;
 export type DatabaseType = (typeof DATABASE_TYPES)[number];
 
 export type DatabaseFieldValue = string | number | boolean | null;

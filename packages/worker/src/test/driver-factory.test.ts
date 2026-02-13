@@ -4,6 +4,7 @@ import { createDatabaseDriver } from '../services/drivers/factory';
 import { D1Driver } from '../services/drivers/d1';
 import { MySQLDriver } from '../services/drivers/mysql';
 import { PostgresDriver } from '../services/drivers/postgres';
+import { SQLiteDriver } from '../services/drivers/sqlite';
 import { TiDBDriver } from '../services/drivers/tidb';
 
 function createConnection(type: DatabaseType): DatabaseConnection {
@@ -44,6 +45,14 @@ describe('driver factory', () => {
     const driver = createDatabaseDriver(createConnection('d1'), undefined, env);
 
     expect(driver).toBeInstanceOf(D1Driver);
+  });
+
+  it('SQLite 应创建 SQLiteDriver', () => {
+    const conn = createConnection('sqlite');
+    conn.database = '/tmp/test.db';
+    const driver = createDatabaseDriver(conn);
+
+    expect(driver).toBeInstanceOf(SQLiteDriver);
   });
 
   it('未实现的数据库类型应返回统一错误', () => {

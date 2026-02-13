@@ -23,11 +23,11 @@ export interface DatabaseConnection {
 export interface CreateDatabaseRequest {
   name: string;
   type: string;
-  host: string;
-  port: string;
+  host?: string;
+  port?: string;
   database: string;
-  username: string;
-  password: string;
+  username?: string;
+  password?: string;
 }
 
 export interface TableColumn {

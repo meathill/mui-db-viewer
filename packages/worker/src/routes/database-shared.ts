@@ -49,11 +49,16 @@ export async function withDatabaseService<T>(
   connection: DatabaseConnection,
   execute: (service: DatabaseService) => Promise<T>,
 ): Promise<T> {
-  const hsm = createHsmClient({
-    url: env.HSM_URL,
-    secret: env.HSM_SECRET,
-  });
-  const password = await hsm.decrypt(connection.keyPath);
+  let password: string | undefined;
+
+  if (connection.type !== 'sqlite') {
+    const hsm = createHsmClient({
+      url: env.HSM_URL,
+      secret: env.HSM_SECRET,
+    });
+    password = await hsm.decrypt(connection.keyPath);
+  }
+
   const dbService = new DatabaseService(connection, password, env);
 
   try {

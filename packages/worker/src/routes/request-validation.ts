@@ -18,18 +18,58 @@ const databaseTypeSchema = z.enum(DATABASE_TYPES);
 const rowIdSchema = z.union([z.string(), z.number()]);
 const plainObjectSchema = z.object({}).catchall(z.unknown());
 
-const createDatabaseRequiredFieldsSchema = z.object({
+const baseCreateDatabaseSchema = z.object({
   name: nonEmptyStringSchema,
   type: databaseTypeSchema,
-  host: nonEmptyStringSchema,
+  host: z.string().optional().default(''),
+  port: z.string().optional().default(''),
   database: nonEmptyStringSchema,
-  username: nonEmptyStringSchema,
-  password: nonEmptyStringSchema,
+  username: z.string().optional().default(''),
+  password: z.string().optional().default(''),
 });
 
-const createDatabasePayloadSchema = createDatabaseRequiredFieldsSchema.extend({
-  port: z.string().optional(),
+const createDatabasePayloadSchema = baseCreateDatabaseSchema.superRefine((data, ctx) => {
+  if (data.type === 'sqlite') return;
+
+  if (!data.host || data.host.trim().length === 0) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: '主机地址不能为空', path: ['host'] });
+  }
+  if (!data.username || data.username.trim().length === 0) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: '用户名不能为空', path: ['username'] });
+  }
+  if (!data.password || data.password.trim().length === 0) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: '密码不能为空', path: ['password'] });
+  }
 });
+
+const createDatabaseRequiredFieldsSchema = baseCreateDatabaseSchema;
+
+export function hasRequiredCreateFields(payload: unknown): payload is CreateDatabaseRequest {
+  return createDatabaseRequiredFieldsSchema.safeParse(payload).success;
+}
+
+export function parseCreateDatabaseRequest(payload: unknown): ValidationResult<CreateDatabaseRequest> {
+  const result = createDatabasePayloadSchema.safeParse(payload);
+  if (!result.success) {
+    return { success: false, error: '缺少必填字段' };
+  }
+
+  const isSqlite = result.data.type === 'sqlite';
+  const port = isSqlite ? '' : result.data.port && result.data.port.trim() ? result.data.port : '3306';
+
+  return {
+    success: true,
+    data: {
+      name: result.data.name,
+      type: result.data.type,
+      host: result.data.host ?? '',
+      port,
+      database: result.data.database,
+      username: result.data.username ?? '',
+      password: result.data.password ?? '',
+    },
+  };
+}
 
 const rowIdArraySchema = z.array(rowIdSchema).nonempty();
 const rowUpdateSchema = z.object({
@@ -54,36 +94,6 @@ const generateSqlRequestSchema = z.object({
 const validateSqlRequestSchema = z.object({
   sql: nonEmptyStringSchema,
 });
-
-function isNonEmptyString(value: unknown): value is string {
-  return nonEmptyStringSchema.safeParse(value).success;
-}
-
-export function hasRequiredCreateFields(payload: unknown): payload is CreateDatabaseRequest {
-  return createDatabaseRequiredFieldsSchema.safeParse(payload).success;
-}
-
-export function parseCreateDatabaseRequest(payload: unknown): ValidationResult<CreateDatabaseRequest> {
-  const result = createDatabasePayloadSchema.safeParse(payload);
-  if (!result.success) {
-    return { success: false, error: '缺少必填字段' };
-  }
-
-  const port = isNonEmptyString(result.data.port) ? result.data.port : '3306';
-
-  return {
-    success: true,
-    data: {
-      name: result.data.name,
-      type: result.data.type,
-      host: result.data.host,
-      port,
-      database: result.data.database,
-      username: result.data.username,
-      password: result.data.password,
-    },
-  };
-}
 
 export function isValidRowIdArray(value: unknown): value is Array<string | number> {
   return rowIdArraySchema.safeParse(value).success;

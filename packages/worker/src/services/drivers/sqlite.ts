@@ -1,4 +1,4 @@
-import type { D1Database } from '@cloudflare/workers-types';
+import Database from 'better-sqlite3';
 import type { TableColumn } from '../../types';
 import { QuestionMarkSqlDriver } from './question-mark-sql-driver';
 
@@ -10,27 +10,36 @@ interface PragmaTableInfoRow {
   notnull: number;
 }
 
-export class D1Driver extends QuestionMarkSqlDriver {
-  constructor(private db: D1Database) {
+export class SQLiteDriver extends QuestionMarkSqlDriver {
+  private db: Database.Database | null = null;
+
+  constructor(private filePath: string) {
     super();
   }
 
-  async connect() {
-    // D1 is always connected via binding
+  async connect(): Promise<void> {
+    if (this.db) return;
+    this.db = new Database(this.filePath, { readonly: false });
+    this.db.pragma('journal_mode = WAL');
   }
 
-  async disconnect() {
-    // No-op
+  async disconnect(): Promise<void> {
+    if (this.db) {
+      this.db.close();
+      this.db = null;
+    }
   }
 
   async getTables(): Promise<string[]> {
+    await this.connect();
     const rows = await this.executeQuery(
-      "SELECT name FROM sqlite_master WHERE type='table' AND name != '_cf_KV' AND name != 'sqlite_sequence'",
+      "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'",
     );
     return rows.map((row) => String(row.name));
   }
 
   async getTableSchema(tableName: string): Promise<TableColumn[]> {
+    await this.connect();
     const rows = await this.executeQuery(`PRAGMA table_info(\`${tableName}\`)`);
     return (rows as unknown as PragmaTableInfoRow[]).map((row) => ({
       Field: row.name,
@@ -42,12 +51,10 @@ export class D1Driver extends QuestionMarkSqlDriver {
   }
 
   protected async executeQuery(query: string, params?: unknown[]): Promise<Array<Record<string, unknown>>> {
-    const stmt = this.db.prepare(query);
+    await this.connect();
     if (params && params.length > 0) {
-      const { results } = await stmt.bind(...params).all();
-      return results as Array<Record<string, unknown>>;
+      return this.db!.prepare(query).all(...params) as Array<Record<string, unknown>>;
     }
-    const { results } = await stmt.all();
-    return results as Array<Record<string, unknown>>;
+    return this.db!.prepare(query).all() as Array<Record<string, unknown>>;
   }
 }

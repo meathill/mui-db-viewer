@@ -3,6 +3,7 @@ import { D1Driver } from './d1';
 import type { IDatabaseDriver } from './interface';
 import { MySQLDriver } from './mysql';
 import { PostgresDriver } from './postgres';
+import { SQLiteDriver } from './sqlite';
 import { TiDBDriver } from './tidb';
 
 interface DriverFactoryContext {
@@ -26,6 +27,7 @@ const DRIVER_FACTORIES: Partial<Record<DatabaseType, DriverFactory>> = {
   mysql: (context) => new MySQLDriver(context.config, context.password),
   postgres: (context) => new PostgresDriver(context.config, context.password),
   d1: createD1Driver,
+  sqlite: (context) => new SQLiteDriver(context.config.database),
 };
 
 export function createDatabaseDriver(config: DatabaseConnection, password?: string, env?: Env): IDatabaseDriver {
