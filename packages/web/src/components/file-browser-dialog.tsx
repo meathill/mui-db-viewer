@@ -131,10 +131,11 @@ export function FileBrowserDialog({ open, onOpenChange, onSelect }: FileBrowserD
               {!loading &&
                 !error &&
                 files.map((entry) => (
-                  <button
+                  <Button
                     key={entry.path}
                     type="button"
-                    className="flex w-full items-center gap-3 px-3 py-2 text-left text-sm transition-colors hover:bg-accent"
+                    variant="ghost"
+                    className="h-auto w-full justify-start gap-3 px-3 py-2 text-left text-sm font-normal transition-colors hover:bg-accent"
                     onClick={() => handleNavigate(entry)}>
                     {entry.isDirectory ? (
                       <FolderIcon className="size-4 shrink-0 text-blue-500" />
@@ -145,7 +146,7 @@ export function FileBrowserDialog({ open, onOpenChange, onSelect }: FileBrowserD
                     {!entry.isDirectory && entry.size != null && (
                       <span className="shrink-0 text-muted-foreground text-xs">{formatFileSize(entry.size)}</span>
                     )}
-                  </button>
+                  </Button>
                 ))}
             </div>
           </div>

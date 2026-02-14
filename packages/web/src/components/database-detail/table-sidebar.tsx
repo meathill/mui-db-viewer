@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { ChevronLeft, Database, TableIcon } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 interface TableSidebarProps {
@@ -31,16 +32,20 @@ export function TableSidebar({ tables, selectedTable, error, onSelectTable }: Ta
         )}
         <nav className="space-y-1">
           {tables.map((table) => (
-            <button
+            <Button
               key={table}
+              type="button"
+              variant="ghost"
               onClick={() => onSelectTable(table)}
               className={cn(
-                'w-full text-left px-3 py-2 rounded-md text-sm flex items-center gap-2 transition-colors',
-                selectedTable === table ? 'bg-primary text-primary-foreground' : 'hover:bg-muted',
+                'h-auto w-full justify-start gap-2 px-3 py-2 text-left text-sm font-normal transition-colors',
+                selectedTable === table
+                  ? 'bg-primary text-primary-foreground hover:bg-primary/90 data-[pressed]:bg-primary/90'
+                  : 'hover:bg-muted',
               )}>
               <TableIcon className="h-4 w-4 opacity-70" />
               <span className="truncate">{table}</span>
-            </button>
+            </Button>
           ))}
         </nav>
       </div>

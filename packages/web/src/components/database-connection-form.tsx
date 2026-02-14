@@ -62,6 +62,10 @@ export function DatabaseConnectionForm({ onSuccess }: DatabaseConnectionFormProp
     setError(null);
   }
 
+  function handleTogglePasswordVisibility() {
+    setShowPassword((prev) => !prev);
+  }
+
   async function handleTestConnection() {
     setTesting(true);
     setTestResult(null);
@@ -236,12 +240,15 @@ export function DatabaseConnectionForm({ onSuccess }: DatabaseConnectionFormProp
                     onChange={(e) => handleChange('password', e.target.value)}
                     className="pr-10"
                   />
-                  <button
+                  <Button
                     type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={handleTogglePasswordVisibility}
+                    aria-label={showPassword ? '隐藏密码' : '显示密码'}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
                     {showPassword ? <EyeOffIcon className="size-4" /> : <EyeIcon className="size-4" />}
-                  </button>
+                  </Button>
                 </div>
                 <p className="text-muted-foreground text-xs">密码将通过 HSM 加密，后端不会接触明文</p>
               </div>
