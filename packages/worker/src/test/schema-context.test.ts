@@ -22,14 +22,12 @@ interface MockD1Database {
 }
 
 function createMockEnvWithSchemaCache(): Env {
-  let cacheRow:
-    | {
-        database_id: string;
-        schema_text: string;
-        updated_at: number;
-        expires_at: number;
-      }
-    | null = null;
+  let cacheRow: {
+    database_id: string;
+    schema_text: string;
+    updated_at: number;
+    expires_at: number;
+  } | null = null;
 
   const db: MockD1Database = {
     prepare(query: string) {
