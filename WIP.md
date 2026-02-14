@@ -8,8 +8,7 @@
 ## 近期：发布准备（Schema 上下文）
 
 - [ ] Worker：应用 D1 迁移（`packages/worker/migrations/0003_schema_cache.sql`）
-- [ ] 文档：补齐 D1 migrations 的部署步骤（`DEPLOYMENT.md`）
-- [ ] 文档：记录 Schema 注入/缓存/刷新策略与接口（`DEV_NOTE.md`）
+- [ ] 回归：验证 AI 查询生成/刷新 Schema 按钮链路
 
 ## 近期：继续维护（提取通用逻辑）
 
