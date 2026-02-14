@@ -14,6 +14,12 @@ interface SchemaCacheRow {
   expires_at: number | string;
 }
 
+function isMissingSchemaCacheTableError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  const message = error.message.toLowerCase();
+  return message.includes('no such table') && message.includes('database_schema_cache');
+}
+
 function parseNumber(value: unknown): number | null {
   if (typeof value === 'number' && Number.isFinite(value)) {
     return value;
@@ -35,11 +41,18 @@ export function isSchemaCacheValid(entry: SchemaCacheEntry, now: number): boolea
 }
 
 export async function readSchemaCache(env: Env, databaseId: string): Promise<SchemaCacheEntry | null> {
-  const row = await env.DB.prepare(
-    'SELECT database_id, schema_text, updated_at, expires_at FROM database_schema_cache WHERE database_id = ?',
-  )
-    .bind(databaseId)
-    .first();
+  let row: Record<string, unknown> | null;
+  try {
+    row = await env.DB.prepare(
+      'SELECT database_id, schema_text, updated_at, expires_at FROM database_schema_cache WHERE database_id = ?',
+    )
+      .bind(databaseId)
+      .first();
+  } catch (error) {
+    // 迁移未执行时允许降级为“无缓存”模式，避免直接阻断 AI 查询。
+    if (isMissingSchemaCacheTableError(error)) return null;
+    throw error;
+  }
 
   if (!row) return null;
 
@@ -57,19 +70,29 @@ export async function readSchemaCache(env: Env, databaseId: string): Promise<Sch
 }
 
 export async function upsertSchemaCache(env: Env, entry: SchemaCacheEntry): Promise<void> {
-  await env.DB.prepare(
-    `INSERT INTO database_schema_cache (database_id, schema_text, updated_at, expires_at)
-     VALUES (?, ?, ?, ?)
-     ON CONFLICT(database_id) DO UPDATE SET
-       schema_text = excluded.schema_text,
-       updated_at = excluded.updated_at,
-       expires_at = excluded.expires_at`,
-  )
-    .bind(entry.databaseId, entry.schema, entry.updatedAt, entry.expiresAt)
-    .run();
+  try {
+    await env.DB.prepare(
+      `INSERT INTO database_schema_cache (database_id, schema_text, updated_at, expires_at)
+       VALUES (?, ?, ?, ?)
+       ON CONFLICT(database_id) DO UPDATE SET
+         schema_text = excluded.schema_text,
+         updated_at = excluded.updated_at,
+         expires_at = excluded.expires_at`,
+    )
+      .bind(entry.databaseId, entry.schema, entry.updatedAt, entry.expiresAt)
+      .run();
+  } catch (error) {
+    // 迁移未执行时不写入缓存，保持主流程可用。
+    if (isMissingSchemaCacheTableError(error)) return;
+    throw error;
+  }
 }
 
 export async function deleteSchemaCache(env: Env, databaseId: string): Promise<void> {
-  await env.DB.prepare('DELETE FROM database_schema_cache WHERE database_id = ?').bind(databaseId).run();
+  try {
+    await env.DB.prepare('DELETE FROM database_schema_cache WHERE database_id = ?').bind(databaseId).run();
+  } catch (error) {
+    if (isMissingSchemaCacheTableError(error)) return;
+    throw error;
+  }
 }
-

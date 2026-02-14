@@ -72,6 +72,38 @@ function createMockEnvWithSchemaCache(): Env {
   };
 }
 
+function createMockEnvWithoutSchemaCacheTable(): Env {
+  const db: MockD1Database = {
+    prepare(query: string) {
+      if (query.includes('database_schema_cache')) {
+        throw new Error('no such table: database_schema_cache');
+      }
+
+      return {
+        bind() {
+          return {
+            async run() {
+              return { success: true };
+            },
+            async first() {
+              return null;
+            },
+          };
+        },
+      };
+    },
+  };
+
+  return {
+    HSM_URL: 'https://hsm.example.com',
+    HSM_SECRET: 'test-secret',
+    OPENAI_API_KEY: 'test-openai-key',
+    OPENAI_MODEL: 'gpt-4o-mini',
+    OPENAI_BASE_URL: 'https://api.openai.com/v1',
+    DB: db as unknown as Env['DB'],
+  };
+}
+
 function createMockConnection(overrides: Partial<DatabaseConnection> = {}): DatabaseConnection {
   const now = new Date().toISOString();
   return {
@@ -183,5 +215,27 @@ describe('schema context', () => {
 
     expect(withDatabaseService).toHaveBeenCalledTimes(2);
   });
-});
 
+  it('schema cache 表不存在时应自动降级为无缓存模式', async () => {
+    const env = createMockEnvWithoutSchemaCacheTable();
+    const connection = createMockConnection();
+
+    vi.mocked(withDatabaseService).mockImplementation(async (_env, _connection, execute) => {
+      const dbService = {
+        async getTables() {
+          return ['users'];
+        },
+        async getTableSchema(_tableName: string) {
+          return [{ Field: 'id', Type: 'int', Null: 'NO', Key: 'PRI' }] as TableColumn[];
+        },
+      };
+
+      return execute(dbService as unknown as import('../services/db').DatabaseService);
+    });
+
+    const result = await getDatabaseSchemaContext(env, connection, { now: 1 });
+    expect(result.cached).toBe(false);
+    expect(result.schema).toContain('表: users');
+    expect(withDatabaseService).toHaveBeenCalledTimes(1);
+  });
+});
