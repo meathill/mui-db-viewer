@@ -8,7 +8,7 @@ import { MagicSearch } from '@/components/magic-search';
 import { Card, CardHeader, CardTitle, CardDescription, CardPanel } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { DatabaseIcon, ActivityIcon, AlertTriangleIcon, TrendingUpIcon } from 'lucide-react';
-import { Dialog, DialogPortal, DialogBackdrop, DialogPopup } from '@/components/ui/dialog';
+import { Dialog, DialogPopup } from '@/components/ui/dialog';
 import { DatabaseConnectionForm } from '@/components/database-connection-form';
 import { useDatabaseStore } from '@/stores/database-store';
 
@@ -145,16 +145,13 @@ export function Dashboard() {
         <Dialog
           open={dialogOpen}
           onOpenChange={setDialogOpen}>
-          <DialogPortal>
-            <DialogBackdrop />
-            <DialogPopup className="max-w-2xl p-0">
-              <DatabaseConnectionForm
-                onSuccess={() => {
-                  setDialogOpen(false);
-                }}
-              />
-            </DialogPopup>
-          </DialogPortal>
+          <DialogPopup className="max-w-2xl p-0">
+            <DatabaseConnectionForm
+              onSuccess={() => {
+                setDialogOpen(false);
+              }}
+            />
+          </DialogPopup>
         </Dialog>
       </SidebarInset>
     </SidebarProvider>

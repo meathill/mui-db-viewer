@@ -1,7 +1,7 @@
 import type { TableColumn } from '@/lib/api';
 import { shouldSkipInsertColumn } from '@/lib/table-data-utils';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogPanel, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
@@ -28,42 +28,42 @@ export function InsertRowDialog({
     <Dialog
       open={open}
       onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-h-[80vh] p-0">
         <DialogHeader>
           <DialogTitle>Add New Row</DialogTitle>
         </DialogHeader>
-        <div className="grid gap-4 py-4 px-6">
-          {columns?.map((column) => {
-            if (shouldSkipInsertColumn(column)) {
-              return null;
-            }
 
-            return (
-              <div
-                key={column.Field}
-                className="grid grid-cols-4 items-center gap-4">
-                <Label
-                  htmlFor={column.Field}
-                  className="text-right">
-                  {column.Field}
-                </Label>
-                <Input
-                  id={column.Field}
-                  value={String(insertData[column.Field] ?? '')}
-                  onChange={(event) => onInsertFieldChange(column.Field, event.target.value)}
-                  className="col-span-3"
-                  placeholder={column.Type}
-                />
-              </div>
-            );
-          })}
-        </div>
+        <DialogPanel>
+          <div className="grid gap-4">
+            {columns?.map((column) => {
+              if (shouldSkipInsertColumn(column)) {
+                return null;
+              }
+
+              return (
+                <div
+                  key={column.Field}
+                  className="grid grid-cols-4 items-center gap-4">
+                  <Label
+                    htmlFor={column.Field}
+                    className="text-right">
+                    {column.Field}
+                  </Label>
+                  <Input
+                    id={column.Field}
+                    value={String(insertData[column.Field] ?? '')}
+                    onChange={(event) => onInsertFieldChange(column.Field, event.target.value)}
+                    className="col-span-3"
+                    placeholder={column.Type}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        </DialogPanel>
+
         <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
+          <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>
           <Button
             onClick={onInsert}
             disabled={insertLoading}>

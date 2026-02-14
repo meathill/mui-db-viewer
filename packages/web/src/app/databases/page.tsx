@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardPanel } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogTrigger, DialogPortal, DialogBackdrop, DialogPopup } from '@/components/ui/dialog';
+import { Dialog, DialogTrigger, DialogPopup } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/menu';
 import { DatabaseConnectionForm } from '@/components/database-connection-form';
 import { Empty, EmptyMedia, EmptyTitle, EmptyDescription, EmptyContent } from '@/components/ui/empty';
@@ -66,16 +66,13 @@ export default function DatabasesPage() {
                 </Button>
               }
             />
-            <DialogPortal>
-              <DialogBackdrop />
-              <DialogPopup className="max-w-2xl p-0">
-                <DatabaseConnectionForm
-                  onSuccess={() => {
-                    setDialogOpen(false);
-                  }}
-                />
-              </DialogPopup>
-            </DialogPortal>
+            <DialogPopup className="max-w-2xl p-0">
+              <DatabaseConnectionForm
+                onSuccess={() => {
+                  setDialogOpen(false);
+                }}
+              />
+            </DialogPopup>
           </Dialog>
         </header>
 
