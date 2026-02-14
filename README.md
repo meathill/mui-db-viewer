@@ -58,3 +58,7 @@ pnpm --filter worker dev
 - `TESTING.md`：测试策略与命令
 - `DEPLOYMENT.md`：部署流程
 - `DEV_NOTE.md`：开发注意事项与长期约定
+- `PRD.md`：产品草案（可能与当前实现存在差异）
+- `WIP.md`：短期计划（保持精简）
+- `TODO.md`：长期待办
+- `AGENTS.md`：AI 行为准则
