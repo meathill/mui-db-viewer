@@ -28,6 +28,15 @@ vi.mock('@/components/ui/tabs', () => ({
   TabsTrigger: ({ children }: { children: ReactNode }) => <div>{children}</div>,
 }));
 
+vi.mock('@/components/ui/dialog', () => ({
+  DialogHeader: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  DialogTitle: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  DialogDescription: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  DialogPanel: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  DialogFooter: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  DialogClose: ({ children }: { children: ReactNode }) => <button type="button">{children}</button>,
+}));
+
 describe('DatabaseConnectionForm', () => {
   beforeEach(() => {
     vi.clearAllMocks();

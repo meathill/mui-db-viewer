@@ -12,6 +12,7 @@ import {
   DialogDescription,
   DialogPanel,
   DialogFooter,
+  DialogClose,
 } from '@/components/ui/dialog';
 import { api } from '@/lib/api';
 import type { FileEntry } from '@/lib/api';
@@ -151,11 +152,7 @@ export function FileBrowserDialog({ open, onOpenChange, onSelect }: FileBrowserD
         </DialogPanel>
 
         <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}>
-            取消
-          </Button>
+          <DialogClose render={<Button variant="outline" />}>取消</DialogClose>
         </DialogFooter>
       </DialogPopup>
     </Dialog>

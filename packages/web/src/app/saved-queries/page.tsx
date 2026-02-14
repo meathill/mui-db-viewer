@@ -12,14 +12,35 @@ import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Empty, EmptyMedia, EmptyTitle, EmptyDescription } from '@/components/ui/empty';
+import {
+  AlertDialog,
+  AlertDialogClose,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogPopup,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { api, type SavedQuery } from '@/lib/api';
 import { useQueryStore } from '@/stores/query-store';
 import { useDatabaseStore } from '@/stores/database-store';
+
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message.trim()) {
+    return error.message;
+  }
+
+  return '未知错误';
+}
 
 export default function SavedQueriesPage() {
   const [queries, setQueries] = useState<SavedQuery[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const router = useRouter();
   const setInput = useQueryStore((state) => state.setInput);
   const setSelectedDatabaseId = useQueryStore((state) => state.setSelectedDatabaseId);
@@ -43,14 +64,30 @@ export default function SavedQueriesPage() {
     }
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm('确定要删除这个保存的查询吗？')) return;
+  function handleRequestDelete(id: string, name: string) {
+    setDeleteTarget({ id, name });
+    setDeleteError(null);
+    setDeleteDialogOpen(true);
+  }
+
+  async function handleConfirmDelete() {
+    if (!deleteTarget || deleting) {
+      return;
+    }
+
+    setDeleting(true);
+    setDeleteError(null);
+
     try {
-      await api.savedQueries.delete(id);
-      setQueries((prev) => prev.filter((q) => q.id !== id));
+      await api.savedQueries.delete(deleteTarget.id);
+      setQueries((prev) => prev.filter((q) => q.id !== deleteTarget.id));
+      setDeleteDialogOpen(false);
+      setDeleteTarget(null);
     } catch (error) {
       console.error('Failed to delete query:', error);
-      alert('删除失败');
+      setDeleteError(`删除失败：${getErrorMessage(error)}`);
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -140,7 +177,7 @@ export default function SavedQueriesPage() {
                               variant="ghost"
                               size="icon"
                               className="size-8 text-destructive opacity-0 group-hover:opacity-100"
-                              onClick={() => handleDelete(query.id)}
+                              onClick={() => handleRequestDelete(query.id, query.name)}
                               title="删除">
                               <TrashIcon className="size-4" />
                             </Button>
@@ -172,6 +209,47 @@ export default function SavedQueriesPage() {
             </div>
           </main>
         </div>
+
+        <AlertDialog
+          open={deleteDialogOpen}
+          onOpenChange={(open) => {
+            setDeleteDialogOpen(open);
+            if (!open) {
+              setDeleteTarget(null);
+              setDeleteError(null);
+              setDeleting(false);
+            }
+          }}>
+          <AlertDialogPopup className="max-w-md">
+            <AlertDialogHeader>
+              <AlertDialogTitle>确认删除</AlertDialogTitle>
+              <AlertDialogDescription>
+                {deleteTarget
+                  ? `此操作将删除保存的查询“${deleteTarget.name}”，并且无法恢复。`
+                  : '此操作将删除保存的查询，并且无法恢复。'}
+              </AlertDialogDescription>
+              {deleteError && <p className="text-destructive text-sm">{deleteError}</p>}
+            </AlertDialogHeader>
+
+            <AlertDialogFooter>
+              <AlertDialogClose
+                render={
+                  <Button
+                    variant="outline"
+                    disabled={deleting}
+                  />
+                }>
+                取消
+              </AlertDialogClose>
+              <Button
+                variant="destructive"
+                disabled={deleting}
+                onClick={handleConfirmDelete}>
+                {deleting ? '删除中...' : '删除'}
+              </Button>
+            </AlertDialogFooter>
+          </AlertDialogPopup>
+        </AlertDialog>
       </SidebarInset>
     </SidebarProvider>
   );

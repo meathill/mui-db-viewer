@@ -62,9 +62,24 @@ export function useDatabaseDetailController(id: string) {
   const [isInsertOpen, setIsInsertOpen] = useState(false);
   const [insertData, setInsertData] = useState<Record<string, unknown>>({});
   const [insertLoading, setInsertLoading] = useState(false);
+  const [insertError, setInsertError] = useState<string | null>(null);
   const [updateLoading, setUpdateLoading] = useState(false);
+  const [updateError, setUpdateError] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const hasPendingEdits = pendingEdits.size > 0;
+
+  function getErrorMessage(error: unknown): string {
+    if (error instanceof Error && error.message.trim()) {
+      return error.message;
+    }
+
+    return '未知错误';
+  }
+
+  function clearDeleteError() {
+    setDeleteError(null);
+  }
 
   useEffect(() => {
     void fetchTables(id).catch((fetchError) => {
@@ -80,17 +95,25 @@ export function useDatabaseDetailController(id: string) {
   useEffect(() => {
     if (!selectedTable) {
       setSelectedRows(new Set());
+      setDeleteError(null);
       return;
     }
 
     void fetchTableData(id)
       .then(() => {
         setSelectedRows(new Set());
+        setDeleteError(null);
       })
       .catch((fetchError) => {
         console.error('Failed to fetch table data:', fetchError);
       });
   }, [fetchTableData, filters, id, page, pageSize, selectedTable, sortField, sortOrder]);
+
+  useEffect(() => {
+    if (isInsertOpen) {
+      setInsertError(null);
+    }
+  }, [isInsertOpen]);
 
   function handleSort(field: string) {
     setSort(field);
@@ -130,30 +153,31 @@ export function useDatabaseDetailController(id: string) {
     });
   }
 
-  async function handleDeleteSelected() {
+  async function handleDeleteSelected(): Promise<boolean> {
     if (!selectedTable || selectedRows.size === 0) {
-      return;
+      return false;
     }
 
-    if (!confirm(`Are you sure you want to delete ${selectedRows.size} rows?`)) {
-      return;
-    }
+    setDeleteError(null);
 
     try {
       await api.databases.deleteRows(id, selectedTable, Array.from(selectedRows));
       await fetchTableData(id);
       setSelectedRows(new Set());
+      return true;
     } catch (error) {
-      alert('Failed to delete rows: ' + (error instanceof Error ? error.message : String(error)));
+      setDeleteError(`删除失败：${getErrorMessage(error)}`);
+      return false;
     }
   }
 
-  async function handleInsert() {
+  async function handleInsert(): Promise<boolean> {
     if (!selectedTable) {
-      return;
+      return false;
     }
 
     setInsertLoading(true);
+    setInsertError(null);
 
     try {
       await api.databases.insertRow(id, selectedTable, insertData);
@@ -161,27 +185,32 @@ export function useDatabaseDetailController(id: string) {
       setInsertData({});
       await fetchTableData(id);
       setSelectedRows(new Set());
+      return true;
     } catch (error) {
-      alert('Failed to insert row: ' + (error instanceof Error ? error.message : String(error)));
+      setInsertError(`新增失败：${getErrorMessage(error)}`);
+      return false;
     } finally {
       setInsertLoading(false);
     }
   }
 
-  async function handleUpdate() {
+  async function handleUpdate(): Promise<boolean> {
     if (!selectedTable || !hasPendingEdits) {
-      return;
+      return false;
     }
 
     setUpdateLoading(true);
+    setUpdateError(null);
 
     try {
       await api.databases.updateRows(id, selectedTable, getPendingRows());
       clearEdits();
       await fetchTableData(id);
       setSelectedRows(new Set());
+      return true;
     } catch (error) {
-      alert('更新失败: ' + (error instanceof Error ? error.message : String(error)));
+      setUpdateError(`更新失败：${getErrorMessage(error)}`);
+      return false;
     } finally {
       setUpdateLoading(false);
     }
@@ -250,9 +279,12 @@ export function useDatabaseDetailController(id: string) {
     isInsertOpen,
     insertData,
     insertLoading,
+    insertError,
     updateLoading,
+    updateError,
     hasPendingEdits,
     pendingEditCount: pendingEdits.size,
+    deleteError,
     setIsInsertOpen,
     stopEditing,
     handleSort,
@@ -272,5 +304,6 @@ export function useDatabaseDetailController(id: string) {
     handleInsertFieldChange,
     handlePreviousPage,
     handleNextPage,
+    clearDeleteError,
   };
 }

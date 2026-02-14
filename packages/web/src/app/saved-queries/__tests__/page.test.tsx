@@ -56,6 +56,16 @@ vi.mock('@/components/query/query-sidebar', () => ({
   QuerySidebar: () => <div>Query Sidebar</div>,
 }));
 
+vi.mock('@/components/ui/alert-dialog', () => ({
+  AlertDialog: ({ children, open }: { children: ReactNode; open: boolean }) => (open ? <div>{children}</div> : null),
+  AlertDialogPopup: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  AlertDialogHeader: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  AlertDialogTitle: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  AlertDialogDescription: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  AlertDialogFooter: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  AlertDialogClose: ({ children }: { children: ReactNode }) => <button type="button">{children}</button>,
+}));
+
 describe('SavedQueriesPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();

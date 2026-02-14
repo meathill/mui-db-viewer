@@ -16,7 +16,7 @@ export function TablePagination({ page, pageSize, totalRows, loading, onPrevious
   return (
     <div className="p-4 border-t flex items-center justify-between gap-4 bg-muted/10">
       <div className="text-sm text-muted-foreground">
-        Page {page} of {totalPages}
+        第 {page} 页，共 {totalPages} 页
       </div>
       <div className="flex gap-2">
         <Button
@@ -25,14 +25,14 @@ export function TablePagination({ page, pageSize, totalRows, loading, onPrevious
           onClick={onPrevious}
           disabled={page === 1 || loading}>
           <ChevronLeft className="h-4 w-4" />
-          Previous
+          上一页
         </Button>
         <Button
           variant="outline"
           size="sm"
           onClick={onNext}
           disabled={page >= totalPages || loading}>
-          Next
+          下一页
           <ChevronRight className="h-4 w-4" />
         </Button>
       </div>

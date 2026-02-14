@@ -3,9 +3,9 @@
 import { useState } from 'react';
 import { DatabaseIcon, EyeIcon, EyeOffIcon, Loader2Icon, CheckCircleIcon, FolderOpenIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { DialogClose, DialogDescription, DialogFooter, DialogHeader, DialogPanel, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardHeader, CardTitle, CardDescription, CardPanel, CardFooter } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { FileBrowserDialog } from '@/components/file-browser-dialog';
 import type { CreateDatabaseRequest } from '@/lib/api';
@@ -54,6 +54,7 @@ export function DatabaseConnectionForm({ onSuccess }: DatabaseConnectionFormProp
   const [fileBrowserOpen, setFileBrowserOpen] = useState(false);
 
   const isLocal = LOCAL_DB_TYPES.has(formData.type);
+  const formId = 'database-connection-form';
 
   function handleChange(field: keyof ConnectionFormData, value: string) {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -102,21 +103,24 @@ export function DatabaseConnectionForm({ onSuccess }: DatabaseConnectionFormProp
     : formData.name && formData.type && formData.host && formData.database && formData.username && formData.password;
 
   return (
-    <Card className="max-w-2xl">
-      <CardHeader>
+    <>
+      <DialogHeader>
         <div className="flex items-center gap-3">
           <div className="flex size-10 items-center justify-center rounded-xl bg-blue-100 text-blue-600 dark:bg-blue-950 dark:text-blue-400">
             <DatabaseIcon className="size-5" />
           </div>
           <div>
-            <CardTitle>添加数据库连接</CardTitle>
-            <CardDescription>{getDescription(formData.type)}</CardDescription>
+            <DialogTitle>添加数据库连接</DialogTitle>
+            <DialogDescription>{getDescription(formData.type)}</DialogDescription>
           </div>
         </div>
-      </CardHeader>
+      </DialogHeader>
 
-      <form onSubmit={handleSubmit}>
-        <CardPanel className="space-y-6">
+      <DialogPanel>
+        <form
+          id={formId}
+          onSubmit={handleSubmit}
+          className="space-y-6">
           {/* 数据库类型 */}
           <div className="space-y-2">
             <Label>数据库类型</Label>
@@ -243,29 +247,30 @@ export function DatabaseConnectionForm({ onSuccess }: DatabaseConnectionFormProp
               </div>
             </>
           )}
-        </CardPanel>
 
-        <CardFooter className="flex flex-col gap-3 border-t">
-          {error && <p className="w-full text-destructive text-sm">{error}</p>}
-          <div className="flex w-full justify-between gap-3">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleTestConnection}
-              disabled={!isValid || testing || saving}>
-              {testing && <Loader2Icon className="mr-2 size-4 animate-spin" />}
-              {testResult === 'success' && <CheckCircleIcon className="mr-2 size-4 text-green-500" />}
-              测试连接
-            </Button>
-            <Button
-              type="submit"
-              disabled={!isValid || testResult !== 'success' || saving}>
-              {saving && <Loader2Icon className="mr-2 size-4 animate-spin" />}
-              保存连接
-            </Button>
-          </div>
-        </CardFooter>
-      </form>
-    </Card>
+          {error && <p className="text-destructive text-sm">{error}</p>}
+        </form>
+      </DialogPanel>
+
+      <DialogFooter>
+        <DialogClose render={<Button variant="outline" />}>取消</DialogClose>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={handleTestConnection}
+          disabled={!isValid || testing || saving}>
+          {testing && <Loader2Icon className="mr-2 size-4 animate-spin" />}
+          {testResult === 'success' && <CheckCircleIcon className="mr-2 size-4 text-green-500" />}
+          测试连接
+        </Button>
+        <Button
+          type="submit"
+          form={formId}
+          disabled={!isValid || testResult !== 'success' || saving}>
+          {saving && <Loader2Icon className="mr-2 size-4 animate-spin" />}
+          保存连接
+        </Button>
+      </DialogFooter>
+    </>
   );
 }

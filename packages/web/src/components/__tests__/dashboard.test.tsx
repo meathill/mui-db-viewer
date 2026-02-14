@@ -32,6 +32,12 @@ vi.mock('@/components/ui/dialog', () => ({
   DialogBackdrop: () => <div>Backdrop</div>,
   DialogPopup: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   DialogTrigger: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  DialogHeader: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  DialogTitle: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  DialogDescription: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  DialogPanel: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  DialogFooter: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  DialogClose: ({ children }: { children: React.ReactNode }) => <button type="button">{children}</button>,
 }));
 
 describe('Dashboard Component', () => {

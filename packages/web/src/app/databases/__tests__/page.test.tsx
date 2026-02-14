@@ -34,6 +34,10 @@ interface MenuItemProps {
   onClick?: (event: MouseEvent) => void;
 }
 
+interface AlertDialogProps extends ChildrenProps {
+  open: boolean;
+}
+
 // Mock generic UI components
 vi.mock('@/components/ui/sidebar', () => ({
   SidebarProvider: ({ children }: ChildrenProps) => <div>{children}</div>,
@@ -51,6 +55,22 @@ vi.mock('@/components/ui/dialog', () => ({
   DialogPortal: ({ children }: ChildrenProps) => <div>{children}</div>,
   DialogBackdrop: () => <div />,
   DialogPopup: ({ children }: ChildrenProps) => <div>{children}</div>,
+  DialogHeader: ({ children }: ChildrenProps) => <div>{children}</div>,
+  DialogTitle: ({ children }: ChildrenProps) => <div>{children}</div>,
+  DialogDescription: ({ children }: ChildrenProps) => <div>{children}</div>,
+  DialogPanel: ({ children }: ChildrenProps) => <div>{children}</div>,
+  DialogFooter: ({ children }: ChildrenProps) => <div>{children}</div>,
+  DialogClose: ({ children }: ChildrenProps) => <button type="button">{children}</button>,
+}));
+
+vi.mock('@/components/ui/alert-dialog', () => ({
+  AlertDialog: ({ children, open }: AlertDialogProps) => (open ? <div>{children}</div> : null),
+  AlertDialogPopup: ({ children }: ChildrenProps) => <div>{children}</div>,
+  AlertDialogHeader: ({ children }: ChildrenProps) => <div>{children}</div>,
+  AlertDialogTitle: ({ children }: ChildrenProps) => <div>{children}</div>,
+  AlertDialogDescription: ({ children }: ChildrenProps) => <div>{children}</div>,
+  AlertDialogFooter: ({ children }: ChildrenProps) => <div>{children}</div>,
+  AlertDialogClose: ({ children }: ChildrenProps) => <button type="button">{children}</button>,
 }));
 
 // Mock Menu
@@ -103,9 +123,6 @@ describe('DatabasesPage', () => {
     vi.mocked(api.databases.list).mockResolvedValueOnce(mockDbs).mockResolvedValueOnce([]);
     vi.mocked(api.databases.delete).mockResolvedValue();
 
-    const confirmSpy = vi.spyOn(window, 'confirm');
-    confirmSpy.mockImplementation(() => true);
-
     render(<DatabasesPage />);
 
     await screen.findByText('DB One');
@@ -113,8 +130,11 @@ describe('DatabasesPage', () => {
     const deleteBtn = screen.getByTestId('delete-action');
     fireEvent.click(deleteBtn);
 
-    expect(confirmSpy).toHaveBeenCalled();
-    expect(api.databases.delete).toHaveBeenCalledWith('1');
+    fireEvent.click(screen.getByRole('button', { name: '删除' }));
+
+    await waitFor(() => {
+      expect(api.databases.delete).toHaveBeenCalledWith('1');
+    });
 
     await waitFor(() => {
       expect(screen.queryByText('DB One')).toBeNull();

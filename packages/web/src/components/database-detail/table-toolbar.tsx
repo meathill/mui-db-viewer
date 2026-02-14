@@ -1,17 +1,30 @@
+import { useState } from 'react';
 import { Plus, SaveIcon, TableIcon, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+  AlertDialog,
+  AlertDialogClose,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogPopup,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface TableToolbarProps {
   selectedTable: string;
   hasPendingEdits: boolean;
   pendingEditCount: number;
   updateLoading: boolean;
+  updateError: string | null;
   selectedRowsCount: number;
+  deleteError: string | null;
   searchValue: string;
   totalRows: number;
-  onUpdate: () => void;
-  onDeleteSelected: () => void;
+  onUpdate: () => Promise<boolean>;
+  onDeleteSelected: () => Promise<boolean>;
+  onClearDeleteError: () => void;
   onOpenInsert: () => void;
   onSearchChange: (value: string) => void;
 }
@@ -21,55 +34,123 @@ export function TableToolbar({
   hasPendingEdits,
   pendingEditCount,
   updateLoading,
+  updateError,
   selectedRowsCount,
+  deleteError,
   searchValue,
   totalRows,
   onUpdate,
   onDeleteSelected,
+  onClearDeleteError,
   onOpenInsert,
   onSearchChange,
 }: TableToolbarProps) {
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  async function handleConfirmDeleteSelected() {
+    if (deleting) {
+      return;
+    }
+
+    setDeleting(true);
+    const succeeded = await onDeleteSelected();
+    setDeleting(false);
+
+    if (succeeded) {
+      setDeleteDialogOpen(false);
+    }
+  }
+
   return (
-    <div className="p-4 border-b flex items-center justify-between bg-card text-card-foreground">
-      <h1 className="text-xl font-bold flex items-center gap-2">
-        <TableIcon className="h-5 w-5" />
-        {selectedTable}
-      </h1>
-      <div className="flex items-center gap-2">
-        {hasPendingEdits && (
+    <div className="border-b bg-card text-card-foreground">
+      <div className="flex items-center justify-between p-4">
+        <h1 className="text-xl font-bold flex items-center gap-2">
+          <TableIcon className="h-5 w-5" />
+          {selectedTable}
+        </h1>
+        <div className="flex items-center gap-2">
+          {hasPendingEdits && (
+            <Button
+              size="sm"
+              onClick={onUpdate}
+              disabled={updateLoading}
+              className="bg-green-600 hover:bg-green-700 text-white">
+              <SaveIcon className="h-4 w-4 mr-2" />
+              {updateLoading ? '保存中...' : `保存修改 (${pendingEditCount})`}
+            </Button>
+          )}
+          {selectedRowsCount > 0 && (
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => {
+                onClearDeleteError();
+                setDeleteDialogOpen(true);
+              }}>
+              <Trash2 className="h-4 w-4 mr-2" />
+              删除选中 ({selectedRowsCount})
+            </Button>
+          )}
           <Button
             size="sm"
-            onClick={onUpdate}
-            disabled={updateLoading}
-            className="bg-green-600 hover:bg-green-700 text-white">
-            <SaveIcon className="h-4 w-4 mr-2" />
-            {updateLoading ? 'Updating...' : `Update (${pendingEditCount})`}
+            onClick={onOpenInsert}>
+            <Plus className="h-4 w-4 mr-2" />
+            新增行
           </Button>
-        )}
-        {selectedRowsCount > 0 && (
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={onDeleteSelected}>
-            <Trash2 className="h-4 w-4 mr-2" />
-            Delete ({selectedRowsCount})
-          </Button>
-        )}
-        <Button
-          size="sm"
-          onClick={onOpenInsert}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Row
-        </Button>
-        <div className="h-4 w-[1px] bg-border mx-2" />
-        <Input
-          placeholder="搜索... 支持 id>100 && num<200"
-          value={searchValue}
-          onChange={(event) => onSearchChange(event.target.value)}
-          className="max-w-sm h-8"
-        />
-        <span className="text-sm text-muted-foreground whitespace-nowrap">Total: {totalRows} rows</span>
+          <div className="h-4 w-[1px] bg-border mx-2" />
+          <Input
+            placeholder="搜索... 支持 id>100 && num<200"
+            value={searchValue}
+            onChange={(event) => onSearchChange(event.target.value)}
+            className="max-w-sm h-8"
+          />
+          <span className="text-sm text-muted-foreground whitespace-nowrap">总计：{totalRows} 行</span>
+        </div>
       </div>
+
+      {updateError && <div className="px-4 pb-3 text-destructive text-sm">{updateError}</div>}
+
+      <AlertDialog
+        open={deleteDialogOpen}
+        onOpenChange={(open) => {
+          setDeleteDialogOpen(open);
+          if (open) {
+            onClearDeleteError();
+          } else {
+            setDeleting(false);
+          }
+        }}>
+        <AlertDialogPopup className="max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认删除</AlertDialogTitle>
+            <AlertDialogDescription>
+              {selectedRowsCount > 0
+                ? `此操作将删除选中的 ${selectedRowsCount} 行数据，并且无法恢复。`
+                : '此操作将删除选中的数据，并且无法恢复。'}
+            </AlertDialogDescription>
+            {deleteError && <p className="text-destructive text-sm">{deleteError}</p>}
+          </AlertDialogHeader>
+
+          <AlertDialogFooter>
+            <AlertDialogClose
+              render={
+                <Button
+                  variant="outline"
+                  disabled={deleting}
+                />
+              }>
+              取消
+            </AlertDialogClose>
+            <Button
+              variant="destructive"
+              disabled={deleting}
+              onClick={handleConfirmDeleteSelected}>
+              {deleting ? '删除中...' : '删除'}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogPopup>
+      </AlertDialog>
     </div>
   );
 }

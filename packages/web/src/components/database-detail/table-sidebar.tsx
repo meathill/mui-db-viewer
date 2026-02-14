@@ -25,9 +25,7 @@ export function TableSidebar({ tables, selectedTable, error, onSelectTable }: Ta
       </div>
 
       <div className="flex-1 overflow-auto p-2">
-        <div className="mb-2 px-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-          Tables ({tables.length})
-        </div>
+        <div className="mb-2 px-2 text-xs font-semibold text-muted-foreground">数据表 ({tables.length})</div>
         {error && (
           <div className="mx-2 mb-2 p-2 rounded bg-destructive/10 text-destructive text-xs break-all">{error}</div>
         )}

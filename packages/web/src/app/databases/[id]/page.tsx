@@ -30,9 +30,12 @@ export default function DatabaseDetailPage({ params }: PageProps) {
     isInsertOpen,
     insertData,
     insertLoading,
+    insertError,
     updateLoading,
+    updateError,
     hasPendingEdits,
     pendingEditCount,
+    deleteError,
     setIsInsertOpen,
     stopEditing,
     handleSort,
@@ -52,6 +55,7 @@ export default function DatabaseDetailPage({ params }: PageProps) {
     handleInsertFieldChange,
     handlePreviousPage,
     handleNextPage,
+    clearDeleteError,
   } = useDatabaseDetailController(id);
 
   return (
@@ -72,11 +76,14 @@ export default function DatabaseDetailPage({ params }: PageProps) {
               hasPendingEdits={hasPendingEdits}
               pendingEditCount={pendingEditCount}
               updateLoading={updateLoading}
+              updateError={updateError}
               selectedRowsCount={selectedRows.size}
+              deleteError={deleteError}
               searchValue={filters._search || ''}
               totalRows={tableData?.total || 0}
               onUpdate={handleUpdate}
               onDeleteSelected={handleDeleteSelected}
+              onClearDeleteError={clearDeleteError}
               onOpenInsert={() => setIsInsertOpen(true)}
               onSearchChange={(value) => handleFilterChange('_search', value)}
             />
@@ -116,6 +123,7 @@ export default function DatabaseDetailPage({ params }: PageProps) {
               columns={tableData?.columns}
               insertData={insertData}
               insertLoading={insertLoading}
+              insertError={insertError}
               onInsertFieldChange={handleInsertFieldChange}
               onInsert={handleInsert}
             />

@@ -10,29 +10,63 @@ import { Card, CardHeader, CardTitle, CardDescription, CardPanel } from '@/compo
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogTrigger, DialogPopup } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogClose,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogPopup,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/menu';
 import { DatabaseConnectionForm } from '@/components/database-connection-form';
 import { Empty, EmptyMedia, EmptyTitle, EmptyDescription, EmptyContent } from '@/components/ui/empty';
 import { useDatabaseStore } from '@/stores/database-store';
 
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message.trim()) {
+    return error.message;
+  }
+
+  return '未知错误';
+}
+
 export default function DatabasesPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const databases = useDatabaseStore((state) => state.databases);
   const loading = useDatabaseStore((state) => state.loading);
   const error = useDatabaseStore((state) => state.error);
   const fetchDatabases = useDatabaseStore((state) => state.fetchDatabases);
   const deleteDatabase = useDatabaseStore((state) => state.deleteDatabase);
 
-  async function handleDelete(id: string) {
-    if (!confirm('确定要删除这个数据库连接吗？')) {
+  function handleRequestDelete(id: string, name: string) {
+    setDeleteTarget({ id, name });
+    setDeleteError(null);
+    setDeleteDialogOpen(true);
+  }
+
+  async function handleConfirmDelete() {
+    if (!deleteTarget || deleting) {
       return;
     }
 
+    setDeleting(true);
+    setDeleteError(null);
+
     try {
-      await deleteDatabase(id);
+      await deleteDatabase(deleteTarget.id);
+      setDeleteDialogOpen(false);
+      setDeleteTarget(null);
     } catch (deleteError) {
       console.error('Failed to delete database:', deleteError);
-      alert('删除失败');
+      setDeleteError(`删除失败：${getErrorMessage(deleteError)}`);
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -129,7 +163,7 @@ export default function DatabasesPage() {
                           <DropdownMenuItem
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleDelete(db.id);
+                              handleRequestDelete(db.id, db.name);
                             }}
                             className="text-destructive">
                             <TrashIcon className="mr-2 size-4" />
@@ -159,6 +193,47 @@ export default function DatabasesPage() {
           )}
           {error && <p className="mt-4 text-destructive text-sm">{error}</p>}
         </main>
+
+        <AlertDialog
+          open={deleteDialogOpen}
+          onOpenChange={(open) => {
+            setDeleteDialogOpen(open);
+            if (!open) {
+              setDeleteTarget(null);
+              setDeleteError(null);
+              setDeleting(false);
+            }
+          }}>
+          <AlertDialogPopup className="max-w-md">
+            <AlertDialogHeader>
+              <AlertDialogTitle>确认删除</AlertDialogTitle>
+              <AlertDialogDescription>
+                {deleteTarget
+                  ? `此操作将删除数据库连接“${deleteTarget.name}”，并且无法恢复。`
+                  : '此操作将删除数据库连接，并且无法恢复。'}
+              </AlertDialogDescription>
+              {deleteError && <p className="text-destructive text-sm">{deleteError}</p>}
+            </AlertDialogHeader>
+
+            <AlertDialogFooter>
+              <AlertDialogClose
+                render={
+                  <Button
+                    variant="outline"
+                    disabled={deleting}
+                  />
+                }>
+                取消
+              </AlertDialogClose>
+              <Button
+                variant="destructive"
+                disabled={deleting}
+                onClick={handleConfirmDelete}>
+                {deleting ? '删除中...' : '删除'}
+              </Button>
+            </AlertDialogFooter>
+          </AlertDialogPopup>
+        </AlertDialog>
       </SidebarInset>
     </SidebarProvider>
   );

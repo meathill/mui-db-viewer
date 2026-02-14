@@ -103,7 +103,7 @@ export function TableDataGrid({
               <TableCell
                 colSpan={(tableData?.columns.length || 0) + 1}
                 className="h-24 text-center">
-                No results.
+                暂无数据。
               </TableCell>
             </TableRow>
           ) : (

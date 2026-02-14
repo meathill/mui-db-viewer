@@ -29,6 +29,7 @@ export function SaveQueryDialog({ open, onOpenChange, sql, databaseId, onSuccess
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [saving, setSaving] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const formId = 'save-query-form';
 
@@ -37,6 +38,7 @@ export function SaveQueryDialog({ open, onOpenChange, sql, databaseId, onSuccess
     if (!name.trim()) return;
 
     setSaving(true);
+    setSubmitError(null);
     try {
       await api.savedQueries.create({
         name,
@@ -50,7 +52,7 @@ export function SaveQueryDialog({ open, onOpenChange, sql, databaseId, onSuccess
       setDescription('');
     } catch (error) {
       console.error('Failed to save query:', error);
-      alert('保存失败');
+      setSubmitError(error instanceof Error ? error.message : '保存失败');
     } finally {
       setSaving(false);
     }
@@ -99,6 +101,8 @@ export function SaveQueryDialog({ open, onOpenChange, sql, databaseId, onSuccess
               </pre>
             </div>
           </form>
+
+          {submitError && <p className="text-destructive text-sm">{submitError}</p>}
         </DialogPanel>
 
         <DialogFooter>

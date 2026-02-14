@@ -1,7 +1,15 @@
 import type { TableColumn } from '@/lib/api';
 import { shouldSkipInsertColumn } from '@/lib/table-data-utils';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogPanel, DialogTitle } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogPanel,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
@@ -11,6 +19,7 @@ interface InsertRowDialogProps {
   columns: TableColumn[] | undefined;
   insertData: Record<string, unknown>;
   insertLoading: boolean;
+  insertError: string | null;
   onInsertFieldChange: (field: string, value: string) => void;
   onInsert: () => void;
 }
@@ -21,6 +30,7 @@ export function InsertRowDialog({
   columns,
   insertData,
   insertLoading,
+  insertError,
   onInsertFieldChange,
   onInsert,
 }: InsertRowDialogProps) {
@@ -30,7 +40,7 @@ export function InsertRowDialog({
       onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[80vh] p-0">
         <DialogHeader>
-          <DialogTitle>Add New Row</DialogTitle>
+          <DialogTitle>新增行</DialogTitle>
         </DialogHeader>
 
         <DialogPanel>
@@ -60,14 +70,16 @@ export function InsertRowDialog({
               );
             })}
           </div>
+
+          {insertError && <p className="text-destructive text-sm">{insertError}</p>}
         </DialogPanel>
 
         <DialogFooter>
-          <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>
+          <DialogClose render={<Button variant="outline" />}>取消</DialogClose>
           <Button
             onClick={onInsert}
             disabled={insertLoading}>
-            {insertLoading ? 'Adding...' : 'Add Row'}
+            {insertLoading ? '新增中...' : '新增'}
           </Button>
         </DialogFooter>
       </DialogContent>
