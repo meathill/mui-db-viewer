@@ -24,60 +24,71 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectTrigger, SelectValue, SelectPopup, SelectItem } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { SaveQueryDialog } from '@/components/save-query-dialog';
+import { getErrorMessage, showErrorAlert, showSuccessToast } from '@/lib/client-feedback';
 import { useDatabaseStore } from '@/stores/database-store';
 import { useQueryStore } from '@/stores/query-store';
 import { useShallow } from 'zustand/react/shallow';
 import { api } from '@/lib/api';
-
-function getErrorMessage(error: unknown): string {
-  if (error instanceof Error && error.message.trim()) {
-    return error.message;
-  }
-
-  return '未知错误';
-}
+import { useSearchParams } from 'next/navigation';
 
 export default function QueryPage() {
-  const { messages, input, selectedDatabaseId, loading, setInput, setSelectedDatabaseId, sendQuery, executeSql } =
-    useQueryStore(
-      useShallow((state) => ({
-        messages: state.messages,
-        input: state.input,
-        selectedDatabaseId: state.selectedDatabaseId,
-        loading: state.loading,
-        setInput: state.setInput,
-        setSelectedDatabaseId: state.setSelectedDatabaseId,
-        sendQuery: state.sendQuery,
-        executeSql: state.executeSql,
-      })),
-    );
+  const {
+    messages,
+    input,
+    selectedDatabaseId,
+    loading,
+    sessionLoading,
+    currentSessionId,
+    setInput,
+    setSelectedDatabaseId,
+    sendQuery,
+    executeSql,
+    openSession,
+  } = useQueryStore(
+    useShallow((state) => ({
+      messages: state.messages,
+      input: state.input,
+      selectedDatabaseId: state.selectedDatabaseId,
+      loading: state.loading,
+      sessionLoading: state.sessionLoading,
+      currentSessionId: state.currentSessionId,
+      setInput: state.setInput,
+      setSelectedDatabaseId: state.setSelectedDatabaseId,
+      sendQuery: state.sendQuery,
+      executeSql: state.executeSql,
+      openSession: state.openSession,
+    })),
+  );
   const databases = useDatabaseStore((state) => state.databases);
   const fetchDatabases = useDatabaseStore((state) => state.fetchDatabases);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [currentSql, setCurrentSql] = useState('');
   const [schemaRefreshing, setSchemaRefreshing] = useState(false);
-  const [schemaFeedback, setSchemaFeedback] = useState<{ variant: 'success' | 'error'; text: string } | null>(null);
+  const searchParams = useSearchParams();
+  const sessionIdFromUrl = searchParams.get('session');
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
   useEffect(() => {
-    if (!schemaFeedback) return;
-
-    const timer = window.setTimeout(() => {
-      setSchemaFeedback(null);
-    }, 4000);
-
-    return () => window.clearTimeout(timer);
-  }, [schemaFeedback]);
-
-  useEffect(() => {
     void fetchDatabases().catch((fetchError) => {
       console.error('Failed to fetch databases:', fetchError);
     });
   }, [fetchDatabases]);
+
+  useEffect(() => {
+    if (!sessionIdFromUrl) {
+      return;
+    }
+
+    if (sessionIdFromUrl === currentSessionId) {
+      return;
+    }
+
+    void openSession(sessionIdFromUrl);
+  }, [sessionIdFromUrl, currentSessionId, openSession]);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -113,11 +124,12 @@ export default function QueryPage() {
     void api.databases
       .refreshSchema(selectedDatabaseId)
       .then(() => {
-        setSchemaFeedback({ variant: 'success', text: 'Schema 已刷新' });
+        showSuccessToast('Schema 已刷新');
       })
       .catch((refreshError) => {
         console.error('刷新 Schema 失败:', refreshError);
-        setSchemaFeedback({ variant: 'error', text: `刷新失败：${getErrorMessage(refreshError)}` });
+        const message = getErrorMessage(refreshError, '刷新失败');
+        showErrorAlert(message, '刷新 Schema 失败');
       })
       .finally(() => {
         setSchemaRefreshing(false);
@@ -138,13 +150,6 @@ export default function QueryPage() {
             <h1 className="font-semibold">AI 查询</h1>
           </div>
           <div className="flex items-center gap-2">
-            {schemaFeedback && (
-              <Badge
-                size="sm"
-                variant={schemaFeedback.variant === 'success' ? 'success' : 'error'}>
-                {schemaFeedback.text}
-              </Badge>
-            )}
             <Select
               value={selectedDatabaseId}
               onValueChange={(value) => value && setSelectedDatabaseId(value)}>
@@ -185,7 +190,9 @@ export default function QueryPage() {
           <div className="flex flex-1 flex-col overflow-hidden">
             {/* 消息列表 */}
             <main className="flex-1 overflow-auto p-6">
-              {messages.length === 0 ? (
+              {sessionLoading ? (
+                <div className="flex h-full items-center justify-center text-muted-foreground text-sm">加载会话中...</div>
+              ) : messages.length === 0 ? (
                 <div className="flex h-full flex-col items-center justify-center text-center">
                   <div className="flex size-16 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-indigo-600 text-white shadow-lg mb-4">
                     <SparklesIcon className="size-8" />
@@ -339,10 +346,12 @@ export default function QueryPage() {
                 className="mx-auto max-w-3xl">
                 <div className="flex gap-3">
                   <Textarea
-                    placeholder={selectedDatabaseId ? '描述你的查询需求...' : '请先选择数据库'}
+                    placeholder={
+                      !selectedDatabaseId ? '请先选择数据库' : sessionLoading ? '加载会话中...' : '描述你的查询需求...'
+                    }
                     value={input}
                     onChange={(event) => setInput(event.target.value)}
-                    disabled={!selectedDatabaseId || loading}
+                    disabled={!selectedDatabaseId || loading || sessionLoading}
                     className="min-h-[48px] max-h-32 resize-none"
                     onKeyDown={handleTextareaKeyDown}
                   />
@@ -350,7 +359,7 @@ export default function QueryPage() {
                     type="submit"
                     size="icon"
                     className="size-12 shrink-0"
-                    disabled={!input.trim() || !selectedDatabaseId || loading}>
+                    disabled={!input.trim() || !selectedDatabaseId || loading || sessionLoading}>
                     {loading ? <Loader2Icon className="size-4 animate-spin" /> : <SendIcon className="size-4" />}
                   </Button>
                 </div>

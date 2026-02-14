@@ -7,6 +7,9 @@ let mockPathname = '/query';
 
 vi.mock('next/navigation', () => ({
   usePathname: () => mockPathname,
+  useRouter: () => ({
+    push: vi.fn(),
+  }),
 }));
 
 vi.mock('next/link', () => ({
@@ -19,6 +22,24 @@ vi.mock('next/link', () => ({
   ),
 }));
 
+vi.mock('@/stores/query-store', () => ({
+  useQueryStore: (selector: any) =>
+    selector({
+      currentSessionId: null,
+      sessions: [],
+      sessionsLoading: false,
+      sessionsError: null,
+      sessionsHasMore: false,
+      sessionsSearch: '',
+      setSessionsSearch: vi.fn(),
+      fetchSessions: vi.fn().mockResolvedValue(undefined),
+      loadMoreSessions: vi.fn().mockResolvedValue(undefined),
+      renameSession: vi.fn().mockResolvedValue(undefined),
+      deleteSession: vi.fn().mockResolvedValue(undefined),
+      newQuery: vi.fn(),
+    }),
+}));
+
 describe('QuerySidebar', () => {
   beforeEach(() => {
     mockPathname = '/query';
@@ -29,6 +50,7 @@ describe('QuerySidebar', () => {
 
     expect(screen.getAllByRole('link', { name: 'AI 查询' }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole('link', { name: '收藏查询' }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('button', { name: '新建查询' }).length).toBeGreaterThan(0);
   });
 
   it('收藏查询页面激活时应高亮收藏查询入口', () => {

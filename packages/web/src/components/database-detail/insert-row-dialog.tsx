@@ -4,10 +4,10 @@ import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogClose,
-  DialogContent,
   DialogFooter,
   DialogHeader,
   DialogPanel,
+  DialogPopup,
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -38,7 +38,7 @@ export function InsertRowDialog({
     <Dialog
       open={open}
       onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[80vh] p-0">
+      <DialogPopup className="max-h-[80vh] max-w-lg">
         <DialogHeader>
           <DialogTitle>新增行</DialogTitle>
         </DialogHeader>
@@ -82,7 +82,7 @@ export function InsertRowDialog({
             {insertLoading ? '新增中...' : '新增'}
           </Button>
         </DialogFooter>
-      </DialogContent>
+      </DialogPopup>
     </Dialog>
   );
 }

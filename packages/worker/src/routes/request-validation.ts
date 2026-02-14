@@ -112,6 +112,30 @@ const updateSavedQuerySchema = z.object({
   sql: z.string().trim().min(1).optional(),
 });
 
+const querySessionMessageSchema = z.object({
+  id: nonEmptyStringSchema,
+  role: z.enum(['user', 'assistant']),
+  content: nonEmptyStringSchema,
+  sql: z.string().optional(),
+  warning: z.string().optional(),
+  error: z.string().optional(),
+});
+
+const createQuerySessionSchema = z.object({
+  databaseId: nonEmptyStringSchema,
+  title: nonEmptyStringSchema,
+  preview: z.string().optional(),
+  messages: z.array(querySessionMessageSchema).optional(),
+});
+
+const appendQuerySessionMessagesSchema = z.object({
+  messages: z.array(querySessionMessageSchema).nonempty(),
+});
+
+const updateQuerySessionSchema = z.object({
+  title: nonEmptyStringSchema.optional(),
+});
+
 export function parseCreateSavedQueryRequest(
   payload: unknown,
 ): ValidationResult<{ name: string; description?: string; sql: string; databaseId: string }> {
@@ -119,6 +143,54 @@ export function parseCreateSavedQueryRequest(
   if (!result.success) {
     return { success: false, error: '缺少必填字段' };
   }
+  return { success: true, data: result.data };
+}
+
+export function parseCreateQuerySessionRequest(payload: unknown): ValidationResult<{
+  databaseId: string;
+  title: string;
+  preview?: string;
+  messages?: Array<{
+    id: string;
+    role: 'user' | 'assistant';
+    content: string;
+    sql?: string;
+    warning?: string;
+    error?: string;
+  }>;
+}> {
+  const result = createQuerySessionSchema.safeParse(payload);
+  if (!result.success) {
+    return { success: false, error: '缺少 databaseId 或 title' };
+  }
+
+  return { success: true, data: result.data };
+}
+
+export function parseAppendQuerySessionMessagesRequest(payload: unknown): ValidationResult<{
+  messages: Array<{
+    id: string;
+    role: 'user' | 'assistant';
+    content: string;
+    sql?: string;
+    warning?: string;
+    error?: string;
+  }>;
+}> {
+  const result = appendQuerySessionMessagesSchema.safeParse(payload);
+  if (!result.success) {
+    return { success: false, error: '缺少有效的消息列表' };
+  }
+
+  return { success: true, data: result.data };
+}
+
+export function parseUpdateQuerySessionRequest(payload: unknown): ValidationResult<{ title?: string }> {
+  const result = updateQuerySessionSchema.safeParse(payload);
+  if (!result.success) {
+    return { success: false, error: '无效的更新数据' };
+  }
+
   return { success: true, data: result.data };
 }
 

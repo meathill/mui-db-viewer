@@ -3,8 +3,20 @@ import type { ReactNode } from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import QueryPage from '../page';
 import { api, type DatabaseConnection } from '@/lib/api';
+import { showSuccessToast } from '@/lib/client-feedback';
 import { useDatabaseStore } from '@/stores/database-store';
 import { useQueryStore } from '@/stores/query-store';
+
+vi.mock('next/navigation', () => ({
+  useSearchParams: () => new URLSearchParams(),
+}));
+
+vi.mock('@/lib/client-feedback', () => ({
+  getErrorMessage: (error: unknown, fallback = '未知错误') =>
+    error instanceof Error && error.message.trim() ? error.message : fallback,
+  showErrorAlert: vi.fn(),
+  showSuccessToast: vi.fn(),
+}));
 
 // Mock API
 vi.mock('@/lib/api', () => ({
@@ -16,6 +28,14 @@ vi.mock('@/lib/api', () => ({
     query: {
       generate: vi.fn(),
       execute: vi.fn(),
+    },
+    querySessions: {
+      create: vi.fn(),
+      list: vi.fn(),
+      appendMessages: vi.fn(),
+      get: vi.fn(),
+      rename: vi.fn(),
+      delete: vi.fn(),
     },
   },
 }));
@@ -75,6 +95,20 @@ describe('QueryPage', () => {
     vi.clearAllMocks();
     useDatabaseStore.getState().reset();
     useQueryStore.getState().reset();
+    vi.mocked(api.querySessions.create).mockResolvedValue({
+      id: 's-1',
+      databaseId: '1',
+      title: '查询',
+      preview: '查询',
+      createdAt: '2026-02-14T00:00:00.000Z',
+      updatedAt: '2026-02-14T00:00:00.000Z',
+    });
+    vi.mocked(api.querySessions.list).mockResolvedValue({
+      sessions: [],
+      nextCursor: null,
+      hasMore: false,
+    });
+    vi.mocked(api.querySessions.appendMessages).mockResolvedValue(undefined);
     Object.defineProperty(window.HTMLElement.prototype, 'scrollIntoView', {
       configurable: true,
       value: vi.fn(),
@@ -357,6 +391,8 @@ describe('QueryPage', () => {
       expect(api.databases.refreshSchema).toHaveBeenCalledWith('1');
     });
 
-    await screen.findByText('Schema 已刷新');
+    await waitFor(() => {
+      expect(vi.mocked(showSuccessToast)).toHaveBeenCalledWith('Schema 已刷新');
+    });
   });
 });

@@ -43,7 +43,10 @@
 - 触发器类组件优先使用 `render` prop（Coss UI 风格），不要按 shadcn/Radix 的 `asChild` 写法套用。
 - `Dialog` 内的表单按钮建议放在 `DialogFooter`，并通过 `form={formId}` 绑定提交：
   - 避免把 `DialogFooter` 整体包进 `<form>` 造成滚动区域与 padding 不一致。
-- 尽量避免 `window.confirm/alert`，统一使用 `AlertDialog`/`Dialog`/`Toast` 做交互反馈。
+- 交互反馈约定：
+  - 成功：用 `Toast`（非打断式），统一走 `@/lib/client-feedback` 的 `showSuccessToast`。
+  - 失败：用全局错误弹窗（`AlertDialog`），统一走 `@/lib/client-feedback` 的 `showErrorAlert`，避免用户漏看。
+  - 避免使用 `window.confirm/alert`，保证交互风格一致且可测试。
 
 ## Query 模块约定
 

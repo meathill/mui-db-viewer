@@ -8,6 +8,7 @@ import { cors } from 'hono/cors';
 import { databaseRoutes } from './routes/database';
 import { fileRoutes } from './routes/file-routes';
 import { queryRoutes } from './routes/query';
+import { querySessionRoutes } from './routes/query-session-routes';
 import { savedQueryRoutes } from './routes/saved-query-routes';
 import type { Env } from './types';
 
@@ -18,7 +19,7 @@ app.use(
   '*',
   cors({
     origin: ['http://localhost:3000', 'http://localhost:3015'],
-    allowMethods: ['GET', 'POST', 'PUT', 'DELETE'],
+    allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
     allowHeaders: ['Content-Type'],
   }),
 );
@@ -33,6 +34,9 @@ app.route('/api/v1/databases', databaseRoutes);
 
 // 查询路由
 app.route('/api/v1/query', queryRoutes);
+
+// 查询会话历史路由
+app.route('/api/v1/query-sessions', querySessionRoutes);
 
 // 文件浏览路由
 app.route('/api/v1/files', fileRoutes);

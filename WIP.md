@@ -7,9 +7,7 @@
 
 ## 近期：发布准备（Schema 上下文）
 
-- [ ] Worker：应用 D1 迁移（`packages/worker/migrations/0003_schema_cache.sql`）
-- [ ] 回归：验证 AI 查询生成/刷新 Schema 按钮链路
-
-## 近期：继续维护（提取通用逻辑）
-
-- [ ] Schema 构建：大库优化策略（限制表数量/按表缓存/压缩，按需）
+- [ ] Worker：应用 D1 迁移：`packages/worker/migrations/0003_schema_cache.sql`
+- [ ] Worker：应用 D1 迁移：`packages/worker/migrations/0004_query_sessions.sql`
+- [ ] 回归：验证 AI 查询生成（Schema 注入）+ 刷新 Schema 按钮链路
+- [ ] 回归：验证查询历史（新建/自动保存/搜索/下一页/重命名/删除）

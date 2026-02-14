@@ -91,6 +91,50 @@ export interface UpdateSavedQueryRequest {
   sql?: string;
 }
 
+export type QuerySessionMessageRole = 'user' | 'assistant';
+
+export interface QuerySession {
+  id: string;
+  databaseId: string;
+  title: string;
+  preview: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface QuerySessionMessage {
+  id: string;
+  sessionId: string;
+  sequence: number;
+  role: QuerySessionMessageRole;
+  content: string;
+  sql?: string;
+  warning?: string;
+  error?: string;
+  createdAt: string;
+}
+
+export interface CreateQuerySessionRequest {
+  databaseId: string;
+  title: string;
+  preview?: string;
+}
+
+export interface AppendQuerySessionMessagesRequest {
+  messages: Array<{
+    id: string;
+    role: QuerySessionMessageRole;
+    content: string;
+    sql?: string;
+    warning?: string;
+    error?: string;
+  }>;
+}
+
+export interface UpdateQuerySessionRequest {
+  title?: string;
+}
+
 export interface ApiResponse<T = unknown> {
   success: boolean;
   data?: T;

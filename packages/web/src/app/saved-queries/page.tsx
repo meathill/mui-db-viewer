@@ -21,17 +21,10 @@ import {
   AlertDialogPopup,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { getErrorMessage, showErrorAlert, showSuccessToast } from '@/lib/client-feedback';
 import { api, type SavedQuery } from '@/lib/api';
 import { useQueryStore } from '@/stores/query-store';
 import { useDatabaseStore } from '@/stores/database-store';
-
-function getErrorMessage(error: unknown): string {
-  if (error instanceof Error && error.message.trim()) {
-    return error.message;
-  }
-
-  return '未知错误';
-}
 
 export default function SavedQueriesPage() {
   const [queries, setQueries] = useState<SavedQuery[]>([]);
@@ -81,11 +74,14 @@ export default function SavedQueriesPage() {
     try {
       await api.savedQueries.delete(deleteTarget.id);
       setQueries((prev) => prev.filter((q) => q.id !== deleteTarget.id));
+      showSuccessToast('删除成功', `已删除“${deleteTarget.name}”`);
       setDeleteDialogOpen(false);
       setDeleteTarget(null);
     } catch (error) {
       console.error('Failed to delete query:', error);
-      setDeleteError(`删除失败：${getErrorMessage(error)}`);
+      const message = getErrorMessage(error, '删除失败');
+      setDeleteError(`删除失败：${message}`);
+      showErrorAlert(message, '删除失败');
     } finally {
       setDeleting(false);
     }

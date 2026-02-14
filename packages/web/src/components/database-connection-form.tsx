@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { FileBrowserDialog } from '@/components/file-browser-dialog';
+import { getErrorMessage, showErrorAlert, showSuccessToast } from '@/lib/client-feedback';
 import type { CreateDatabaseRequest } from '@/lib/api';
 import { useDatabaseStore } from '@/stores/database-store';
 
@@ -82,9 +83,12 @@ export function DatabaseConnectionForm({ onSuccess }: DatabaseConnectionFormProp
 
     try {
       await createDatabase(formData);
+      showSuccessToast('保存成功', `已添加数据库连接“${formData.name || '未命名连接'}”`);
       onSuccess?.();
     } catch (err) {
-      setError(err instanceof Error ? err.message : '保存失败');
+      const message = getErrorMessage(err, '保存失败');
+      setError(message);
+      showErrorAlert(message, '保存失败');
     } finally {
       setSaving(false);
     }

@@ -24,7 +24,7 @@ interface DialogTriggerProps {
   render: ReactNode;
 }
 
-interface DropdownMenuTriggerProps {
+interface MenuTriggerProps {
   children?: ReactNode;
   render?: ReactNode;
 }
@@ -75,12 +75,12 @@ vi.mock('@/components/ui/alert-dialog', () => ({
 
 // Mock Menu
 vi.mock('@/components/ui/menu', () => ({
-  DropdownMenu: ({ children }: ChildrenProps) => <div>{children}</div>,
-  DropdownMenuTrigger: ({ children, render }: DropdownMenuTriggerProps) => (
+  Menu: ({ children }: ChildrenProps) => <div>{children}</div>,
+  MenuTrigger: ({ children, render }: MenuTriggerProps) => (
     <div data-testid="menu-trigger">{children || render}</div>
   ),
-  DropdownMenuContent: ({ children }: ChildrenProps) => <div>{children}</div>,
-  DropdownMenuItem: ({ children, onClick }: MenuItemProps) => (
+  MenuPopup: ({ children }: ChildrenProps) => <div>{children}</div>,
+  MenuItem: ({ children, onClick }: MenuItemProps) => (
     <div
       data-testid="delete-action"
       onClick={onClick}>

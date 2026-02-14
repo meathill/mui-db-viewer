@@ -4,17 +4,18 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
-  DialogContent,
   DialogClose,
   DialogDescription,
   DialogFooter,
   DialogHeader,
+  DialogPopup,
   DialogPanel,
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { getErrorMessage, showErrorAlert, showSuccessToast } from '@/lib/client-feedback';
 import { api } from '@/lib/api';
 
 interface SaveQueryDialogProps {
@@ -35,24 +36,28 @@ export function SaveQueryDialog({ open, onOpenChange, sql, databaseId, onSuccess
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim()) return;
+    const trimmedName = name.trim();
+    if (!trimmedName) return;
 
     setSaving(true);
     setSubmitError(null);
     try {
       await api.savedQueries.create({
-        name,
+        name: trimmedName,
         description,
         sql,
         databaseId,
       });
+      showSuccessToast('保存成功', `已保存为“${trimmedName}”`);
       onSuccess?.();
       onOpenChange(false);
       setName('');
       setDescription('');
     } catch (error) {
       console.error('Failed to save query:', error);
-      setSubmitError(error instanceof Error ? error.message : '保存失败');
+      const message = getErrorMessage(error, '保存失败');
+      setSubmitError(message);
+      showErrorAlert(message, '保存失败');
     } finally {
       setSaving(false);
     }
@@ -62,7 +67,7 @@ export function SaveQueryDialog({ open, onOpenChange, sql, databaseId, onSuccess
     <Dialog
       open={open}
       onOpenChange={onOpenChange}>
-      <DialogContent className="p-0">
+      <DialogPopup className="max-w-lg">
         <DialogHeader>
           <DialogTitle>保存查询</DialogTitle>
           <DialogDescription>将当前 SQL 保存以便以后使用。</DialogDescription>
@@ -81,6 +86,7 @@ export function SaveQueryDialog({ open, onOpenChange, sql, databaseId, onSuccess
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
+                autoFocus
               />
             </div>
 
@@ -123,7 +129,7 @@ export function SaveQueryDialog({ open, onOpenChange, sql, databaseId, onSuccess
             {saving ? '保存中...' : '保存'}
           </Button>
         </DialogFooter>
-      </DialogContent>
+      </DialogPopup>
     </Dialog>
   );
 }

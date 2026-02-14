@@ -19,18 +19,11 @@ import {
   AlertDialogPopup,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/menu';
+import { Menu, MenuItem, MenuPopup, MenuTrigger } from '@/components/ui/menu';
 import { DatabaseConnectionForm } from '@/components/database-connection-form';
 import { Empty, EmptyMedia, EmptyTitle, EmptyDescription, EmptyContent } from '@/components/ui/empty';
+import { getErrorMessage, showErrorAlert, showSuccessToast } from '@/lib/client-feedback';
 import { useDatabaseStore } from '@/stores/database-store';
-
-function getErrorMessage(error: unknown): string {
-  if (error instanceof Error && error.message.trim()) {
-    return error.message;
-  }
-
-  return '未知错误';
-}
 
 export default function DatabasesPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -60,11 +53,14 @@ export default function DatabasesPage() {
 
     try {
       await deleteDatabase(deleteTarget.id);
+      showSuccessToast('删除成功', `已删除数据库连接“${deleteTarget.name}”`);
       setDeleteDialogOpen(false);
       setDeleteTarget(null);
     } catch (deleteError) {
       console.error('Failed to delete database:', deleteError);
-      setDeleteError(`删除失败：${getErrorMessage(deleteError)}`);
+      const message = getErrorMessage(deleteError);
+      setDeleteError(`删除失败：${message}`);
+      showErrorAlert(message, '删除失败');
     } finally {
       setDeleting(false);
     }
@@ -148,8 +144,8 @@ export default function DatabasesPage() {
                           <CardDescription className="text-xs">{db.host}</CardDescription>
                         </div>
                       </div>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger
+                      <Menu>
+                        <MenuTrigger
                           render={
                             <Button
                               variant="ghost"
@@ -159,18 +155,18 @@ export default function DatabasesPage() {
                             </Button>
                           }
                         />
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem
+                        <MenuPopup align="end">
+                          <MenuItem
                             onClick={(e) => {
                               e.stopPropagation();
                               handleRequestDelete(db.id, db.name);
                             }}
-                            className="text-destructive">
+                            variant="destructive">
                             <TrashIcon className="mr-2 size-4" />
                             删除连接
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                          </MenuItem>
+                        </MenuPopup>
+                      </Menu>
                     </div>
                   </CardHeader>
                   <CardPanel className="pt-0 relative z-10 pointer-events-none">
