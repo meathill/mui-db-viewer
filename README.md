@@ -62,3 +62,4 @@ pnpm --filter worker dev
 - `WIP.md`：短期计划（保持精简）
 - `TODO.md`：长期待办
 - `AGENTS.md`：AI 行为准则
+- `GEMINI.md`：AI 行为准则（给部分工具链/模型读取，内容与 `AGENTS.md` 保持一致）
