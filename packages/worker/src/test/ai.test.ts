@@ -147,5 +147,28 @@ describe('AI Service', () => {
 
       expect(mockFetch).toHaveBeenCalledWith('https://custom-api.example.com/v1/chat/completions', expect.anything());
     });
+
+    it('baseUrl 为空字符串时回退到默认地址', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            choices: [{ message: { content: '{"sql":"SELECT 1"}' } }],
+          }),
+      });
+
+      const service = createAiService({
+        ...config,
+        baseUrl: '',
+      });
+
+      await service.generateSql({
+        prompt: '测试',
+        schema: '',
+        databaseType: 'MySQL',
+      });
+
+      expect(mockFetch).toHaveBeenCalledWith('https://api.openai.com/v1/chat/completions', expect.anything());
+    });
   });
 });

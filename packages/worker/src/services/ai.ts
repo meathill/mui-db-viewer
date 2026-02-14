@@ -24,6 +24,8 @@ export interface GenerateSqlResponse {
   explanation?: string;
 }
 
+const DEFAULT_OPENAI_BASE_URL = 'https://api.openai.com/v1';
+
 const SYSTEM_PROMPT = `你是一个 SQL 专家。根据用户的自然语言描述和数据库 Schema，生成对应的 SQL 查询语句。
 
 规则：
@@ -41,6 +43,26 @@ interface AiProvider {
   generateSql(request: GenerateSqlRequest): Promise<GenerateSqlResponse>;
 }
 
+function normalizeBaseUrl(input: string | undefined): string {
+  const trimmed = input?.trim();
+  if (!trimmed) return DEFAULT_OPENAI_BASE_URL;
+
+  const withScheme = trimmed.includes('://') ? trimmed : `https://${trimmed}`;
+  try {
+    // 保证是绝对 URL，避免 fetch 在 Node/Worker 下抛出 Invalid URL
+    const url = new URL(withScheme);
+    return url.toString().replace(/\/+$/, '');
+  } catch {
+    return DEFAULT_OPENAI_BASE_URL;
+  }
+}
+
+function joinUrl(baseUrl: string, path: string): string {
+  const normalizedBaseUrl = baseUrl.replace(/\/+$/, '');
+  const normalizedPath = path.replace(/^\/+/, '');
+  return `${normalizedBaseUrl}/${normalizedPath}`;
+}
+
 /**
  * OpenAI 实现
  */
@@ -49,7 +71,13 @@ class OpenAIProvider implements AiProvider {
 
   async generateSql(request: GenerateSqlRequest): Promise<GenerateSqlResponse> {
     const { prompt, schema, databaseType } = request;
-    const { apiKey, model = 'gpt-4o-mini', baseUrl = 'https://api.openai.com/v1' } = this.config;
+    const apiKey = this.config.apiKey;
+    const model = this.config.model?.trim() || 'gpt-4o-mini';
+    const baseUrl = normalizeBaseUrl(this.config.baseUrl);
+
+    if (!apiKey?.trim()) {
+      throw new Error('未配置 OpenAI API Key');
+    }
 
     const userMessage = `数据库类型: ${databaseType}
 
@@ -60,7 +88,7 @@ ${schema}
 
 请生成 JSON 格式的响应。`;
 
-    const response = await fetch(`${baseUrl}/chat/completions`, {
+    const response = await fetch(joinUrl(baseUrl, 'chat/completions'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
