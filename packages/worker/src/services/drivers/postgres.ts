@@ -40,6 +40,12 @@ export class PostgresDriver implements IDatabaseDriver {
     }
   }
 
+  async query(sql: string): Promise<Array<Record<string, unknown>>> {
+    await this.connect();
+    const res = await this.client!.query(sql);
+    return res.rows as Array<Record<string, unknown>>;
+  }
+
   async getTables(): Promise<string[]> {
     await this.connect();
     const res = await this.client!.query(

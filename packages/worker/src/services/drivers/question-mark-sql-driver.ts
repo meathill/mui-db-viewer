@@ -38,6 +38,12 @@ export abstract class QuestionMarkSqlDriver implements IDatabaseDriver {
 
   protected abstract executeQuery(query: string, params?: unknown[]): Promise<QueryRows>;
 
+  async query(sql: string): Promise<QueryRows> {
+    await this.connect();
+    const rows = await this.executeQuery(sql);
+    return Array.isArray(rows) ? rows : [];
+  }
+
   async getTables(): Promise<string[]> {
     await this.connect();
     const rows = await this.executeQuery('SHOW TABLES');

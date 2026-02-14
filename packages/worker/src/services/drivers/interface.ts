@@ -3,6 +3,7 @@ import type { RowUpdate, TableColumn, TableQueryOptions, TableQueryResult } from
 export interface IDatabaseDriver {
   connect(): Promise<void>;
   disconnect(): Promise<void>;
+  query(sql: string): Promise<Array<Record<string, unknown>>>;
   getTables(): Promise<string[]>;
   getTableSchema(tableName: string): Promise<TableColumn[]>;
   getTableData(tableName: string, options?: TableQueryOptions): Promise<TableQueryResult>;

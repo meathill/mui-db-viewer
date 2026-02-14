@@ -48,4 +48,8 @@ export class DatabaseService {
   async updateRows(tableName: string, rows: RowUpdate[]) {
     return this.driver.updateRows(tableName, rows);
   }
+
+  async query(sql: string) {
+    return this.driver.query(sql);
+  }
 }

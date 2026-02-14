@@ -122,7 +122,7 @@ describe('AI Service', () => {
           schema: '',
           databaseType: 'MySQL',
         }),
-      ).rejects.toThrow('AI 服务调用失败');
+      ).rejects.toThrow('OpenAI 调用失败');
     });
 
     it('使用自定义 baseUrl', async () => {

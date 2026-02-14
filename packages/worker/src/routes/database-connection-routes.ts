@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { validator } from 'hono/validator';
 import { createHsmClient } from '../services/hsm';
+import { validateAndSanitizeSql } from '../services/sql-guard';
 import type { ApiResponse, DatabaseConnection, Env, TableColumn, TableRow } from '../types';
 import {
   findConnectionById,
@@ -64,11 +65,20 @@ databaseConnectionRoutes.post(
     }
 
     try {
+      const guardResult = validateAndSanitizeSql(sql);
+      if (!guardResult.valid || !guardResult.sql) {
+        return c.json<ApiResponse>(
+          {
+            success: false,
+            error: guardResult.error || 'SQL 不安全',
+          },
+          400,
+        );
+      }
+
       const result = await withDatabaseService(c.env, connection, async (dbService) => {
-        // TODO: dbService.query needs to return columns info if possible, or we infer it
-        // For now, assuming dbService.query returns rows.
-        // We might need to extend DatabaseDriver interface to support raw query that returns metadata.
-        return dbService.query(sql);
+        // 当前驱动层仅返回 rows；columns 先在路由层做简单推断，后续可再补充元信息能力。
+        return dbService.query(guardResult.sql);
       });
 
       // Simple inference for columns if not provided by driver yet

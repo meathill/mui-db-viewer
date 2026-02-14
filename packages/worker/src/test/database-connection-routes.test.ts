@@ -15,6 +15,10 @@ vi.mock('@tidbcloud/serverless', () => ({
       if (sql.includes('SHOW TABLES')) {
         return Promise.resolve([{ Tables_in_test_db: 'users' }]);
       }
+
+      if (sql.toUpperCase().includes('SELECT 1')) {
+        return Promise.resolve([{ id: 1 }]);
+      }
       return Promise.resolve([]);
     }),
   })),
@@ -170,5 +174,41 @@ describe('database connection routes', () => {
     const json = (await res.json()) as { success: boolean; data?: string[] };
     expect(json.success).toBe(true);
     expect(json.data).toEqual(['users']);
+  });
+
+  it('POST /databases/:id/query 成功执行 SQL 并返回 rows/columns', async () => {
+    client.setConnectionRow(createMockDatabaseConnectionRow());
+
+    const res = await client.request('/databases/test-id/query', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sql: 'SELECT 1 as id' }),
+    });
+
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as {
+      success: boolean;
+      data?: { rows: Array<{ id: number }>; columns: Array<{ Field: string; Type: string }> };
+      error?: string;
+    };
+    expect(json.success).toBe(true);
+    expect(json.error).toBeUndefined();
+    expect(json.data?.rows).toEqual([{ id: 1 }]);
+    expect(json.data?.columns).toEqual([{ Field: 'id', Type: 'number' }]);
+  });
+
+  it('POST /databases/:id/query 不允许执行非只读 SQL', async () => {
+    client.setConnectionRow(createMockDatabaseConnectionRow());
+
+    const res = await client.request('/databases/test-id/query', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sql: 'DELETE FROM users' }),
+    });
+
+    expect(res.status).toBe(400);
+    const json = (await res.json()) as { success: boolean; error?: string };
+    expect(json.success).toBe(false);
+    expect(json.error).toContain('只允许');
   });
 });
