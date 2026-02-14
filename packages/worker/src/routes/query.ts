@@ -5,20 +5,12 @@
 
 import { Hono } from 'hono';
 import { validator } from 'hono/validator';
-import { createAiService, type AiConfig, type AiProviderType } from '../services/ai';
+import { createAiService, type AiConfig } from '../services/ai';
+import { formatDatabaseTypeLabel, getDatabaseSchemaContext } from '../services/schema-context';
 import { validateAndSanitizeSql } from '../services/sql-guard';
-import type { ApiResponse } from '../types';
+import type { ApiResponse, Env } from '../types';
+import { findConnectionById, getErrorMessage } from './database-shared';
 import { parseGenerateSqlRequest, parseValidateSqlRequest } from './request-validation';
-
-interface Env {
-  OPENAI_API_KEY?: string;
-  OPENAI_MODEL?: string;
-  OPENAI_BASE_URL?: string;
-  GEMINI_API_KEY?: string;
-  GEMINI_MODEL?: string;
-  REPLICATE_API_KEY?: string;
-  REPLICATE_MODEL?: string;
-}
 
 interface GenerateResponse {
   sql: string;
@@ -27,29 +19,6 @@ interface GenerateResponse {
 }
 
 const queryRoutes = new Hono<{ Bindings: Env }>();
-
-// 模拟 Schema（后续从缓存获取）
-const MOCK_SCHEMA = `
-表: orders
-  - id: INT PRIMARY KEY
-  - user_id: INT
-  - total_amount: DECIMAL(10,2)
-  - status: VARCHAR(20)
-  - created_at: DATETIME
-  - updated_at: DATETIME
-
-表: users
-  - id: INT PRIMARY KEY
-  - name: VARCHAR(100)
-  - email: VARCHAR(255)
-  - created_at: DATETIME
-
-表: products
-  - id: INT PRIMARY KEY
-  - name: VARCHAR(200)
-  - price: DECIMAL(10,2)
-  - stock: INT
-`;
 
 /**
  * 生成 SQL
@@ -65,7 +34,18 @@ queryRoutes.post(
     return result.data;
   }),
   async (c) => {
-    const { prompt, provider = 'openai', apiKey, model, baseUrl } = c.req.valid('json');
+    const { databaseId, prompt, provider = 'openai', apiKey, model, baseUrl } = c.req.valid('json');
+    const connection = await findConnectionById(c.env, databaseId);
+
+    if (!connection) {
+      return c.json<ApiResponse>(
+        {
+          success: false,
+          error: '数据库连接不存在',
+        },
+        404,
+      );
+    }
 
     try {
       let aiConfig: AiConfig;
@@ -107,12 +87,13 @@ queryRoutes.post(
 
       const ai = createAiService(aiConfig);
 
-      const schema = MOCK_SCHEMA;
+      const schemaContext = await getDatabaseSchemaContext(c.env, connection);
+      const schema = schemaContext.schema;
 
       const result = await ai.generateSql({
         prompt,
         schema,
-        databaseType: 'MySQL',
+        databaseType: formatDatabaseTypeLabel(connection.type),
       });
 
       const guardResult = validateAndSanitizeSql(result.sql);
@@ -140,7 +121,7 @@ queryRoutes.post(
       return c.json<ApiResponse>(
         {
           success: false,
-          error: error instanceof Error ? error.message : '生成失败',
+          error: getErrorMessage(error, '生成失败'),
         },
         500,
       );

@@ -61,6 +61,13 @@ export interface TableDataResult<Row extends TableRow = TableRow> {
   columns: TableColumn[];
 }
 
+export interface DatabaseSchemaContext {
+  schema: string;
+  updatedAt: number;
+  expiresAt: number;
+  cached: boolean;
+}
+
 export interface RowUpdate {
   pk: string | number;
   data: Record<string, unknown>;
@@ -138,6 +145,22 @@ export const api = {
       const result = await request<string[]>('GET', `/api/v1/databases/${id}/tables`);
       if (!result.success || !result.data) {
         throw new Error(result.error || '获取表列表失败');
+      }
+      return result.data;
+    },
+
+    async getSchema(id: string): Promise<DatabaseSchemaContext> {
+      const result = await request<DatabaseSchemaContext>('GET', `/api/v1/databases/${id}/schema`);
+      if (!result.success || !result.data) {
+        throw new Error(result.error || '获取 Schema 失败');
+      }
+      return result.data;
+    },
+
+    async refreshSchema(id: string): Promise<DatabaseSchemaContext> {
+      const result = await request<DatabaseSchemaContext>('POST', `/api/v1/databases/${id}/schema/refresh`);
+      if (!result.success || !result.data) {
+        throw new Error(result.error || '刷新 Schema 失败');
       }
       return result.data;
     },

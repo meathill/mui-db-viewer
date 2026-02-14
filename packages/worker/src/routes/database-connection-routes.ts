@@ -1,6 +1,8 @@
 import { Hono } from 'hono';
 import { validator } from 'hono/validator';
 import { createHsmClient } from '../services/hsm';
+import { getDatabaseSchemaContext } from '../services/schema-context';
+import { deleteSchemaCache } from '../services/schema-cache';
 import { validateAndSanitizeSql } from '../services/sql-guard';
 import type { ApiResponse, DatabaseConnection, Env, TableColumn, TableRow } from '../types';
 import {
@@ -238,6 +240,9 @@ databaseConnectionRoutes.delete('/:id', async (c) => {
       });
       await hsm.delete(connection.keyPath);
     }
+
+    // 即使 DB 层开启了外键 cascade，也显式清理一次缓存，避免出现脏数据。
+    await deleteSchemaCache(c.env, id);
     await c.env.DB.prepare(`DELETE FROM database_connections WHERE id = ?`).bind(id).run();
 
     return c.json<ApiResponse>({ success: true });
@@ -247,6 +252,70 @@ databaseConnectionRoutes.delete('/:id', async (c) => {
       {
         success: false,
         error: getErrorMessage(error, '删除失败'),
+      },
+      500,
+    );
+  }
+});
+
+databaseConnectionRoutes.get('/:id/schema', async (c) => {
+  const id = c.req.param('id');
+  const connection = await findConnectionById(c.env, id);
+
+  if (!connection) {
+    return c.json<ApiResponse>(
+      {
+        success: false,
+        error: '数据库连接不存在',
+      },
+      404,
+    );
+  }
+
+  try {
+    const context = await getDatabaseSchemaContext(c.env, connection);
+    return c.json<ApiResponse<typeof context>>({
+      success: true,
+      data: context,
+    });
+  } catch (error) {
+    console.error('获取 Schema 失败:', error);
+    return c.json<ApiResponse>(
+      {
+        success: false,
+        error: getErrorMessage(error, '获取 Schema 失败'),
+      },
+      500,
+    );
+  }
+});
+
+databaseConnectionRoutes.post('/:id/schema/refresh', async (c) => {
+  const id = c.req.param('id');
+  const connection = await findConnectionById(c.env, id);
+
+  if (!connection) {
+    return c.json<ApiResponse>(
+      {
+        success: false,
+        error: '数据库连接不存在',
+      },
+      404,
+    );
+  }
+
+  try {
+    const context = await getDatabaseSchemaContext(c.env, connection, { forceRefresh: true });
+    return c.json<ApiResponse<typeof context>>({
+      success: true,
+      data: context,
+    });
+  } catch (error) {
+    console.error('刷新 Schema 失败:', error);
+    return c.json<ApiResponse>(
+      {
+        success: false,
+        error: getErrorMessage(error, '刷新 Schema 失败'),
       },
       500,
     );

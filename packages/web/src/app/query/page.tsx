@@ -11,6 +11,7 @@ import {
   UserIcon,
   Loader2Icon,
   AlertTriangleIcon,
+  RefreshCwIcon,
 } from 'lucide-react';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/app-sidebar';
@@ -26,6 +27,15 @@ import { SaveQueryDialog } from '@/components/save-query-dialog';
 import { useDatabaseStore } from '@/stores/database-store';
 import { useQueryStore } from '@/stores/query-store';
 import { useShallow } from 'zustand/react/shallow';
+import { api } from '@/lib/api';
+
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message.trim()) {
+    return error.message;
+  }
+
+  return '未知错误';
+}
 
 export default function QueryPage() {
   const { messages, input, selectedDatabaseId, loading, setInput, setSelectedDatabaseId, sendQuery, executeSql } =
@@ -46,10 +56,22 @@ export default function QueryPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [currentSql, setCurrentSql] = useState('');
+  const [schemaRefreshing, setSchemaRefreshing] = useState(false);
+  const [schemaFeedback, setSchemaFeedback] = useState<{ variant: 'success' | 'error'; text: string } | null>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  useEffect(() => {
+    if (!schemaFeedback) return;
+
+    const timer = window.setTimeout(() => {
+      setSchemaFeedback(null);
+    }, 4000);
+
+    return () => window.clearTimeout(timer);
+  }, [schemaFeedback]);
 
   useEffect(() => {
     void fetchDatabases().catch((fetchError) => {
@@ -84,6 +106,24 @@ export default function QueryPage() {
     setSaveDialogOpen(true);
   }
 
+  function handleRefreshSchema() {
+    if (!selectedDatabaseId || schemaRefreshing) return;
+
+    setSchemaRefreshing(true);
+    void api.databases
+      .refreshSchema(selectedDatabaseId)
+      .then(() => {
+        setSchemaFeedback({ variant: 'success', text: 'Schema 已刷新' });
+      })
+      .catch((refreshError) => {
+        console.error('刷新 Schema 失败:', refreshError);
+        setSchemaFeedback({ variant: 'error', text: `刷新失败：${getErrorMessage(refreshError)}` });
+      })
+      .finally(() => {
+        setSchemaRefreshing(false);
+      });
+  }
+
   return (
     <SidebarProvider>
       <AppSidebar />
@@ -97,23 +137,46 @@ export default function QueryPage() {
             />
             <h1 className="font-semibold">AI 查询</h1>
           </div>
-          <Select
-            value={selectedDatabaseId}
-            onValueChange={(value) => value && setSelectedDatabaseId(value)}>
-            <SelectTrigger className="w-48">
-              <DatabaseIcon className="mr-2 size-4" />
-              <SelectValue placeholder="选择数据库" />
-            </SelectTrigger>
-            <SelectPopup>
-              {databases.map((db) => (
-                <SelectItem
-                  key={db.id}
-                  value={db.id}>
-                  {db.name}
-                </SelectItem>
-              ))}
-            </SelectPopup>
-          </Select>
+          <div className="flex items-center gap-2">
+            {schemaFeedback && (
+              <Badge
+                size="sm"
+                variant={schemaFeedback.variant === 'success' ? 'success' : 'error'}>
+                {schemaFeedback.text}
+              </Badge>
+            )}
+            <Select
+              value={selectedDatabaseId}
+              onValueChange={(value) => value && setSelectedDatabaseId(value)}>
+              <SelectTrigger className="w-48">
+                <DatabaseIcon className="mr-2 size-4" />
+                <SelectValue placeholder="选择数据库" />
+              </SelectTrigger>
+              <SelectPopup>
+                {databases.map((db) => (
+                  <SelectItem
+                    key={db.id}
+                    value={db.id}>
+                    {db.name}
+                  </SelectItem>
+                ))}
+              </SelectPopup>
+            </Select>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="size-9"
+              disabled={!selectedDatabaseId || schemaRefreshing}
+              onClick={handleRefreshSchema}
+              title="刷新 Schema">
+              {schemaRefreshing ? (
+                <Loader2Icon className="size-4 animate-spin" />
+              ) : (
+                <RefreshCwIcon className="size-4" />
+              )}
+            </Button>
+          </div>
         </header>
 
         <div className="flex flex-1 overflow-hidden">

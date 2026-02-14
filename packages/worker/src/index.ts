@@ -9,14 +9,7 @@ import { databaseRoutes } from './routes/database';
 import { fileRoutes } from './routes/file-routes';
 import { queryRoutes } from './routes/query';
 import { savedQueryRoutes } from './routes/saved-query-routes';
-
-interface Env {
-  HSM_URL: string;
-  HSM_SECRET: string;
-  OPENAI_API_KEY: string;
-  OPENAI_MODEL?: string;
-  OPENAI_BASE_URL?: string;
-}
+import type { Env } from './types';
 
 const app = new Hono<{ Bindings: Env }>();
 
