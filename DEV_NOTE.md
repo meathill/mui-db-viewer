@@ -35,6 +35,16 @@
 - API 参数序列化逻辑集中在 `lib` 工具函数，避免页面手工拼 query。
 - 表格相关通用处理（主键识别、单元格格式化）抽到独立工具模块。
 
+## Coss UI 组件用法约定
+
+- 业务代码只从 `@/components/ui/*` 引用组件，不直接引用 `@base-ui/react/*`（除非在 `components/ui` 封装内部）。
+- 弹层类组件（`Dialog` / `AlertDialog` / `Menu` / `Select` 等）优先使用 `*Popup` / `*Content`：
+  - 不要在业务层手工再包一层 `Portal` / `Backdrop` / `Viewport`，避免重复渲染导致遮罩叠层、样式错乱。
+- 触发器类组件优先使用 `render` prop（Coss UI 风格），不要按 shadcn/Radix 的 `asChild` 写法套用。
+- `Dialog` 内的表单按钮建议放在 `DialogFooter`，并通过 `form={formId}` 绑定提交：
+  - 避免把 `DialogFooter` 整体包进 `<form>` 造成滚动区域与 padding 不一致。
+- 尽量避免 `window.confirm/alert`，统一使用 `AlertDialog`/`Dialog`/`Toast` 做交互反馈。
+
 ## Query 模块约定
 
 - Query 页面会话状态统一由 `query-store` 管理，页面避免重复维护本地副本。
