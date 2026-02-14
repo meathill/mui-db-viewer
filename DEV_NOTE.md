@@ -17,6 +17,18 @@
   - `getTableData(): TableQueryResult`
 - 避免在路由层写数据库方言判断。
 
+## Schema 上下文与缓存
+
+- AI 生成 SQL 时，Worker 会根据 `databaseId` 自动读取目标数据库的表结构（`getTables` + `getTableSchema`），并注入到 LLM 的上下文中。
+- Schema 会缓存到 D1 表 `database_schema_cache`：
+  - `schema_text`：用于 AI 的文本化结构
+  - `updated_at` / `expires_at`：epoch ms
+  - 默认 TTL：7 天（`SCHEMA_CACHE_TTL_MS`）
+- 删除数据库连接时会同步删除对应的 schema cache，避免脏数据。
+- 手动刷新接口：
+  - `GET /api/v1/databases/:id/schema`：读取（命中缓存则返回 `cached: true`）
+  - `POST /api/v1/databases/:id/schema/refresh`：强制刷新（`cached: false`）
+
 ## Web 状态与 API 约定
 
 - 跨页面共享状态优先放入 `zustand` store。

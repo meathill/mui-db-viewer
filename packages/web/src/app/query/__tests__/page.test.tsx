@@ -11,6 +11,7 @@ vi.mock('@/lib/api', () => ({
   api: {
     databases: {
       list: vi.fn(),
+      refreshSchema: vi.fn(),
     },
     query: {
       generate: vi.fn(),
@@ -323,6 +324,39 @@ describe('QueryPage', () => {
     expect(executeButton).toBeTruthy();
     fireEvent.click(executeButton!);
 
-    expect(api.query.execute).toHaveBeenCalledWith('1', 'SELECT * FROM orders');
+    await waitFor(() => {
+      expect(api.query.execute).toHaveBeenCalledWith('1', 'SELECT * FROM orders');
+    });
+
+    await screen.findByText('查询结果 (1 行)');
+    expect(screen.getByText('100')).toBeDefined();
+  });
+
+  it('点击刷新 Schema 按钮应调用 refreshSchema 并展示反馈', async () => {
+    vi.mocked(api.databases.list).mockResolvedValue(mockDbs);
+    vi.mocked(api.databases.refreshSchema).mockResolvedValue({
+      schema: '表: users',
+      updatedAt: 1000,
+      expiresAt: 2000,
+      cached: false,
+    });
+
+    useQueryStore.getState().setSelectedDatabaseId('1');
+
+    render(<QueryPage />);
+
+    await waitFor(() => {
+      expect(api.databases.list).toHaveBeenCalled();
+    });
+
+    const refreshButton = screen.getByTitle('刷新 Schema') as HTMLButtonElement;
+    expect(refreshButton.disabled).toBe(false);
+    fireEvent.click(refreshButton);
+
+    await waitFor(() => {
+      expect(api.databases.refreshSchema).toHaveBeenCalledWith('1');
+    });
+
+    await screen.findByText('Schema 已刷新');
   });
 });

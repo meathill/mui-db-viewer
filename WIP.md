@@ -5,10 +5,12 @@
 - 长期规划：`TODO.md`
 - 长期约定：`DEV_NOTE.md`
 
-## 近期：继续维护（拆分 + 补测）
+## 近期：发布准备（Schema 上下文）
 
-- [ ] AI 查询：自动注入表结构上下文（D1 缓存 7d + 手动刷新）
-- [ ] Web：拆分 `packages/web/src/components/ui/sidebar.tsx`（当前约 689 行）
-- [ ] Web：补齐 Sidebar 组件关键交互测试
-- [ ] Web：收敛 Query 页面测试的 `act(...)` warning
-- [ ] 回归：`pnpm test`
+- [ ] Worker：应用 D1 迁移（`packages/worker/migrations/0003_schema_cache.sql`）
+- [ ] 文档：补齐 D1 migrations 的部署步骤（`DEPLOYMENT.md`）
+- [ ] 文档：记录 Schema 注入/缓存/刷新策略与接口（`DEV_NOTE.md`）
+
+## 近期：继续维护（提取通用逻辑）
+
+- [ ] Schema 构建：大库优化策略（限制表数量/按表缓存/压缩，按需）

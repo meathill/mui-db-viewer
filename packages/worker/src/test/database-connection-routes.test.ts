@@ -211,4 +211,59 @@ describe('database connection routes', () => {
     expect(json.success).toBe(false);
     expect(json.error).toContain('只允许');
   });
+
+  it('GET /databases/:id/schema 成功返回 schema context', async () => {
+    client.setConnectionRow(createMockDatabaseConnectionRow());
+
+    const res = await client.request('/databases/test-id/schema');
+
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as {
+      success: boolean;
+      data?: { schema: string; updatedAt: number; expiresAt: number; cached: boolean };
+      error?: string;
+    };
+
+    expect(json.success).toBe(true);
+    expect(json.error).toBeUndefined();
+    expect(typeof json.data?.schema).toBe('string');
+    expect(json.data?.schema).toContain('表: users');
+    expect(typeof json.data?.updatedAt).toBe('number');
+    expect(typeof json.data?.expiresAt).toBe('number');
+    expect(json.data?.expiresAt).toBeGreaterThan(json.data!.updatedAt);
+    expect(typeof json.data?.cached).toBe('boolean');
+  });
+
+  it('POST /databases/:id/schema/refresh 成功刷新 schema context', async () => {
+    client.setConnectionRow(createMockDatabaseConnectionRow());
+
+    const res = await client.request('/databases/test-id/schema/refresh', {
+      method: 'POST',
+    });
+
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as {
+      success: boolean;
+      data?: { schema: string; updatedAt: number; expiresAt: number; cached: boolean };
+      error?: string;
+    };
+
+    expect(json.success).toBe(true);
+    expect(json.error).toBeUndefined();
+    expect(typeof json.data?.schema).toBe('string');
+    expect(json.data?.schema).toContain('表: users');
+    expect(typeof json.data?.updatedAt).toBe('number');
+    expect(typeof json.data?.expiresAt).toBe('number');
+    expect(json.data?.expiresAt).toBeGreaterThan(json.data!.updatedAt);
+    expect(typeof json.data?.cached).toBe('boolean');
+  });
+
+  it('GET /databases/:id/schema 不存在时返回 404', async () => {
+    const res = await client.request('/databases/non-existent-id/schema');
+
+    expect(res.status).toBe(404);
+    const json = (await res.json()) as { success: boolean; error?: string };
+    expect(json.success).toBe(false);
+    expect(json.error).toBe('数据库连接不存在');
+  });
 });

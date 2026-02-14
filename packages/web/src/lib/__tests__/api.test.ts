@@ -166,6 +166,82 @@ describe('API Client', () => {
       });
     });
 
+    describe('getSchema', () => {
+      it('成功获取 schema context', async () => {
+        const mockData = {
+          schema: '表: users\n  - id: int',
+          updatedAt: 1000,
+          expiresAt: 2000,
+          cached: true,
+        };
+        mockFetch.mockResolvedValueOnce({
+          json: () => Promise.resolve({ success: true, data: mockData }),
+        });
+
+        const result = await api.databases.getSchema('db-1');
+
+        expect(result).toEqual(mockData);
+        expect(mockFetch).toHaveBeenCalledWith(
+          expect.stringContaining('/api/v1/databases/db-1/schema'),
+          expect.objectContaining({ method: 'GET' }),
+        );
+      });
+
+      it('失败时抛出错误', async () => {
+        mockFetch.mockResolvedValueOnce({
+          json: () => Promise.resolve({ success: false, error: '数据库连接不存在' }),
+        });
+
+        await expect(api.databases.getSchema('404')).rejects.toThrow('数据库连接不存在');
+      });
+
+      it('后端缺少 data 时使用默认错误提示', async () => {
+        mockFetch.mockResolvedValueOnce({
+          json: () => Promise.resolve({ success: true }),
+        });
+
+        await expect(api.databases.getSchema('db-1')).rejects.toThrow('获取 Schema 失败');
+      });
+    });
+
+    describe('refreshSchema', () => {
+      it('成功刷新 schema context', async () => {
+        const mockData = {
+          schema: '表: users\n  - id: int',
+          updatedAt: 3000,
+          expiresAt: 4000,
+          cached: false,
+        };
+        mockFetch.mockResolvedValueOnce({
+          json: () => Promise.resolve({ success: true, data: mockData }),
+        });
+
+        const result = await api.databases.refreshSchema('db-1');
+
+        expect(result).toEqual(mockData);
+        expect(mockFetch).toHaveBeenCalledWith(
+          expect.stringContaining('/api/v1/databases/db-1/schema/refresh'),
+          expect.objectContaining({ method: 'POST' }),
+        );
+      });
+
+      it('失败时抛出错误', async () => {
+        mockFetch.mockResolvedValueOnce({
+          json: () => Promise.resolve({ success: false, error: '刷新失败' }),
+        });
+
+        await expect(api.databases.refreshSchema('db-1')).rejects.toThrow('刷新失败');
+      });
+
+      it('后端缺少 data 时使用默认错误提示', async () => {
+        mockFetch.mockResolvedValueOnce({
+          json: () => Promise.resolve({ success: true }),
+        });
+
+        await expect(api.databases.refreshSchema('db-1')).rejects.toThrow('刷新 Schema 失败');
+      });
+    });
+
     describe('deleteRows', () => {
       it('成功删除行', async () => {
         mockFetch.mockResolvedValueOnce({

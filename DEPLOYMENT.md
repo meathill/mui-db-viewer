@@ -20,6 +20,26 @@ pnpm --filter worker deploy
 pnpm --filter worker build
 ```
 
+## D1 迁移
+
+Worker 使用 D1 存储数据库连接、收藏查询、Schema 缓存等数据。
+
+当 `packages/worker/migrations` 新增迁移时，需要先把迁移应用到目标 D1 数据库。
+
+远端（生产/预发）：
+
+```bash
+cd packages/worker
+pnpm exec wrangler d1 migrations apply mui-db --remote
+```
+
+本地（配合 `wrangler dev` 的本地数据库）：
+
+```bash
+cd packages/worker
+pnpm exec wrangler d1 migrations apply mui-db --local
+```
+
 ## Web 部署
 
 构建并部署：
