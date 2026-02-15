@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { validator } from 'hono/validator';
-import type { ApiResponse, Env } from '../types';
+import type { ApiResponse } from '../types';
 import {
   handleCreateDatabaseConnection,
   handleDeleteDatabaseConnection,
@@ -21,7 +21,7 @@ import { parseCreateDatabaseRequest, parseValidateSqlRequest } from './request-v
 export { loadTableData };
 export type { TableDataResponse };
 
-export const databaseConnectionRoutes = new Hono<{ Bindings: Env }>();
+export const databaseConnectionRoutes = new Hono<{ Bindings: CloudflareBindings }>();
 
 databaseConnectionRoutes.post(
   '/:id/query',

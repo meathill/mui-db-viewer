@@ -4,11 +4,21 @@
 
 import { Hono } from 'hono';
 import { validator } from 'hono/validator';
-import type { ApiResponse, Env, SavedQuery } from '../types';
+import type { ApiResponse, SavedQuery } from '../types';
 import { getErrorMessage } from './database-shared';
 import { parseCreateSavedQueryRequest, parseUpdateSavedQueryRequest } from './request-validation';
 
-const savedQueryRoutes = new Hono<{ Bindings: Env }>();
+const savedQueryRoutes = new Hono<{ Bindings: CloudflareBindings }>();
+
+interface SavedQueryRow {
+  id: string;
+  name: string;
+  description: string | null;
+  sql: string;
+  database_id: string;
+  created_at: string;
+  updated_at: string;
+}
 
 /**
  * 创建保存查询
@@ -93,14 +103,12 @@ savedQueryRoutes.get('/', async (c) => {
 
     const result = await c.env.DB.prepare(query)
       .bind(...params)
-      .all<SavedQuery>();
+      .all<SavedQueryRow>();
 
-    // D1 return keys as snake_case in raw query result usually? No, D1 returns column names.
-    // My table columns are snake_case. Need to map to camelCase.
-    const queries = result.results.map((row: any) => ({
+    const queries: SavedQuery[] = result.results.map((row) => ({
       id: row.id,
       name: row.name,
-      description: row.description,
+      description: row.description ?? undefined,
       sql: row.sql,
       databaseId: row.database_id,
       createdAt: row.created_at,

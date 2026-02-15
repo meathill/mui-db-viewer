@@ -1,6 +1,8 @@
-import type { DatabaseConnection, Env, RowUpdate, TableQueryOptions } from '../types';
+import type { DatabaseConnection, RowUpdate, TableQueryOptions } from '../types';
 import { createDatabaseDriver } from './drivers/factory';
 import type { IDatabaseDriver } from './drivers/interface';
+
+type DatabaseServiceEnv = Pick<CloudflareBindings, 'DB'>;
 
 export class DatabaseService {
   private driver: IDatabaseDriver;
@@ -8,7 +10,7 @@ export class DatabaseService {
   constructor(
     private config: DatabaseConnection,
     private password?: string,
-    private env?: Env,
+    private env?: DatabaseServiceEnv,
   ) {
     this.driver = this.createDriver();
   }

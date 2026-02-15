@@ -1,4 +1,4 @@
-import type { DatabaseConnection, DatabaseType, Env } from '../../types';
+import type { DatabaseConnection, DatabaseType } from '../../types';
 import { D1Driver } from './d1';
 import type { IDatabaseDriver } from './interface';
 import { MySQLDriver } from './mysql';
@@ -6,10 +6,12 @@ import { PostgresDriver } from './postgres';
 import { SQLiteDriver } from './sqlite';
 import { TiDBDriver } from './tidb';
 
+type DriverEnv = Pick<CloudflareBindings, 'DB'>;
+
 interface DriverFactoryContext {
   config: DatabaseConnection;
   password?: string;
-  env?: Env;
+  env?: DriverEnv;
 }
 
 type DriverFactory = (context: DriverFactoryContext) => IDatabaseDriver;
@@ -30,7 +32,7 @@ const DRIVER_FACTORIES: Partial<Record<DatabaseType, DriverFactory>> = {
   sqlite: (context) => new SQLiteDriver(context.config.database),
 };
 
-export function createDatabaseDriver(config: DatabaseConnection, password?: string, env?: Env): IDatabaseDriver {
+export function createDatabaseDriver(config: DatabaseConnection, password?: string, env?: DriverEnv): IDatabaseDriver {
   const factory = DRIVER_FACTORIES[config.type];
 
   if (!factory) {

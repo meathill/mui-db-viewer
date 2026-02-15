@@ -1,9 +1,10 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "web",
+  "name": "mui-db-viewer",
   "main": ".open-next/worker.js",
   "compatibility_date": "2025-12-01",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "keep_names": false,
   "assets": {
     "binding": "ASSETS",
     "directory": ".open-next/assets"
@@ -14,7 +15,11 @@
   "services": [
     {
       "binding": "WORKER_SELF_REFERENCE",
-      "service": "web"
+      "service": "mui-db-viewer"
+    },
+    {
+      "binding": "API_WORKER",
+      "service": "mui-db-worker"
     }
   ],
   "observability": {
@@ -23,7 +28,5 @@
   "placement": {
     "mode": "smart"
   },
-  "vars": {
-    "MY_VARIABLE": "production_value"
-  }
+  "vars": {}
 }

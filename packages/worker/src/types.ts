@@ -140,16 +140,3 @@ export interface ApiResponse<T = unknown> {
   data?: T;
   error?: string;
 }
-
-export interface Env {
-  HSM_URL: string;
-  HSM_SECRET: string;
-  OPENAI_API_KEY: string;
-  OPENAI_MODEL?: string;
-  OPENAI_BASE_URL?: string;
-  GEMINI_API_KEY?: string;
-  GEMINI_MODEL?: string;
-  REPLICATE_API_KEY?: string;
-  REPLICATE_MODEL?: string;
-  DB: import('@cloudflare/workers-types').D1Database;
-}

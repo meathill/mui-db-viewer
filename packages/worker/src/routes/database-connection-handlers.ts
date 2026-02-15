@@ -1,10 +1,10 @@
 import type { Context } from 'hono';
-import { createHsmClient } from '../services/hsm';
+import { createHsmClient, parseHsmCallMode } from '../services/hsm';
 import { deleteSchemaCache } from '../services/schema-cache';
-import type { ApiResponse, CreateDatabaseRequest, DatabaseConnection, Env } from '../types';
+import type { ApiResponse, CreateDatabaseRequest, DatabaseConnection } from '../types';
 import { findConnectionById, getErrorMessage, listConnections } from './database-shared';
 
-type WorkerContext = Context<{ Bindings: Env }>;
+type WorkerContext = Context<{ Bindings: CloudflareBindings }>;
 
 export async function handleCreateDatabaseConnection(c: WorkerContext) {
   const body = c.req.valid('json') as CreateDatabaseRequest;
@@ -30,6 +30,8 @@ export async function handleCreateDatabaseConnection(c: WorkerContext) {
   try {
     if (!isSqlite) {
       const hsm = createHsmClient({
+        callMode: parseHsmCallMode(c.env.HSM_CALL_MODE),
+        service: c.env.HSM_SERVICE,
         url: c.env.HSM_URL,
         secret: c.env.HSM_SECRET,
       });
@@ -117,6 +119,8 @@ export async function handleDeleteDatabaseConnection(c: WorkerContext) {
   try {
     if (connection.type !== 'sqlite' && connection.keyPath) {
       const hsm = createHsmClient({
+        callMode: parseHsmCallMode(c.env.HSM_CALL_MODE),
+        service: c.env.HSM_SERVICE,
         url: c.env.HSM_URL,
         secret: c.env.HSM_SECRET,
       });

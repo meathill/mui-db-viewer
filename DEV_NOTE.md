@@ -29,6 +29,21 @@
   - `GET /api/v1/databases/:id/schema`：读取（命中缓存则返回 `cached: true`）
   - `POST /api/v1/databases/:id/schema/refresh`：强制刷新（`cached: false`）
 
+## Worker 环境变量类型
+
+- Worker bindings 类型由 wrangler 自动生成：`packages/worker/worker-configuration.d.ts`。
+- 业务代码直接使用全局 `CloudflareBindings`，不要在 `packages/worker/src/types.ts` 手写 `Env`。
+- 当 `wrangler.jsonc` 的绑定变更后，运行 `pnpm --filter worker cf-typegen` 更新类型文件。
+
+## D1 元数据（Drizzle）
+
+- Drizzle 仅用于管理 Worker 自身的 D1 元数据表（连接/收藏/Schema cache/会话历史等），不用于外部数据库（MySQL/PostgreSQL/TiDB/D1 浏览等）查询。
+- Schema 定义统一放在：`packages/worker/src/db/schema.ts`
+- D1 迁移文件放在：`packages/worker/migrations`
+- 应用迁移：
+  - 本地：`pnpm --filter worker migrate:local`
+  - 远端：`pnpm --filter worker migrate:remote`
+
 ## Web 状态与 API 约定
 
 - 跨页面共享状态优先放入 `zustand` store。

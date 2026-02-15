@@ -1,5 +1,5 @@
-import type { DatabaseConnection, DatabaseType, Env, TableColumn } from '../types';
-import { withDatabaseService } from '../routes/database-shared';
+import type { DatabaseConnection, DatabaseType, TableColumn } from '../types';
+import { withDatabaseService, type DatabaseServiceEnv } from '../routes/database-shared';
 import { isSchemaCacheValid, readSchemaCache, upsertSchemaCache, type SchemaCacheEntry } from './schema-cache';
 
 export const SCHEMA_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -65,7 +65,7 @@ export function formatDatabaseSchema(tables: Array<{ tableName: string; columns:
   return tables.map((table) => formatTableSchema(table.tableName, table.columns)).join('\n\n');
 }
 
-async function buildDatabaseSchemaText(env: Env, connection: DatabaseConnection): Promise<string> {
+async function buildDatabaseSchemaText(env: DatabaseServiceEnv, connection: DatabaseConnection): Promise<string> {
   return withDatabaseService(env, connection, async (dbService) => {
     const tables = await dbService.getTables();
     const tableNames = [...tables].sort((a, b) => a.localeCompare(b));
@@ -81,7 +81,7 @@ async function buildDatabaseSchemaText(env: Env, connection: DatabaseConnection)
 }
 
 export async function getDatabaseSchemaContext(
-  env: Env,
+  env: DatabaseServiceEnv,
   connection: DatabaseConnection,
   options: { forceRefresh?: boolean; now?: number } = {},
 ): Promise<SchemaContextResult> {

@@ -5,7 +5,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Hono } from 'hono';
 import { createAiService } from '../services/ai';
-import type { Env } from '../types';
 import {
   createQueryRouteMockDb,
   createDefaultQueryRouteConnectionRow,
@@ -21,8 +20,8 @@ vi.mock('../services/ai', () => ({
 import { queryRoutes } from '../routes/query';
 
 describe('Query Routes', () => {
-  let app: Hono<{ Bindings: Env }>;
-  let env: Env;
+  let app: Hono<{ Bindings: CloudflareBindings }>;
+  let env: CloudflareBindings;
   let generateSqlMock: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
@@ -52,7 +51,7 @@ describe('Query Routes', () => {
     const db = createQueryRouteMockDb({ connectionRow, schemaCacheRow });
     env = createTestEnv(db);
 
-    app = new Hono<{ Bindings: Env }>();
+    app = new Hono<{ Bindings: CloudflareBindings }>();
     app.route('/query', queryRoutes);
   });
 

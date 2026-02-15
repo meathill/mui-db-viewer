@@ -1,13 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createDatabaseRouteTestClient, createMockDatabaseConnectionRow } from './database-route-test-utils';
 
-vi.mock('../services/hsm', () => ({
-  createHsmClient: vi.fn(() => ({
-    encrypt: vi.fn().mockResolvedValue(undefined),
-    decrypt: vi.fn().mockResolvedValue('decrypted-password'),
-    delete: vi.fn().mockResolvedValue(undefined),
-  })),
-}));
+vi.mock('../services/hsm', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../services/hsm')>();
+  return {
+    ...actual,
+    createHsmClient: vi.fn(() => ({
+      encrypt: vi.fn().mockResolvedValue(undefined),
+      decrypt: vi.fn().mockResolvedValue('decrypted-password'),
+      delete: vi.fn().mockResolvedValue(undefined),
+    })),
+  };
+});
 
 vi.mock('@tidbcloud/serverless', () => ({
   connect: vi.fn(() => ({

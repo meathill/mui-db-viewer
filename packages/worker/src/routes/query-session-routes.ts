@@ -8,7 +8,7 @@
 
 import { Hono } from 'hono';
 import { validator } from 'hono/validator';
-import type { ApiResponse, Env } from '../types';
+import type { ApiResponse } from '../types';
 import {
   handleAppendQuerySessionMessages,
   handleCreateQuerySession,
@@ -23,7 +23,7 @@ import {
   parseUpdateQuerySessionRequest,
 } from './request-validation';
 
-const querySessionRoutes = new Hono<{ Bindings: Env }>();
+const querySessionRoutes = new Hono<{ Bindings: CloudflareBindings }>();
 
 /**
  * 创建查询会话

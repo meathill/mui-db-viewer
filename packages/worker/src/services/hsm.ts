@@ -3,9 +3,29 @@
  * 封装与 HSM API 的交互，用于数据库密码的加密存储和解密
  */
 
+export type HsmCallMode = 'service' | 'url';
+
+export function parseHsmCallMode(value: unknown): HsmCallMode | undefined {
+  if (value === 'service' || value === 'url') return value;
+  return undefined;
+}
+
 export interface HsmConfig {
-  url: string;
-  secret: string;
+  callMode?: HsmCallMode;
+  /**
+   * HSM 公网地址（本地调试 / 兜底）
+   * 示例：`https://hsm.example.com`
+   */
+  url?: string;
+  /**
+   * HSM Service Binding（线上推荐）
+   */
+  service?: Fetcher;
+  /**
+   * 用于鉴权的共享密钥。
+   * 若 HSM 只允许同账户 Service Binding 调用，可不配置。
+   */
+  secret?: string;
 }
 
 export interface HsmClient {
@@ -21,14 +41,55 @@ interface ApiResponse<T = unknown> {
 }
 
 export function createHsmClient(config: HsmConfig): HsmClient {
-  const { url, secret } = config;
+  const { secret } = config;
+
+  const baseUrl = (() => {
+    if (config.callMode === 'url') {
+      if (!config.url) {
+        throw new Error('HSM_URL 未配置');
+      }
+      return config.url;
+    }
+
+    return config.url ?? 'https://hsm.internal';
+  })().replace(/\/+$/, '');
+
+  const doFetch = (() => {
+    if (config.callMode === 'url') {
+      return fetch;
+    }
+
+    if (config.callMode === 'service') {
+      if (!config.service) {
+        throw new Error('HSM_SERVICE 未配置');
+      }
+      return config.service.fetch.bind(config.service);
+    }
+
+    if (config.service) {
+      return config.service.fetch.bind(config.service);
+    }
+
+    if (config.url) {
+      return fetch;
+    }
+
+    throw new Error('HSM 配置缺失：请设置 HSM_SERVICE 或 HSM_URL');
+  })();
 
   async function request<T>(method: string, path: string, body?: unknown): Promise<ApiResponse<T>> {
-    const response = await fetch(`${url}/keys/${path}`, {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+
+    if (secret) {
+      headers['X-HSM-Secret'] = secret;
+    }
+
+    const response = await doFetch(`${baseUrl}/keys/${path}`, {
       method,
       headers: {
-        'Content-Type': 'application/json',
-        'X-HSM-Secret': secret,
+        ...headers,
       },
       body: body ? JSON.stringify(body) : undefined,
     });

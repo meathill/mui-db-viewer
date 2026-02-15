@@ -1,6 +1,9 @@
 import { DatabaseService } from '../services/db';
-import { createHsmClient } from '../services/hsm';
-import type { DatabaseConnection, Env, TableQueryFilters, TableQueryOptions } from '../types';
+import { createHsmClient, parseHsmCallMode } from '../services/hsm';
+import type { DatabaseConnection, TableQueryFilters, TableQueryOptions } from '../types';
+
+export type DatabaseServiceEnv = Pick<CloudflareBindings, 'DB'> &
+  Partial<Pick<CloudflareBindings, 'HSM_CALL_MODE' | 'HSM_SERVICE' | 'HSM_URL' | 'HSM_SECRET'>>;
 
 interface DatabaseConnectionRow {
   id: string;
@@ -30,7 +33,10 @@ export function toDatabaseConnection(row: DatabaseConnectionRow): DatabaseConnec
   };
 }
 
-export async function findConnectionById(env: Env, id: string): Promise<DatabaseConnection | null> {
+export async function findConnectionById(
+  env: Pick<CloudflareBindings, 'DB'>,
+  id: string,
+): Promise<DatabaseConnection | null> {
   const row = await env.DB.prepare(`SELECT * FROM database_connections WHERE id = ?`).bind(id).first();
   if (!row) {
     return null;
@@ -39,13 +45,13 @@ export async function findConnectionById(env: Env, id: string): Promise<Database
   return toDatabaseConnection(row as DatabaseConnectionRow);
 }
 
-export async function listConnections(env: Env): Promise<DatabaseConnection[]> {
+export async function listConnections(env: Pick<CloudflareBindings, 'DB'>): Promise<DatabaseConnection[]> {
   const { results } = await env.DB.prepare(`SELECT * FROM database_connections`).all();
   return results.map((row) => toDatabaseConnection(row as DatabaseConnectionRow));
 }
 
 export async function withDatabaseService<T>(
-  env: Env,
+  env: DatabaseServiceEnv,
   connection: DatabaseConnection,
   execute: (service: DatabaseService) => Promise<T>,
 ): Promise<T> {
@@ -53,6 +59,8 @@ export async function withDatabaseService<T>(
 
   if (connection.type !== 'sqlite') {
     const hsm = createHsmClient({
+      callMode: parseHsmCallMode(env.HSM_CALL_MODE),
+      service: env.HSM_SERVICE,
       url: env.HSM_URL,
       secret: env.HSM_SECRET,
     });

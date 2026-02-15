@@ -6,7 +6,8 @@ vi.mock('../routes/database-shared', () => ({
 
 import { withDatabaseService } from '../routes/database-shared';
 import { getDatabaseSchemaContext, SCHEMA_CACHE_TTL_MS } from '../services/schema-context';
-import type { DatabaseConnection, Env, TableColumn } from '../types';
+import type { DatabaseServiceEnv } from '../routes/database-shared';
+import type { DatabaseConnection, TableColumn } from '../types';
 
 interface MockD1BoundStatement {
   run: () => Promise<{ success: boolean }>;
@@ -21,7 +22,7 @@ interface MockD1Database {
   prepare: (query: string) => MockD1PreparedStatement;
 }
 
-function createMockEnvWithSchemaCache(): Env {
+function createMockEnvWithSchemaCache(): DatabaseServiceEnv {
   let cacheRow: {
     database_id: string;
     schema_text: string;
@@ -61,16 +62,11 @@ function createMockEnvWithSchemaCache(): Env {
   };
 
   return {
-    HSM_URL: 'https://hsm.example.com',
-    HSM_SECRET: 'test-secret',
-    OPENAI_API_KEY: 'test-openai-key',
-    OPENAI_MODEL: 'gpt-4o-mini',
-    OPENAI_BASE_URL: 'https://api.openai.com/v1',
-    DB: db as unknown as Env['DB'],
+    DB: db as unknown as CloudflareBindings['DB'],
   };
 }
 
-function createMockEnvWithoutSchemaCacheTable(): Env {
+function createMockEnvWithoutSchemaCacheTable(): DatabaseServiceEnv {
   const db: MockD1Database = {
     prepare(query: string) {
       if (query.includes('database_schema_cache')) {
@@ -93,12 +89,7 @@ function createMockEnvWithoutSchemaCacheTable(): Env {
   };
 
   return {
-    HSM_URL: 'https://hsm.example.com',
-    HSM_SECRET: 'test-secret',
-    OPENAI_API_KEY: 'test-openai-key',
-    OPENAI_MODEL: 'gpt-4o-mini',
-    OPENAI_BASE_URL: 'https://api.openai.com/v1',
-    DB: db as unknown as Env['DB'],
+    DB: db as unknown as CloudflareBindings['DB'],
   };
 }
 

@@ -4,11 +4,10 @@
  */
 
 import { Hono } from 'hono';
-import type { Env } from '../types';
 import { databaseConnectionRoutes, loadTableData } from './database-connection-routes';
 import { databaseRowRoutes } from './database-row-routes';
 
-const databaseRoutes = new Hono<{ Bindings: Env }>();
+const databaseRoutes = new Hono<{ Bindings: CloudflareBindings }>();
 
 databaseRoutes.route('/', databaseConnectionRoutes);
 databaseRoutes.route('/', databaseRowRoutes);

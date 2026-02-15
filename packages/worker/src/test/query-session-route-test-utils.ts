@@ -1,5 +1,4 @@
 import { Hono } from 'hono';
-import type { Env } from '../types';
 import { querySessionRoutes } from '../routes/query-session-routes';
 import { createTestEnv } from './test-env';
 import { createMockDatabaseConnectionRow, type MockDatabaseConnectionRow } from './database-route-test-utils';
@@ -239,8 +238,8 @@ export function createQuerySessionRouteTestClient(options: TestClientOptions = {
   const connectionRow = options.connectionRow ?? createMockDatabaseConnectionRow({ id: 'db-1', type: 'mysql' });
   const db = createMockDb(connectionRow);
 
-  const env: Env = createTestEnv(db);
-  const app = new Hono<{ Bindings: Env }>();
+  const env: CloudflareBindings = createTestEnv(db);
+  const app = new Hono<{ Bindings: CloudflareBindings }>();
   app.route('/query-sessions', querySessionRoutes);
 
   return {

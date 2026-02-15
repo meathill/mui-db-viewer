@@ -7,7 +7,9 @@
 
 ## 近期：发布准备（Schema 上下文）
 
-- [ ] Worker：应用 D1 迁移：`packages/worker/migrations/0003_schema_cache.sql`
-- [ ] Worker：应用 D1 迁移：`packages/worker/migrations/0004_query_sessions.sql`
+- [ ] Worker：压缩 D1 migrations（仅保留一个 init migration），确认线上 D1 可重建/可清空
+- [ ] Worker：本地应用迁移：`pnpm --filter worker migrate:local`
+- [ ] Worker：线上应用迁移：`pnpm --filter worker migrate:remote`
+- [ ] Worker：引入 Drizzle（仅管理 D1 元数据表：连接/收藏/Schema cache/会话历史）
 - [ ] 回归：验证 AI 查询生成（Schema 注入）+ 刷新 Schema 按钮链路
 - [ ] 回归：验证查询历史（新建/自动保存/搜索/下一页/重命名/删除）

@@ -5,12 +5,15 @@
     "dev": "wrangler dev",
     "deploy": "wrangler deploy --minify",
     "build": "tsc --noEmit && wrangler deploy --dry-run --outdir dist",
+    "migrate:local": "wrangler d1 migrations apply mui-db --local",
+    "migrate:remote": "wrangler d1 migrations apply mui-db --remote",
     "cf-typegen": "wrangler types --env-interface CloudflareBindings",
     "test": "vitest"
   },
   "dependencies": {
     "@tidbcloud/serverless": "^0.2.0",
     "better-sqlite3": "^12.6.2",
+    "drizzle-orm": "^0.44.5",
     "hono": "^4.11.7",
     "mysql2": "^3.17.0",
     "pg": "^8.18.0",
@@ -18,6 +21,7 @@
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.12.10",
+    "@cloudflare/workers-types": "^4.20260212.0",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^20.19.31",
     "@types/pg": "^8.16.0",

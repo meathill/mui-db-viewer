@@ -1,7 +1,6 @@
 import type { Context } from 'hono';
-import type { Env } from '../types';
 
-export type WorkerContext = Context<{ Bindings: Env }>;
+export type WorkerContext = Context<{ Bindings: CloudflareBindings }>;
 
 export interface CreateQuerySessionBody {
   databaseId: string;

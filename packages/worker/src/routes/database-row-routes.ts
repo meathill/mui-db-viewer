@@ -1,10 +1,10 @@
 import { Hono } from 'hono';
 import { validator } from 'hono/validator';
-import type { ApiResponse, Env } from '../types';
+import type { ApiResponse } from '../types';
 import { findConnectionById, getErrorMessage, withDatabaseService } from './database-shared';
 import { parseDeleteRowsRequest, parseInsertRowRequest, parseUpdateRowsRequest } from './request-validation';
 
-export const databaseRowRoutes = new Hono<{ Bindings: Env }>();
+export const databaseRowRoutes = new Hono<{ Bindings: CloudflareBindings }>();
 
 databaseRowRoutes.post(
   '/:id/tables/:tableName/rows/delete',

@@ -10,9 +10,8 @@ import { fileRoutes } from './routes/file-routes';
 import { queryRoutes } from './routes/query';
 import { querySessionRoutes } from './routes/query-session-routes';
 import { savedQueryRoutes } from './routes/saved-query-routes';
-import type { Env } from './types';
 
-const app = new Hono<{ Bindings: Env }>();
+const app = new Hono<{ Bindings: CloudflareBindings }>();
 
 // CORS 支持开发环境
 app.use(

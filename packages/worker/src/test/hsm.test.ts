@@ -18,6 +18,62 @@ describe('HSM Client', () => {
     secret: 'test-secret',
   };
 
+  describe('service binding', () => {
+    it('默认优先通过 service binding 发送请求', async () => {
+      const mockServiceFetch = vi.fn();
+      mockServiceFetch.mockResolvedValueOnce({
+        json: () => Promise.resolve({ success: true }),
+      });
+
+      const client = createHsmClient({
+        url: 'https://hsm.example.com',
+        secret: 'test-secret',
+        service: {
+          fetch: mockServiceFetch,
+        } as unknown as Fetcher,
+      });
+
+      await client.encrypt('test/path', 'secret-value');
+
+      expect(mockServiceFetch).toHaveBeenCalledWith(
+        'https://hsm.example.com/keys/test/path',
+        expect.objectContaining({
+          method: 'PUT',
+          headers: expect.objectContaining({
+            'Content-Type': 'application/json',
+            'X-HSM-Secret': 'test-secret',
+          }),
+          body: JSON.stringify({ value: 'secret-value' }),
+        }),
+      );
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it('HSM_CALL_MODE=url 时强制走 URL', async () => {
+      const mockServiceFetch = vi.fn();
+      mockServiceFetch.mockResolvedValueOnce({
+        json: () => Promise.resolve({ success: true }),
+      });
+
+      mockFetch.mockResolvedValueOnce({
+        json: () => Promise.resolve({ success: true }),
+      });
+
+      const client = createHsmClient({
+        callMode: 'url',
+        url: 'https://hsm.example.com',
+        secret: 'test-secret',
+        service: {
+          fetch: mockServiceFetch,
+        } as unknown as Fetcher,
+      });
+
+      await client.encrypt('test/path', 'secret-value');
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      expect(mockServiceFetch).not.toHaveBeenCalled();
+    });
+  });
+
   describe('encrypt', () => {
     it('发送正确的请求', async () => {
       mockFetch.mockResolvedValueOnce({

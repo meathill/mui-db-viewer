@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { DatabaseConnection, DatabaseType, Env } from '../types';
+import type { DatabaseConnection, DatabaseType } from '../types';
 import { createDatabaseDriver } from '../services/drivers/factory';
 import { D1Driver } from '../services/drivers/d1';
 import { MySQLDriver } from '../services/drivers/mysql';
@@ -38,9 +38,9 @@ describe('driver factory', () => {
   });
 
   it('D1 提供 env 绑定时应创建 D1 驱动', () => {
-    const env = {
-      DB: {} as Env['DB'],
-    } as Env;
+    const env: Pick<CloudflareBindings, 'DB'> = {
+      DB: {} as unknown as CloudflareBindings['DB'],
+    };
 
     const driver = createDatabaseDriver(createConnection('d1'), undefined, env);
 

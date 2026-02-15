@@ -1,6 +1,4 @@
-import type { Env } from '../types';
-
-export function createTestEnv(db: unknown): Env {
+export function createTestEnv(db: unknown): CloudflareBindings {
   return {
     HSM_URL: 'https://hsm.example.com',
     HSM_SECRET: 'test-secret',
@@ -11,6 +9,6 @@ export function createTestEnv(db: unknown): Env {
     GEMINI_MODEL: 'gemini-1.5-flash',
     REPLICATE_API_KEY: 'test-replicate-key',
     REPLICATE_MODEL: 'meta/meta-llama-3-8b-instruct',
-    DB: db as Env['DB'],
-  };
+    DB: db as CloudflareBindings['DB'],
+  } as unknown as CloudflareBindings;
 }

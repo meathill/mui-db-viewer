@@ -1,4 +1,4 @@
-import type { Env } from '../types';
+type SchemaCacheEnv = Pick<CloudflareBindings, 'DB'>;
 
 export interface SchemaCacheEntry {
   databaseId: string;
@@ -40,7 +40,7 @@ export function isSchemaCacheValid(entry: SchemaCacheEntry, now: number): boolea
   return entry.expiresAt > now;
 }
 
-export async function readSchemaCache(env: Env, databaseId: string): Promise<SchemaCacheEntry | null> {
+export async function readSchemaCache(env: SchemaCacheEnv, databaseId: string): Promise<SchemaCacheEntry | null> {
   let row: Record<string, unknown> | null;
   try {
     row = await env.DB.prepare(
@@ -69,7 +69,7 @@ export async function readSchemaCache(env: Env, databaseId: string): Promise<Sch
   };
 }
 
-export async function upsertSchemaCache(env: Env, entry: SchemaCacheEntry): Promise<void> {
+export async function upsertSchemaCache(env: SchemaCacheEnv, entry: SchemaCacheEntry): Promise<void> {
   try {
     await env.DB.prepare(
       `INSERT INTO database_schema_cache (database_id, schema_text, updated_at, expires_at)
@@ -88,7 +88,7 @@ export async function upsertSchemaCache(env: Env, entry: SchemaCacheEntry): Prom
   }
 }
 
-export async function deleteSchemaCache(env: Env, databaseId: string): Promise<void> {
+export async function deleteSchemaCache(env: SchemaCacheEnv, databaseId: string): Promise<void> {
   try {
     await env.DB.prepare('DELETE FROM database_schema_cache WHERE database_id = ?').bind(databaseId).run();
   } catch (error) {

@@ -7,7 +7,6 @@ import { Hono } from 'hono';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import type { Env } from '../types';
 
 interface FileEntry {
   name: string;
@@ -16,7 +15,7 @@ interface FileEntry {
   size?: number;
 }
 
-const fileRoutes = new Hono<{ Bindings: Env }>();
+const fileRoutes = new Hono<{ Bindings: CloudflareBindings }>();
 
 fileRoutes.get('/', async (c) => {
   const targetPath = c.req.query('path') || os.homedir();

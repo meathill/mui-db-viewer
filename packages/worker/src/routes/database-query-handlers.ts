@@ -1,10 +1,16 @@
 import type { Context } from 'hono';
 import { getDatabaseSchemaContext } from '../services/schema-context';
 import { validateAndSanitizeSql } from '../services/sql-guard';
-import type { ApiResponse, DatabaseConnection, Env, TableColumn, TableRow } from '../types';
-import { findConnectionById, getErrorMessage, parseTableQueryOptions, withDatabaseService } from './database-shared';
+import type { ApiResponse, DatabaseConnection, TableColumn, TableRow } from '../types';
+import {
+  findConnectionById,
+  getErrorMessage,
+  parseTableQueryOptions,
+  withDatabaseService,
+  type DatabaseServiceEnv,
+} from './database-shared';
 
-type WorkerContext = Context<{ Bindings: Env }>;
+type WorkerContext = Context<{ Bindings: CloudflareBindings }>;
 
 export interface TableDataResponse {
   rows: TableRow[];
@@ -13,7 +19,7 @@ export interface TableDataResponse {
 }
 
 export async function loadTableData(
-  env: Env,
+  env: DatabaseServiceEnv,
   connection: DatabaseConnection,
   tableName: string,
   query: Record<string, string | undefined>,

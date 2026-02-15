@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "worker",
+  "name": "mui-db-worker",
   "main": "src/index.ts",
   "compatibility_date": "2025-12-02",
   "compatibility_flags": ["nodejs_compat"],
@@ -8,6 +8,12 @@
     "binding": "ASSETS",
     "directory": "./public"
   },
+  "services": [
+    {
+      "binding": "HSM_SERVICE",
+      "service": "hsm"
+    }
+  ],
   "d1_databases": [
     {
       "binding": "DB",

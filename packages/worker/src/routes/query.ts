@@ -8,7 +8,7 @@ import { validator } from 'hono/validator';
 import { createAiService, type AiConfig } from '../services/ai';
 import { formatDatabaseTypeLabel, getDatabaseSchemaContext } from '../services/schema-context';
 import { validateAndSanitizeSql } from '../services/sql-guard';
-import type { ApiResponse, Env } from '../types';
+import type { ApiResponse } from '../types';
 import { findConnectionById, getErrorMessage } from './database-shared';
 import { parseGenerateSqlRequest, parseValidateSqlRequest } from './request-validation';
 
@@ -18,7 +18,7 @@ interface GenerateResponse {
   warning?: string;
 }
 
-const queryRoutes = new Hono<{ Bindings: Env }>();
+const queryRoutes = new Hono<{ Bindings: CloudflareBindings }>();
 
 /**
  * 生成 SQL
