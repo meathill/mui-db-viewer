@@ -1,9 +1,6 @@
 import { beforeEach, vi } from 'vitest';
 
-type FetchParameters = Parameters<typeof fetch>;
-type FetchReturn = ReturnType<typeof fetch>;
-
-export const mockFetch = vi.fn<FetchParameters, FetchReturn>();
+export const mockFetch = vi.fn<typeof fetch>();
 
 vi.stubGlobal('fetch', mockFetch);
 

@@ -19,4 +19,4 @@ export {
   ComboboxChips,
   ComboboxChip,
   useComboboxFilter,
-} from './combobox';
+} from './combobox/index';

@@ -1,5 +1,5 @@
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
-import type { ReactNode } from 'react';
+import type { MouseEventHandler, ReactNode } from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import DatabasesPage from '../page';
 import { api, type DatabaseConnection } from '@/lib/api';
@@ -31,7 +31,7 @@ interface MenuTriggerProps {
 
 interface MenuItemProps {
   children: ReactNode;
-  onClick?: (event: MouseEvent) => void;
+  onClick?: MouseEventHandler<HTMLDivElement>;
 }
 
 interface AlertDialogProps extends ChildrenProps {

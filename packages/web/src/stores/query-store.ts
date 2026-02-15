@@ -5,9 +5,9 @@ import type { QueryStore } from './query-store-types';
 
 export type { QueryMessage, QueryMessageRole, QueryStore } from './query-store-types';
 
-export const useQueryStore = create<QueryStore>((set, get) => ({
-  ...createQueryStoreSessionsSlice(set, get),
-  ...createQueryStoreChatSlice(set, get),
+export const useQueryStore = create<QueryStore>((set, get, store) => ({
+  ...createQueryStoreSessionsSlice(set, get, store),
+  ...createQueryStoreChatSlice(set, get, store),
 
   reset() {
     set({

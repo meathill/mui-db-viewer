@@ -17,4 +17,4 @@ export {
   AutocompleteRow,
   AutocompleteCollection,
   useAutocompleteFilter,
-} from './autocomplete';
+} from './autocomplete/index';

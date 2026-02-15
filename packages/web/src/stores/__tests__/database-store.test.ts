@@ -106,11 +106,12 @@ describe('database-store', () => {
 
   it('并发 fetchDatabases 应复用同一个进行中的请求', async () => {
     const databases = [createMockDatabase({ id: 'db-1', name: '生产库' })];
-    let resolveList: ((value: DatabaseConnection[]) => void) | null = null;
+    type ListResult = Awaited<ReturnType<typeof api.databases.list>>;
+    let resolveList: ((value: ListResult) => void) | undefined;
 
     vi.mocked(api.databases.list).mockImplementation(
       () =>
-        new Promise((resolve) => {
+        new Promise<ListResult>((resolve) => {
           resolveList = resolve;
         }),
     );
@@ -120,7 +121,11 @@ describe('database-store', () => {
 
     expect(api.databases.list).toHaveBeenCalledTimes(1);
 
-    resolveList?.(databases);
+    if (!resolveList) {
+      throw new Error('resolveList 未初始化');
+    }
+
+    resolveList(databases);
     await Promise.all([first, second]);
 
     const state = useDatabaseStore.getState();

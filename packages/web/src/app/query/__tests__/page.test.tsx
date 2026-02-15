@@ -147,10 +147,11 @@ describe('QueryPage', () => {
   it('生成中应禁用输入与提交并阻止重复请求', async () => {
     vi.mocked(api.databases.list).mockResolvedValue(mockDbs);
 
-    let resolveGenerate: ((result: { sql: string; explanation?: string }) => void) | null = null;
+    type GenerateResult = Awaited<ReturnType<typeof api.query.generate>>;
+    let resolveGenerate: ((result: GenerateResult) => void) | undefined;
     vi.mocked(api.query.generate).mockImplementation(
       () =>
-        new Promise((resolve) => {
+        new Promise<GenerateResult>((resolve) => {
           resolveGenerate = resolve;
         }),
     );
@@ -175,7 +176,11 @@ describe('QueryPage', () => {
     expect((textarea as HTMLTextAreaElement).disabled).toBe(true);
     expect(submitButton?.disabled).toBe(true);
 
-    resolveGenerate?.({
+    if (!resolveGenerate) {
+      throw new Error('resolveGenerate 未初始化');
+    }
+
+    resolveGenerate({
       sql: 'SELECT * FROM orders',
       explanation: '查询完成',
     });
