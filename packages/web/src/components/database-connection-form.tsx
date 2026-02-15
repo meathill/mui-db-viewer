@@ -3,7 +3,14 @@
 import { useState } from 'react';
 import { DatabaseIcon, EyeIcon, EyeOffIcon, Loader2Icon, CheckCircleIcon, FolderOpenIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { DialogClose, DialogDescription, DialogFooter, DialogHeader, DialogPanel, DialogTitle } from '@/components/ui/dialog';
+import {
+  DialogClose,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogPanel,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';

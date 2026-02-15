@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowUp } from 'lucide-react';
+import { ArrowDownIcon, ArrowUpIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
@@ -69,9 +69,9 @@ export function TableDataGrid({
                   <span>{column.Field}</span>
                   {sortField === column.Field &&
                     (sortOrder === 'asc' ? (
-                      <ArrowUp className="ml-2 h-4 w-4" />
+                      <ArrowUpIcon className="ml-2 size-4" />
                     ) : (
-                      <ArrowDown className="ml-2 h-4 w-4" />
+                      <ArrowDownIcon className="ml-2 size-4" />
                     ))}
                 </Button>
               </TableHead>
@@ -83,7 +83,7 @@ export function TableDataGrid({
             Array.from({ length: 5 }).map((_, rowIndex) => (
               <TableRow key={rowIndex}>
                 <TableCell>
-                  <Skeleton className="h-4 w-4" />
+                  <Skeleton className="size-4" />
                 </TableCell>
                 {tableData?.columns
                   ? tableData.columns.map((column) => (

@@ -41,4 +41,3 @@ export const useFeedbackStore = create<FeedbackStore>((set) => ({
     set(initialState);
   },
 }));
-

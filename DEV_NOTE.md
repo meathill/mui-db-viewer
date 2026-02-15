@@ -38,6 +38,8 @@
 ## Coss UI 组件用法约定
 
 - 业务代码只从 `@/components/ui/*` 引用组件，不直接引用 `@base-ui/react/*`（除非在 `components/ui` 封装内部）。
+- 图标：统一使用 `lucide-react` 的 `*Icon` 命名导出（例如 `SaveIcon` / `ChevronLeftIcon`），不使用 `as` 重命名，避免歧义。
+- 样式：当 `h-*` 与 `w-*` 相等时，统一写成 `size-*`（例如 `size-4`），减少重复。
 - 弹层类组件（`Dialog` / `AlertDialog` / `Menu` / `Select` 等）优先使用 `*Popup` / `*Content`：
   - 不要在业务层手工再包一层 `Portal` / `Backdrop` / `Viewport`，避免重复渲染导致遮罩叠层、样式错乱。
 - 触发器类组件优先使用 `render` prop（Coss UI 风格），不要按 shadcn/Radix 的 `asChild` 写法套用。

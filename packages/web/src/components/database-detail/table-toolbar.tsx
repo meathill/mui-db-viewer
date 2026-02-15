@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, SaveIcon, TableIcon, Trash2 } from 'lucide-react';
+import { PlusIcon, SaveIcon, TableIcon, Trash2Icon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -66,7 +66,7 @@ export function TableToolbar({
     <div className="border-b bg-card text-card-foreground">
       <div className="flex items-center justify-between p-4">
         <h1 className="text-xl font-bold flex items-center gap-2">
-          <TableIcon className="h-5 w-5" />
+          <TableIcon className="size-5" />
           {selectedTable}
         </h1>
         <div className="flex items-center gap-2">
@@ -76,7 +76,7 @@ export function TableToolbar({
               onClick={onUpdate}
               disabled={updateLoading}
               className="bg-green-600 hover:bg-green-700 text-white">
-              <SaveIcon className="h-4 w-4 mr-2" />
+              <SaveIcon className="mr-2 size-4" />
               {updateLoading ? '保存中...' : `保存修改 (${pendingEditCount})`}
             </Button>
           )}
@@ -88,14 +88,14 @@ export function TableToolbar({
                 onClearDeleteError();
                 setDeleteDialogOpen(true);
               }}>
-              <Trash2 className="h-4 w-4 mr-2" />
+              <Trash2Icon className="mr-2 size-4" />
               删除选中 ({selectedRowsCount})
             </Button>
           )}
           <Button
             size="sm"
             onClick={onOpenInsert}>
-            <Plus className="h-4 w-4 mr-2" />
+            <PlusIcon className="mr-2 size-4" />
             新增行
           </Button>
           <div className="h-4 w-[1px] bg-border mx-2" />

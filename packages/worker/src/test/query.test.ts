@@ -6,6 +6,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Hono } from 'hono';
 import { createAiService } from '../services/ai';
 import type { Env } from '../types';
+import {
+  createQueryRouteMockDb,
+  createDefaultQueryRouteConnectionRow,
+  type MockSchemaCacheRow,
+} from './query-route-test-utils';
+import { createTestEnv } from './test-env';
 
 // Mock AI 服务 - 必须在导入路由之前
 vi.mock('../services/ai', () => ({
@@ -13,110 +19,6 @@ vi.mock('../services/ai', () => ({
 }));
 
 import { queryRoutes } from '../routes/query';
-
-interface MockD1BoundStatement {
-  run: () => Promise<{ success: boolean }>;
-  all: () => Promise<{ results: Array<Record<string, unknown>> }>;
-  first: () => Promise<Record<string, unknown> | null>;
-}
-
-interface MockD1PreparedStatement {
-  bind: (...values: unknown[]) => MockD1BoundStatement;
-  all: () => Promise<{ results: Array<Record<string, unknown>> }>;
-}
-
-interface MockD1Database {
-  prepare: (query: string) => MockD1PreparedStatement;
-}
-
-interface MockDatabaseConnectionRow {
-  id: string;
-  name: string;
-  type: string;
-  host: string;
-  port: string;
-  database_name: string;
-  username: string;
-  key_path: string;
-  created_at: string;
-  updated_at: string;
-}
-
-interface MockSchemaCacheRow {
-  database_id: string;
-  schema_text: string;
-  updated_at: number;
-  expires_at: number;
-}
-
-function createMockDb(options: {
-  connectionRow: MockDatabaseConnectionRow | null;
-  schemaCacheRow: MockSchemaCacheRow | null;
-}): MockD1Database {
-  let schemaCacheRow = options.schemaCacheRow;
-
-  return {
-    prepare(query: string) {
-      return {
-        bind(...values: unknown[]) {
-          return {
-            async run() {
-              if (query.includes('INSERT INTO database_schema_cache')) {
-                const [databaseId, schemaText, updatedAt, expiresAt] = values;
-                schemaCacheRow = {
-                  database_id: String(databaseId),
-                  schema_text: String(schemaText),
-                  updated_at: Number(updatedAt),
-                  expires_at: Number(expiresAt),
-                };
-              }
-              return { success: true };
-            },
-            async all() {
-              return { results: [] as Array<Record<string, unknown>> };
-            },
-            async first() {
-              const [id] = values;
-              if (query.includes('FROM database_connections')) {
-                if (options.connectionRow && String(id) === options.connectionRow.id) {
-                  return { ...options.connectionRow };
-                }
-                return null;
-              }
-
-              if (query.includes('FROM database_schema_cache')) {
-                if (schemaCacheRow && String(id) === schemaCacheRow.database_id) {
-                  return { ...schemaCacheRow };
-                }
-                return null;
-              }
-
-              return null;
-            },
-          };
-        },
-        async all() {
-          return { results: [] as Array<Record<string, unknown>> };
-        },
-      };
-    },
-  };
-}
-
-function createEnv(db: MockD1Database): Env {
-  return {
-    HSM_URL: 'https://hsm.example.com',
-    HSM_SECRET: 'test-secret',
-    OPENAI_API_KEY: 'test-openai-key',
-    OPENAI_MODEL: 'gpt-4o-mini',
-    OPENAI_BASE_URL: 'https://api.openai.com/v1',
-    GEMINI_API_KEY: 'test-gemini-key',
-    GEMINI_MODEL: 'gemini-1.5-flash',
-    REPLICATE_API_KEY: 'test-replicate-key',
-    REPLICATE_MODEL: 'meta/meta-llama-3-8b-instruct',
-    DB: db as unknown as Env['DB'],
-  };
-}
 
 describe('Query Routes', () => {
   let app: Hono<{ Bindings: Env }>;
@@ -135,18 +37,10 @@ describe('Query Routes', () => {
     } as ReturnType<typeof createAiService>);
 
     const now = Date.now();
-    const connectionRow: MockDatabaseConnectionRow = {
-      id: 'test-db-id',
-      name: 'test-db',
-      type: 'mysql',
-      host: '127.0.0.1',
-      port: '3306',
-      database_name: 'app',
-      username: 'root',
-      key_path: 'vibedb/databases/test-db-id/password',
+    const connectionRow = createDefaultQueryRouteConnectionRow({
       created_at: new Date(now).toISOString(),
       updated_at: new Date(now).toISOString(),
-    };
+    });
 
     const schemaCacheRow: MockSchemaCacheRow = {
       database_id: 'test-db-id',
@@ -155,8 +49,8 @@ describe('Query Routes', () => {
       expires_at: now + 7 * 24 * 60 * 60 * 1000,
     };
 
-    const db = createMockDb({ connectionRow, schemaCacheRow });
-    env = createEnv(db);
+    const db = createQueryRouteMockDb({ connectionRow, schemaCacheRow });
+    env = createTestEnv(db);
 
     app = new Hono<{ Bindings: Env }>();
     app.route('/query', queryRoutes);
@@ -278,11 +172,11 @@ describe('Query Routes', () => {
     });
 
     it('数据库连接不存在时返回 404', async () => {
-      const emptyDb = createMockDb({
+      const emptyDb = createQueryRouteMockDb({
         connectionRow: null,
         schemaCacheRow: null,
       });
-      const emptyEnv = createEnv(emptyDb);
+      const emptyEnv = createTestEnv(emptyDb);
 
       const res = await app.request(
         '/query/generate',

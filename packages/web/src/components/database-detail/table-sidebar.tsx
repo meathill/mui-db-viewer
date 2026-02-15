@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ChevronLeft, Database, TableIcon } from 'lucide-react';
+import { ChevronLeftIcon, DatabaseIcon, TableIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -17,10 +17,10 @@ export function TableSidebar({ tables, selectedTable, error, onSelectTable }: Ta
         <Link
           href="/databases"
           className="hover:bg-muted p-1 rounded">
-          <ChevronLeft className="h-4 w-4" />
+          <ChevronLeftIcon className="size-4" />
         </Link>
         <h2 className="font-semibold text-lg flex items-center gap-2">
-          <Database className="h-4 w-4" />
+          <DatabaseIcon className="size-4" />
           数据库对象
         </h2>
       </div>
@@ -43,7 +43,7 @@ export function TableSidebar({ tables, selectedTable, error, onSelectTable }: Ta
                   ? 'bg-primary text-primary-foreground hover:bg-primary/90 data-[pressed]:bg-primary/90'
                   : 'hover:bg-muted',
               )}>
-              <TableIcon className="h-4 w-4 opacity-70" />
+              <TableIcon className="size-4 opacity-70" />
               <span className="truncate">{table}</span>
             </Button>
           ))}

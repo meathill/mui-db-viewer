@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeftIcon, ChevronRightIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface TablePaginationProps {
@@ -24,7 +24,7 @@ export function TablePagination({ page, pageSize, totalRows, loading, onPrevious
           size="sm"
           onClick={onPrevious}
           disabled={page === 1 || loading}>
-          <ChevronLeft className="h-4 w-4" />
+          <ChevronLeftIcon className="size-4" />
           上一页
         </Button>
         <Button
@@ -33,7 +33,7 @@ export function TablePagination({ page, pageSize, totalRows, loading, onPrevious
           onClick={onNext}
           disabled={page >= totalPages || loading}>
           下一页
-          <ChevronRight className="h-4 w-4" />
+          <ChevronRightIcon className="size-4" />
         </Button>
       </div>
     </div>

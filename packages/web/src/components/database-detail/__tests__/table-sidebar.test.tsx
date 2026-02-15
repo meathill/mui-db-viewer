@@ -44,4 +44,3 @@ describe('TableSidebar', () => {
     expect(selectedButton.className.includes('bg-primary')).toBe(true);
   });
 });
-

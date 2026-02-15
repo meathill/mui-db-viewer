@@ -1,94 +1,11 @@
+import './page-mocks';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import type { ReactNode } from 'react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import QueryPage from '../page';
 import { api, type DatabaseConnection } from '@/lib/api';
 import { showSuccessToast } from '@/lib/client-feedback';
 import { useDatabaseStore } from '@/stores/database-store';
 import { useQueryStore } from '@/stores/query-store';
-
-vi.mock('next/navigation', () => ({
-  useSearchParams: () => new URLSearchParams(),
-}));
-
-vi.mock('@/lib/client-feedback', () => ({
-  getErrorMessage: (error: unknown, fallback = '未知错误') =>
-    error instanceof Error && error.message.trim() ? error.message : fallback,
-  showErrorAlert: vi.fn(),
-  showSuccessToast: vi.fn(),
-}));
-
-// Mock API
-vi.mock('@/lib/api', () => ({
-  api: {
-    databases: {
-      list: vi.fn(),
-      refreshSchema: vi.fn(),
-    },
-    query: {
-      generate: vi.fn(),
-      execute: vi.fn(),
-    },
-    querySessions: {
-      create: vi.fn(),
-      list: vi.fn(),
-      appendMessages: vi.fn(),
-      get: vi.fn(),
-      rename: vi.fn(),
-      delete: vi.fn(),
-    },
-  },
-}));
-
-interface ChildrenProps {
-  children: ReactNode;
-}
-
-interface SelectProps {
-  children: ReactNode;
-  value: string;
-  onValueChange: (value: string) => void;
-}
-
-interface SelectItemProps {
-  children: ReactNode;
-  value: string;
-}
-
-// Mock generic UI components
-vi.mock('@/components/ui/sidebar', () => ({
-  SidebarProvider: ({ children }: ChildrenProps) => <div>{children}</div>,
-  SidebarInset: ({ children }: ChildrenProps) => <div>{children}</div>,
-  SidebarTrigger: () => <button>Sidebar</button>,
-}));
-
-vi.mock('@/components/app-sidebar', () => ({
-  AppSidebar: () => <div>App Sidebar</div>,
-}));
-
-vi.mock('@/components/query/query-sidebar', () => ({
-  QuerySidebar: () => <div>Query Sidebar</div>,
-}));
-
-vi.mock('@/components/ui/select', () => ({
-  Select: ({ children, value }: SelectProps) => (
-    <div
-      data-testid="select"
-      data-value={value}>
-      {children}
-    </div>
-  ),
-  SelectTrigger: ({ children }: ChildrenProps) => <div data-testid="select-trigger">{children}</div>,
-  SelectValue: ({ placeholder }: { placeholder: string }) => <div>{placeholder}</div>,
-  SelectPopup: ({ children }: ChildrenProps) => <div data-testid="select-popup">{children}</div>,
-  SelectItem: ({ children, value }: SelectItemProps) => (
-    <div
-      data-testid="select-item"
-      data-value={value}>
-      {children}
-    </div>
-  ),
-}));
 
 describe('QueryPage', () => {
   beforeEach(() => {

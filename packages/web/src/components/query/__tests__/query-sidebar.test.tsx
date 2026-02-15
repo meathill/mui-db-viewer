@@ -22,6 +22,46 @@ vi.mock('next/link', () => ({
   ),
 }));
 
+vi.mock('@/components/ui/sidebar', () => ({
+  SidebarGroup: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  SidebarGroupLabel: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  SidebarGroupContent: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  SidebarMenu: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  SidebarMenuItem: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  SidebarMenuButton: ({
+    children,
+    render,
+    className,
+    isActive,
+  }: {
+    children: ReactNode;
+    render?: ReactNode;
+    className?: string;
+    isActive?: boolean;
+  }) => {
+    if (render && typeof render === 'object' && render && 'props' in render) {
+      const href = (render as { props?: { href?: string } }).props?.href ?? '#';
+      return (
+        <a
+          href={href}
+          className={className}
+          data-active={isActive ? 'true' : undefined}>
+          {children}
+        </a>
+      );
+    }
+
+    return (
+      <button
+        type="button"
+        className={className}
+        data-active={isActive ? 'true' : undefined}>
+        {children}
+      </button>
+    );
+  },
+}));
+
 vi.mock('@/stores/query-store', () => ({
   useQueryStore: (selector: any) =>
     selector({
@@ -58,7 +98,7 @@ describe('QuerySidebar', () => {
     render(<QuerySidebar />);
 
     const savedLinks = screen.getAllByRole('link', { name: '收藏查询' });
-    expect(savedLinks.some((link) => link.className.includes('bg-primary'))).toBe(true);
+    expect(savedLinks.some((link) => link.getAttribute('data-active') === 'true')).toBe(true);
     expect(savedLinks.some((link) => link.getAttribute('href') === '/saved-queries')).toBe(true);
   });
 });

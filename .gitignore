@@ -1,2 +1,10 @@
 node_modules
 .wrangler
+
+# Next.js
+.next
+.open-next
+
+# Playwright
+playwright-report
+test-results

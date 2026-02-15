@@ -4,7 +4,14 @@ import { BookmarkIcon, MessageSquareIcon, PlusIcon } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+import {
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+} from '@/components/ui/sidebar';
 import { useQueryStore } from '@/stores/query-store';
 import { QuerySessionHistory } from './query-session-history';
 
@@ -43,22 +50,24 @@ export function QuerySidebar() {
 
   return (
     <>
-      <nav className="border-b bg-muted/10 px-4 py-2 md:hidden">
+      <nav className="border-sidebar-border border-b bg-sidebar px-4 py-2 text-sidebar-foreground md:hidden">
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-2 overflow-auto">
+          <SidebarMenu className="flex-row items-center gap-1 overflow-auto">
             {querySidebarItems.map((item) => (
-              <Link
+              <SidebarMenuItem
                 key={item.href}
-                href={item.href}
-                className={cn(
-                  'inline-flex shrink-0 items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors',
-                  isActive(item.href) ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-muted-foreground',
-                )}>
-                <item.icon className="size-4" />
-                <span>{item.label}</span>
-              </Link>
+                className="w-auto">
+                <SidebarMenuButton
+                  isActive={isActive(item.href)}
+                  className="w-auto shrink-0 px-3 py-1.5"
+                  render={<Link href={item.href} />}
+                  tooltip={item.label}>
+                  <item.icon className="size-4" />
+                  <span>{item.label}</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             ))}
-          </div>
+          </SidebarMenu>
           <Button
             type="button"
             variant="outline"
@@ -72,29 +81,29 @@ export function QuerySidebar() {
         </div>
       </nav>
 
-      <aside className="hidden w-56 shrink-0 border-r bg-muted/10 md:flex md:flex-col">
-        <div className="border-b px-4 py-3">
-          <h2 className="font-medium text-sm text-muted-foreground">查询导航</h2>
-        </div>
-        <div className="flex min-h-0 flex-1 flex-col gap-3 p-2">
-          <nav className="space-y-1">
-            {querySidebarItems.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  'flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors',
-                  isActive(item.href) ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-muted-foreground',
-                )}>
-                <item.icon className="size-4" />
-                <span>{item.label}</span>
-              </Link>
-            ))}
-          </nav>
-          <div className="flex min-h-0 flex-1 flex-col gap-3">
-            <QuerySessionHistory />
-          </div>
-        </div>
+      <aside className="hidden w-56 shrink-0 border-sidebar-border border-r bg-sidebar text-sidebar-foreground md:flex md:flex-col">
+        <SidebarGroup className="border-sidebar-border border-b">
+          <SidebarGroupLabel>查询导航</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {querySidebarItems.map((item) => (
+                <SidebarMenuItem key={item.href}>
+                  <SidebarMenuButton
+                    isActive={isActive(item.href)}
+                    render={<Link href={item.href} />}
+                    tooltip={item.label}>
+                    <item.icon className="size-4" />
+                    <span>{item.label}</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup className="min-h-0 flex-1">
+          <QuerySessionHistory />
+        </SidebarGroup>
       </aside>
     </>
   );

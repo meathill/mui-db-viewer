@@ -76,9 +76,7 @@ vi.mock('@/components/ui/alert-dialog', () => ({
 // Mock Menu
 vi.mock('@/components/ui/menu', () => ({
   Menu: ({ children }: ChildrenProps) => <div>{children}</div>,
-  MenuTrigger: ({ children, render }: MenuTriggerProps) => (
-    <div data-testid="menu-trigger">{children || render}</div>
-  ),
+  MenuTrigger: ({ children, render }: MenuTriggerProps) => <div data-testid="menu-trigger">{children || render}</div>,
   MenuPopup: ({ children }: ChildrenProps) => <div>{children}</div>,
   MenuItem: ({ children, onClick }: MenuItemProps) => (
     <div

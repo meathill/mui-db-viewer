@@ -1,46 +1,27 @@
 import { Hono } from 'hono';
 import { validator } from 'hono/validator';
-import { createHsmClient } from '../services/hsm';
-import { getDatabaseSchemaContext } from '../services/schema-context';
-import { deleteSchemaCache } from '../services/schema-cache';
-import { validateAndSanitizeSql } from '../services/sql-guard';
-import type { ApiResponse, DatabaseConnection, Env, TableColumn, TableRow } from '../types';
+import type { ApiResponse, Env } from '../types';
 import {
-  findConnectionById,
-  getErrorMessage,
-  listConnections,
-  parseTableQueryOptions,
-  withDatabaseService,
-} from './database-shared';
+  handleCreateDatabaseConnection,
+  handleDeleteDatabaseConnection,
+  handleGetDatabaseConnection,
+  handleListDatabaseConnections,
+} from './database-connection-handlers';
+import {
+  handleExecuteSql,
+  handleGetDatabaseSchema,
+  handleGetTableData,
+  handleGetTables,
+  handleRefreshDatabaseSchema,
+  loadTableData,
+  type TableDataResponse,
+} from './database-query-handlers';
 import { parseCreateDatabaseRequest, parseValidateSqlRequest } from './request-validation';
 
-export interface TableDataResponse {
-  rows: TableRow[];
-  total: number;
-  columns: TableColumn[];
-}
+export { loadTableData };
+export type { TableDataResponse };
 
 export const databaseConnectionRoutes = new Hono<{ Bindings: Env }>();
-
-export async function loadTableData(
-  env: Env,
-  connection: DatabaseConnection,
-  tableName: string,
-  query: Record<string, string | undefined>,
-): Promise<TableDataResponse> {
-  const options = parseTableQueryOptions(query);
-
-  return withDatabaseService(env, connection, async (dbService) => {
-    const result = await dbService.getTableData(tableName, options);
-    const schema = await dbService.getTableSchema(tableName);
-
-    return {
-      rows: result.data,
-      total: result.total,
-      columns: schema,
-    };
-  });
-}
 
 databaseConnectionRoutes.post(
   '/:id/query',
@@ -51,67 +32,7 @@ databaseConnectionRoutes.post(
     }
     return result.data;
   }),
-  async (c) => {
-    const id = c.req.param('id');
-    const { sql } = c.req.valid('json');
-    const connection = await findConnectionById(c.env, id);
-
-    if (!connection) {
-      return c.json<ApiResponse>(
-        {
-          success: false,
-          error: '数据库连接不存在',
-        },
-        404,
-      );
-    }
-
-    try {
-      const guardResult = validateAndSanitizeSql(sql);
-      if (!guardResult.valid || !guardResult.sql) {
-        return c.json<ApiResponse>(
-          {
-            success: false,
-            error: guardResult.error || 'SQL 不安全',
-          },
-          400,
-        );
-      }
-
-      const result = await withDatabaseService(c.env, connection, async (dbService) => {
-        // 当前驱动层仅返回 rows；columns 先在路由层做简单推断，后续可再补充元信息能力。
-        return dbService.query(guardResult.sql);
-      });
-
-      // Simple inference for columns if not provided by driver yet
-      const rows = result as TableRow[];
-      const columns: TableColumn[] =
-        rows.length > 0
-          ? Object.keys(rows[0]).map((key) => ({
-              Field: key,
-              Type: typeof rows[0][key],
-            }))
-          : [];
-
-      return c.json<ApiResponse<TableDataResponse>>({
-        success: true,
-        data: {
-          rows,
-          total: rows.length,
-          columns,
-        },
-      });
-    } catch (error) {
-      console.error('执行 SQL 失败:', error);
-      return c.json<ApiResponse>(
-        {
-          success: false,
-          error: getErrorMessage(error, '执行 SQL 失败'),
-        },
-        500,
-      );
-    }
-  },
+  handleExecuteSql,
 );
 
 databaseConnectionRoutes.post(
@@ -123,266 +44,19 @@ databaseConnectionRoutes.post(
     }
     return result.data;
   }),
-  async (c) => {
-    const body = c.req.valid('json');
-
-    const id = crypto.randomUUID();
-    const isSqlite = body.type === 'sqlite';
-    const keyPath = isSqlite ? '' : `vibedb/databases/${id}/password`;
-    const now = new Date().toISOString();
-
-    const connection: DatabaseConnection = {
-      id,
-      name: body.name,
-      type: body.type,
-      host: body.host,
-      port: body.port,
-      database: body.database,
-      username: body.username,
-      keyPath,
-      createdAt: now,
-      updatedAt: now,
-    };
-
-    try {
-      if (!isSqlite) {
-        const hsm = createHsmClient({
-          url: c.env.HSM_URL,
-          secret: c.env.HSM_SECRET,
-        });
-        await hsm.encrypt(keyPath, body.password);
-      }
-
-      await c.env.DB.prepare(
-        `INSERT INTO database_connections (id, name, type, host, port, database_name, username, key_path, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      )
-        .bind(
-          connection.id,
-          connection.name,
-          connection.type,
-          connection.host,
-          connection.port,
-          connection.database,
-          connection.username,
-          connection.keyPath,
-          connection.createdAt,
-          connection.updatedAt,
-        )
-        .run();
-
-      return c.json<ApiResponse<DatabaseConnection>>(
-        {
-          success: true,
-          data: connection,
-        },
-        201,
-      );
-    } catch (error) {
-      console.error('创建数据库连接失败:', error);
-      return c.json<ApiResponse>(
-        {
-          success: false,
-          error: getErrorMessage(error, '创建失败'),
-        },
-        500,
-      );
-    }
-  },
+  handleCreateDatabaseConnection,
 );
 
-databaseConnectionRoutes.get('/', async (c) => {
-  const connections = await listConnections(c.env);
-  return c.json<ApiResponse<DatabaseConnection[]>>({
-    success: true,
-    data: connections,
-  });
-});
+databaseConnectionRoutes.get('/', handleListDatabaseConnections);
 
-databaseConnectionRoutes.get('/:id', async (c) => {
-  const id = c.req.param('id');
-  const connection = await findConnectionById(c.env, id);
+databaseConnectionRoutes.get('/:id', handleGetDatabaseConnection);
 
-  if (!connection) {
-    return c.json<ApiResponse>(
-      {
-        success: false,
-        error: '数据库连接不存在',
-      },
-      404,
-    );
-  }
+databaseConnectionRoutes.delete('/:id', handleDeleteDatabaseConnection);
 
-  return c.json<ApiResponse<DatabaseConnection>>({
-    success: true,
-    data: connection,
-  });
-});
+databaseConnectionRoutes.get('/:id/schema', handleGetDatabaseSchema);
 
-databaseConnectionRoutes.delete('/:id', async (c) => {
-  const id = c.req.param('id');
-  const connection = await findConnectionById(c.env, id);
+databaseConnectionRoutes.post('/:id/schema/refresh', handleRefreshDatabaseSchema);
 
-  if (!connection) {
-    return c.json<ApiResponse>(
-      {
-        success: false,
-        error: '数据库连接不存在',
-      },
-      404,
-    );
-  }
+databaseConnectionRoutes.get('/:id/tables', handleGetTables);
 
-  try {
-    if (connection.type !== 'sqlite' && connection.keyPath) {
-      const hsm = createHsmClient({
-        url: c.env.HSM_URL,
-        secret: c.env.HSM_SECRET,
-      });
-      await hsm.delete(connection.keyPath);
-    }
-
-    // 即使 DB 层开启了外键 cascade，也显式清理一次缓存，避免出现脏数据。
-    await deleteSchemaCache(c.env, id);
-    await c.env.DB.prepare(`DELETE FROM database_connections WHERE id = ?`).bind(id).run();
-
-    return c.json<ApiResponse>({ success: true });
-  } catch (error) {
-    console.error('删除数据库连接失败:', error);
-    return c.json<ApiResponse>(
-      {
-        success: false,
-        error: getErrorMessage(error, '删除失败'),
-      },
-      500,
-    );
-  }
-});
-
-databaseConnectionRoutes.get('/:id/schema', async (c) => {
-  const id = c.req.param('id');
-  const connection = await findConnectionById(c.env, id);
-
-  if (!connection) {
-    return c.json<ApiResponse>(
-      {
-        success: false,
-        error: '数据库连接不存在',
-      },
-      404,
-    );
-  }
-
-  try {
-    const context = await getDatabaseSchemaContext(c.env, connection);
-    return c.json<ApiResponse<typeof context>>({
-      success: true,
-      data: context,
-    });
-  } catch (error) {
-    console.error('获取 Schema 失败:', error);
-    return c.json<ApiResponse>(
-      {
-        success: false,
-        error: getErrorMessage(error, '获取 Schema 失败'),
-      },
-      500,
-    );
-  }
-});
-
-databaseConnectionRoutes.post('/:id/schema/refresh', async (c) => {
-  const id = c.req.param('id');
-  const connection = await findConnectionById(c.env, id);
-
-  if (!connection) {
-    return c.json<ApiResponse>(
-      {
-        success: false,
-        error: '数据库连接不存在',
-      },
-      404,
-    );
-  }
-
-  try {
-    const context = await getDatabaseSchemaContext(c.env, connection, { forceRefresh: true });
-    return c.json<ApiResponse<typeof context>>({
-      success: true,
-      data: context,
-    });
-  } catch (error) {
-    console.error('刷新 Schema 失败:', error);
-    return c.json<ApiResponse>(
-      {
-        success: false,
-        error: getErrorMessage(error, '刷新 Schema 失败'),
-      },
-      500,
-    );
-  }
-});
-
-databaseConnectionRoutes.get('/:id/tables', async (c) => {
-  const id = c.req.param('id');
-  const connection = await findConnectionById(c.env, id);
-
-  if (!connection) {
-    return c.json<ApiResponse>(
-      {
-        success: false,
-        error: '数据库连接不存在',
-      },
-      404,
-    );
-  }
-
-  try {
-    const tables = await withDatabaseService(c.env, connection, async (dbService) => dbService.getTables());
-    return c.json<ApiResponse<string[]>>({
-      success: true,
-      data: tables,
-    });
-  } catch (error) {
-    console.error('获取表列表失败:', error);
-    return c.json<ApiResponse>(
-      {
-        success: false,
-        error: getErrorMessage(error, '获取表列表失败'),
-      },
-      500,
-    );
-  }
-});
-
-databaseConnectionRoutes.get('/:id/tables/:tableName/data', async (c) => {
-  const id = c.req.param('id');
-  const tableName = c.req.param('tableName');
-  const connection = await findConnectionById(c.env, id);
-
-  if (!connection) {
-    return c.json<ApiResponse>(
-      {
-        success: false,
-        error: '数据库连接不存在',
-      },
-      404,
-    );
-  }
-
-  try {
-    const data = await loadTableData(c.env, connection, tableName, c.req.query());
-    return c.json<ApiResponse<TableDataResponse>>({
-      success: true,
-      data,
-    });
-  } catch (error) {
-    console.error('获取表数据失败:', error);
-    return c.json<ApiResponse>(
-      {
-        success: false,
-        error: getErrorMessage(error, '获取表数据失败'),
-      },
-      500,
-    );
-  }
-});
+databaseConnectionRoutes.get('/:id/tables/:tableName/data', handleGetTableData);
