@@ -39,7 +39,7 @@ const SYSTEM_PROMPT = `你是一个 SQL 专家。根据用户的自然语言描�
 /**
  * AI Provider 接口
  */
-interface AiProvider {
+export interface AiService {
   generateSql(request: GenerateSqlRequest): Promise<GenerateSqlResponse>;
 }
 
@@ -66,7 +66,7 @@ function joinUrl(baseUrl: string, path: string): string {
 /**
  * OpenAI 实现
  */
-class OpenAIProvider implements AiProvider {
+class OpenAIProvider implements AiService {
   constructor(private config: AiConfig) {}
 
   async generateSql(request: GenerateSqlRequest): Promise<GenerateSqlResponse> {
@@ -122,7 +122,7 @@ ${schema}
 /**
  * Google Gemini 实现
  */
-class GeminiProvider implements AiProvider {
+class GeminiProvider implements AiService {
   constructor(private config: AiConfig) {}
 
   async generateSql(request: GenerateSqlRequest): Promise<GenerateSqlResponse> {
@@ -172,7 +172,7 @@ ${schema}
 /**
  * Replicate 实现
  */
-class ReplicateProvider implements AiProvider {
+class ReplicateProvider implements AiService {
   constructor(private config: AiConfig) {}
 
   async generateSql(request: GenerateSqlRequest): Promise<GenerateSqlResponse> {
@@ -277,7 +277,7 @@ function parseResponse(content: string | undefined | null): GenerateSqlResponse 
 /**
  * 工厂函数
  */
-export function createAiService(config: AiConfig) {
+export function createAiService(config: AiConfig): AiService {
   switch (config.provider) {
     case 'gemini':
       return new GeminiProvider(config);

@@ -32,7 +32,9 @@ databaseConnectionRoutes.post(
     }
     return result.data;
   }),
-  handleExecuteSql,
+  async (c) => {
+    return handleExecuteSql(c, c.req.valid('json'));
+  },
 );
 
 databaseConnectionRoutes.post(
@@ -44,7 +46,9 @@ databaseConnectionRoutes.post(
     }
     return result.data;
   }),
-  handleCreateDatabaseConnection,
+  async (c) => {
+    return handleCreateDatabaseConnection(c, c.req.valid('json'));
+  },
 );
 
 databaseConnectionRoutes.get('/', handleListDatabaseConnections);

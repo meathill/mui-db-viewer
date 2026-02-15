@@ -38,7 +38,9 @@ querySessionRoutes.post(
     }
     return result.data;
   }),
-  handleCreateQuerySession,
+  async (c) => {
+    return handleCreateQuerySession(c, c.req.valid('json'));
+  },
 );
 
 /**
@@ -66,7 +68,9 @@ querySessionRoutes.post(
     }
     return result.data;
   }),
-  handleAppendQuerySessionMessages,
+  async (c) => {
+    return handleAppendQuerySessionMessages(c, c.req.valid('json'));
+  },
 );
 
 /**
@@ -82,7 +86,9 @@ querySessionRoutes.patch(
     }
     return result.data;
   }),
-  handleRenameQuerySession,
+  async (c) => {
+    return handleRenameQuerySession(c, c.req.valid('json'));
+  },
 );
 
 /**

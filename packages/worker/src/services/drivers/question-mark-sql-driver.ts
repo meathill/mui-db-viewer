@@ -53,7 +53,7 @@ export abstract class QuestionMarkSqlDriver implements IDatabaseDriver {
   async getTableSchema(tableName: string): Promise<TableColumn[]> {
     await this.connect();
     const rows = await this.executeQuery(`DESCRIBE ${quoteIdentifier(tableName)}`);
-    return rows as TableColumn[];
+    return rows as unknown as TableColumn[];
   }
 
   async getTableData(tableName: string, options: TableQueryOptions = {}) {

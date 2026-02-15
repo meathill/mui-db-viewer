@@ -6,9 +6,7 @@ import { findConnectionById, getErrorMessage, listConnections } from './database
 
 type WorkerContext = Context<{ Bindings: CloudflareBindings }>;
 
-export async function handleCreateDatabaseConnection(c: WorkerContext) {
-  const body = c.req.valid('json') as CreateDatabaseRequest;
-
+export async function handleCreateDatabaseConnection(c: WorkerContext, body: CreateDatabaseRequest) {
   const id = crypto.randomUUID();
   const isSqlite = body.type === 'sqlite';
   const keyPath = isSqlite ? '' : `vibedb/databases/${id}/password`;

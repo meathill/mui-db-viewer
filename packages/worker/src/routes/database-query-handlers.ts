@@ -38,9 +38,9 @@ export async function loadTableData(
   });
 }
 
-export async function handleExecuteSql(c: WorkerContext) {
+export async function handleExecuteSql(c: WorkerContext, body: { sql: string }) {
   const id = c.req.param('id');
-  const { sql } = c.req.valid('json') as { sql: string };
+  const { sql } = body;
   const connection = await findConnectionById(c.env, id);
 
   if (!connection) {
@@ -65,9 +65,11 @@ export async function handleExecuteSql(c: WorkerContext) {
       );
     }
 
+    const safeSql = guardResult.sql;
+
     const result = await withDatabaseService(c.env, connection, async (dbService) => {
       // 当前驱动层仅返回 rows；columns 先在路由层做简单推断，后续可再补充元信息能力。
-      return dbService.query(guardResult.sql);
+      return dbService.query(safeSql);
     });
 
     const rows = result as TableRow[];

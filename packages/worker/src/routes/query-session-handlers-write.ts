@@ -8,8 +8,7 @@ import type {
   WorkerContext,
 } from './query-session-handler-types';
 
-export async function handleCreateQuerySession(c: WorkerContext) {
-  const body = c.req.valid('json') as CreateQuerySessionBody;
+export async function handleCreateQuerySession(c: WorkerContext, body: CreateQuerySessionBody) {
   const connection = await findConnectionById(c.env, body.databaseId);
   if (!connection) {
     return c.json<ApiResponse>({ success: false, error: '数据库连接不存在' }, 404);
@@ -89,9 +88,8 @@ export async function handleCreateQuerySession(c: WorkerContext) {
   }
 }
 
-export async function handleAppendQuerySessionMessages(c: WorkerContext) {
+export async function handleAppendQuerySessionMessages(c: WorkerContext, body: AppendQuerySessionMessagesBody) {
   const id = c.req.param('id');
-  const body = c.req.valid('json') as AppendQuerySessionMessagesBody;
 
   try {
     const sessionRow = await c.env.DB.prepare('SELECT id, preview FROM query_sessions WHERE id = ?').bind(id).first<{
@@ -143,9 +141,8 @@ export async function handleAppendQuerySessionMessages(c: WorkerContext) {
   }
 }
 
-export async function handleRenameQuerySession(c: WorkerContext) {
+export async function handleRenameQuerySession(c: WorkerContext, body: UpdateQuerySessionBody) {
   const id = c.req.param('id');
-  const body = c.req.valid('json') as UpdateQuerySessionBody;
 
   if (!body.title) {
     return c.json<ApiResponse>({ success: false, error: '缺少 title' }, 400);

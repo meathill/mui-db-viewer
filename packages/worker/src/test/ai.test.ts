@@ -14,6 +14,7 @@ describe('AI Service', () => {
   });
 
   const config = {
+    provider: 'openai' as const,
     apiKey: 'test-api-key',
     model: 'gpt-4o-mini',
   };

@@ -37,17 +37,19 @@ export async function findConnectionById(
   env: Pick<CloudflareBindings, 'DB'>,
   id: string,
 ): Promise<DatabaseConnection | null> {
-  const row = await env.DB.prepare(`SELECT * FROM database_connections WHERE id = ?`).bind(id).first();
+  const row = await env.DB.prepare(`SELECT * FROM database_connections WHERE id = ?`)
+    .bind(id)
+    .first<DatabaseConnectionRow>();
   if (!row) {
     return null;
   }
 
-  return toDatabaseConnection(row as DatabaseConnectionRow);
+  return toDatabaseConnection(row);
 }
 
 export async function listConnections(env: Pick<CloudflareBindings, 'DB'>): Promise<DatabaseConnection[]> {
-  const { results } = await env.DB.prepare(`SELECT * FROM database_connections`).all();
-  return results.map((row) => toDatabaseConnection(row as DatabaseConnectionRow));
+  const { results } = await env.DB.prepare(`SELECT * FROM database_connections`).all<DatabaseConnectionRow>();
+  return results.map((row) => toDatabaseConnection(row));
 }
 
 export async function withDatabaseService<T>(
