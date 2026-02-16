@@ -50,6 +50,15 @@
 - API 参数序列化逻辑集中在 `lib` 工具函数，避免页面手工拼 query。
 - 表格相关通用处理（主键识别、单元格格式化）抽到独立工具模块。
 
+## 本地 SQLite（File System Access）约定
+
+- `sqlite` 连接在 Web 端视为“本地文件模式”，不把本地路径提交到 Worker。
+- 本地连接元数据（包含 `FileSystemFileHandle`）统一保存在 IndexedDB：
+  - 存储模块：`packages/web/src/lib/local-sqlite/connection-store.ts`
+  - 执行模块：`packages/web/src/lib/local-sqlite/sqlite-engine.ts`
+- Query 页面对本地连接走“SQL 直执行”模式，远端连接保持“AI 生成 SQL”模式。
+- 本地连接权限状态依赖浏览器 `queryPermission/requestPermission`，不可访问时前端应展示降级状态，不要假设权限恒为 granted。
+
 ## Coss UI 组件用法约定
 
 - 业务代码只从 `@/components/ui/*` 引用组件，不直接引用 `@base-ui/react/*`（除非在 `components/ui` 封装内部）。

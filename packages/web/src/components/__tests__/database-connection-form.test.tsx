@@ -12,6 +12,15 @@ vi.mock('@/stores/database-store', () => ({
     }),
 }));
 
+vi.mock('@/lib/local-sqlite/connection-store', () => ({
+  isFileSystemAccessSupported: () => false,
+  pickLocalSQLiteFileHandle: vi.fn(),
+}));
+
+vi.mock('@/lib/local-sqlite/sqlite-engine', () => ({
+  validateLocalSQLiteHandle: vi.fn(),
+}));
+
 vi.mock('@/components/ui/tabs', () => ({
   Tabs: ({ children, onValueChange }: { children: ReactNode; onValueChange: (value: string) => void }) => (
     <div>

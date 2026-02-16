@@ -50,6 +50,8 @@ export default function QueryPageClient() {
   const [schemaRefreshing, setSchemaRefreshing] = useState(false);
   const searchParams = useSearchParams();
   const sessionIdFromUrl = searchParams.get('session');
+  const selectedDatabase = databases.find((database) => database.id === selectedDatabaseId);
+  const isLocalDatabase = selectedDatabase?.scope === 'local';
 
   useEffect(() => {
     void fetchDatabases().catch((fetchError) => {
@@ -83,7 +85,7 @@ export default function QueryPageClient() {
   }
 
   function handleRefreshSchema() {
-    if (!selectedDatabaseId || schemaRefreshing) return;
+    if (!selectedDatabaseId || schemaRefreshing || isLocalDatabase) return;
 
     setSchemaRefreshing(true);
     void api.databases
@@ -109,6 +111,7 @@ export default function QueryPageClient() {
           databases={databases}
           selectedDatabaseId={selectedDatabaseId}
           schemaRefreshing={schemaRefreshing}
+          disableRefresh={Boolean(isLocalDatabase)}
           onSelectedDatabaseIdChange={setSelectedDatabaseId}
           onRefreshSchema={handleRefreshSchema}
         />
@@ -136,7 +139,13 @@ export default function QueryPageClient() {
             <QueryInputForm
               input={input}
               placeholder={
-                !selectedDatabaseId ? '请先选择数据库' : sessionLoading ? '加载会话中...' : '描述你的查询需求...'
+                !selectedDatabaseId
+                  ? '请先选择数据库'
+                  : isLocalDatabase
+                    ? '输入 SQL 并回车执行（本地 SQLite 模式）'
+                    : sessionLoading
+                      ? '加载会话中...'
+                      : '描述你的查询需求...'
               }
               disabled={!selectedDatabaseId || loading || sessionLoading}
               loading={loading}

@@ -2,6 +2,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { api, type DatabaseConnection } from '@/lib/api';
 import { useDatabaseStore } from '../database-store';
 
+const { mockListLocalSQLiteConnections, mockCreateLocalSQLiteConnection, mockDeleteLocalSQLiteConnection } = vi.hoisted(
+  () => ({
+    mockListLocalSQLiteConnections: vi.fn(),
+    mockCreateLocalSQLiteConnection: vi.fn(),
+    mockDeleteLocalSQLiteConnection: vi.fn(),
+  }),
+);
+
 vi.mock('@/lib/api', () => ({
   api: {
     databases: {
@@ -10,6 +18,14 @@ vi.mock('@/lib/api', () => ({
       delete: vi.fn(),
     },
   },
+}));
+
+vi.mock('@/lib/local-sqlite/connection-store', () => ({
+  listLocalSQLiteConnections: mockListLocalSQLiteConnections,
+  createLocalSQLiteConnection: mockCreateLocalSQLiteConnection,
+  deleteLocalSQLiteConnection: mockDeleteLocalSQLiteConnection,
+  isFileSystemFileHandle: () => true,
+  isLocalSQLiteConnectionId: (id: string) => id.startsWith('local-sqlite:'),
 }));
 
 function createMockDatabase(
@@ -32,6 +48,7 @@ function createMockDatabase(
 describe('database-store', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockListLocalSQLiteConnections.mockResolvedValue([]);
     useDatabaseStore.getState().reset();
   });
 
@@ -163,5 +180,60 @@ describe('database-store', () => {
     expect(state.databases).toEqual([created]);
     expect(state.hasLoaded).toBe(true);
     expect(state.error).toBeNull();
+  });
+
+  it('createDatabase(type=sqlite) 应创建本地 SQLite 连接', async () => {
+    const fileHandle = { name: 'local.db' } as FileSystemFileHandle;
+    const created = createMockDatabase({
+      id: 'local-sqlite:1',
+      name: '本地库',
+      type: 'sqlite',
+      host: '本地文件',
+      port: '',
+      database: 'local.db',
+      username: '',
+      keyPath: '',
+      scope: 'local',
+    });
+
+    mockCreateLocalSQLiteConnection.mockResolvedValue(created);
+
+    const result = await useDatabaseStore.getState().createDatabase({
+      name: '本地库',
+      type: 'sqlite',
+      database: 'local.db',
+      fileHandle,
+    });
+
+    expect(result).toEqual(created);
+    expect(mockCreateLocalSQLiteConnection).toHaveBeenCalledWith('本地库', fileHandle);
+    expect(api.databases.create).not.toHaveBeenCalled();
+  });
+
+  it('deleteDatabase(本地连接) 应删除本地连接而不调用远端 API', async () => {
+    const localDatabase = createMockDatabase({
+      id: 'local-sqlite:1',
+      name: '本地库',
+      type: 'sqlite',
+      host: '本地文件',
+      port: '',
+      database: 'local.db',
+      username: '',
+      keyPath: '',
+      scope: 'local',
+    });
+
+    useDatabaseStore.setState({
+      databases: [localDatabase],
+      hasLoaded: true,
+      loading: false,
+      error: null,
+    });
+
+    await useDatabaseStore.getState().deleteDatabase('local-sqlite:1');
+
+    expect(mockDeleteLocalSQLiteConnection).toHaveBeenCalledWith('local-sqlite:1');
+    expect(api.databases.delete).not.toHaveBeenCalled();
+    expect(useDatabaseStore.getState().databases).toEqual([]);
   });
 });

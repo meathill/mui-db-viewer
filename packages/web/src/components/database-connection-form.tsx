@@ -14,8 +14,9 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { FileBrowserDialog } from '@/components/file-browser-dialog';
 import { getErrorMessage, showErrorAlert, showSuccessToast } from '@/lib/client-feedback';
+import { isFileSystemAccessSupported, pickLocalSQLiteFileHandle } from '@/lib/local-sqlite/connection-store';
+import { validateLocalSQLiteHandle } from '@/lib/local-sqlite/sqlite-engine';
 import type { CreateDatabaseRequest } from '@/lib/api';
 import { useDatabaseStore } from '@/stores/database-store';
 
@@ -59,13 +60,19 @@ export function DatabaseConnectionForm({ onSuccess }: DatabaseConnectionFormProp
   const [saving, setSaving] = useState(false);
   const [testResult, setTestResult] = useState<'success' | 'error' | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [fileBrowserOpen, setFileBrowserOpen] = useState(false);
+  const [selectedFileHandle, setSelectedFileHandle] = useState<FileSystemFileHandle | null>(null);
+  const [selectedFileName, setSelectedFileName] = useState('');
 
   const isLocal = LOCAL_DB_TYPES.has(formData.type);
+  const fileSystemSupported = isFileSystemAccessSupported();
   const formId = 'database-connection-form';
 
   function handleChange(field: keyof ConnectionFormData, value: string) {
     setFormData((prev) => ({ ...prev, [field]: value }));
+    if (field === 'type' && value !== 'sqlite') {
+      setSelectedFileHandle(null);
+      setSelectedFileName('');
+    }
     setTestResult(null);
     setError(null);
   }
@@ -75,6 +82,31 @@ export function DatabaseConnectionForm({ onSuccess }: DatabaseConnectionFormProp
   }
 
   async function handleTestConnection() {
+    if (isLocal) {
+      if (!selectedFileHandle) {
+        setTestResult('error');
+        setError('请先选择 SQLite 文件');
+        return;
+      }
+
+      setTesting(true);
+      setTestResult(null);
+      setError(null);
+
+      try {
+        await validateLocalSQLiteHandle(selectedFileHandle);
+        setTestResult('success');
+      } catch (testError) {
+        const message = getErrorMessage(testError, '测试失败');
+        setTestResult('error');
+        setError(message);
+        showErrorAlert(message, '测试失败');
+      } finally {
+        setTesting(false);
+      }
+      return;
+    }
+
     setTesting(true);
     setTestResult(null);
     // TODO: 实际测试连接
@@ -89,7 +121,15 @@ export function DatabaseConnectionForm({ onSuccess }: DatabaseConnectionFormProp
     setError(null);
 
     try {
-      await createDatabase(formData);
+      const payload: ConnectionFormData = isLocal
+        ? {
+            ...formData,
+            database: selectedFileName || formData.database,
+            fileHandle: selectedFileHandle ?? undefined,
+          }
+        : formData;
+
+      await createDatabase(payload);
       showSuccessToast('保存成功', `已添加数据库连接“${formData.name || '未命名连接'}”`);
       onSuccess?.();
     } catch (err) {
@@ -101,21 +141,149 @@ export function DatabaseConnectionForm({ onSuccess }: DatabaseConnectionFormProp
     }
   }
 
-  function handleFileSelect(filePath: string) {
-    handleChange('database', filePath);
-    // 自动从文件名生成连接名称（如果未填写）
+  async function handlePickLocalFile() {
+    try {
+      const fileHandle = await pickLocalSQLiteFileHandle();
+      setSelectedFileHandle(fileHandle);
+      setSelectedFileName(fileHandle.name);
+      handleChange('database', fileHandle.name);
+      handleAutoFillNameFromFile(fileHandle.name);
+    } catch (pickError) {
+      if (pickError instanceof DOMException && pickError.name === 'AbortError') {
+        return;
+      }
+
+      const message = getErrorMessage(pickError, '选择文件失败');
+      setError(message);
+      showErrorAlert(message, '选择文件失败');
+    }
+  }
+
+  const isValid = isLocal
+    ? Boolean(formData.name && formData.type && selectedFileHandle && fileSystemSupported)
+    : Boolean(
+        formData.name && formData.type && formData.host && formData.database && formData.username && formData.password,
+      );
+
+  const localFileHint = fileSystemSupported
+    ? selectedFileName
+      ? `已选择：${selectedFileName}`
+      : '未选择文件'
+    : '当前浏览器不支持 File System Access API，请使用 Chrome 或 Edge';
+
+  function renderLocalDatabaseFields() {
+    const disabled = !fileSystemSupported || testing || saving;
+
+    return (
+      <div className="space-y-2">
+        <Label htmlFor="database">数据库文件</Label>
+        <div className="flex gap-2">
+          <Input
+            id="database"
+            placeholder="请选择 SQLite 文件"
+            value={selectedFileName}
+            readOnly
+            className="flex-1 font-mono text-sm"
+          />
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handlePickLocalFile}
+            disabled={disabled}>
+            <FolderOpenIcon className="mr-1.5 size-4" />
+            选择文件
+          </Button>
+        </div>
+        <p className="text-muted-foreground text-xs">{localFileHint}</p>
+        <p className="text-muted-foreground text-xs">连接保存后会持久化文件句柄，下次可直接打开，无需重复选择。</p>
+      </div>
+    );
+  }
+
+  function renderRemoteDatabaseFields() {
+    return (
+      <>
+        {/* Host 和 Port */}
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div className="space-y-2 sm:col-span-2">
+            <Label htmlFor="host">主机地址</Label>
+            <Input
+              id="host"
+              placeholder="例如：db.example.com"
+              value={formData.host}
+              onChange={(e) => handleChange('host', e.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="port">端口</Label>
+            <Input
+              id="port"
+              placeholder="3306"
+              value={formData.port}
+              onChange={(e) => handleChange('port', e.target.value)}
+            />
+          </div>
+        </div>
+
+        {/* 数据库名 */}
+        <div className="space-y-2">
+          <Label htmlFor="database">数据库名</Label>
+          <Input
+            id="database"
+            placeholder="输入数据库名称"
+            value={formData.database}
+            onChange={(e) => handleChange('database', e.target.value)}
+          />
+        </div>
+
+        {/* 用户名 */}
+        <div className="space-y-2">
+          <Label htmlFor="username">用户名</Label>
+          <Input
+            id="username"
+            placeholder="输入数据库用户名"
+            value={formData.username}
+            onChange={(e) => handleChange('username', e.target.value)}
+          />
+        </div>
+
+        {/* 密码 */}
+        <div className="space-y-2">
+          <Label htmlFor="password">密码</Label>
+          <div className="relative">
+            <Input
+              id="password"
+              type={showPassword ? 'text' : 'password'}
+              placeholder="输入数据库密码"
+              value={formData.password}
+              onChange={(e) => handleChange('password', e.target.value)}
+              className="pr-10"
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              onClick={handleTogglePasswordVisibility}
+              aria-label={showPassword ? '隐藏密码' : '显示密码'}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+              {showPassword ? <EyeOffIcon className="size-4" /> : <EyeIcon className="size-4" />}
+            </Button>
+          </div>
+          <p className="text-muted-foreground text-xs">密码将通过 HSM 加密，后端不会接触明文</p>
+        </div>
+      </>
+    );
+  }
+
+  // 自动从文件名生成连接名称（如果未填写）
+  function handleAutoFillNameFromFile(fileName: string) {
     if (!formData.name) {
-      const fileName = filePath.split('/').pop() || '';
       const nameWithoutExt = fileName.replace(/\.(db|sqlite|sqlite3|s3db)$/i, '');
       if (nameWithoutExt) {
         handleChange('name', nameWithoutExt);
       }
     }
   }
-
-  const isValid = isLocal
-    ? formData.name && formData.type && formData.database
-    : formData.name && formData.type && formData.host && formData.database && formData.username && formData.password;
 
   return (
     <>
@@ -166,105 +334,7 @@ export function DatabaseConnectionForm({ onSuccess }: DatabaseConnectionFormProp
             />
           </div>
 
-          {isLocal ? (
-            /* SQLite 等本地数据库：只需文件路径 */
-            <div className="space-y-2">
-              <Label htmlFor="database">数据库文件路径</Label>
-              <div className="flex gap-2">
-                <Input
-                  id="database"
-                  placeholder="例如：/path/to/database.db"
-                  value={formData.database}
-                  onChange={(e) => handleChange('database', e.target.value)}
-                  className="flex-1 font-mono text-sm"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setFileBrowserOpen(true)}>
-                  <FolderOpenIcon className="mr-1.5 size-4" />
-                  浏览
-                </Button>
-              </div>
-              <p className="text-muted-foreground text-xs">输入绝对路径或点击"浏览"选择文件</p>
-              <FileBrowserDialog
-                open={fileBrowserOpen}
-                onOpenChange={setFileBrowserOpen}
-                onSelect={handleFileSelect}
-              />
-            </div>
-          ) : (
-            <>
-              {/* Host 和 Port */}
-              <div className="grid gap-4 sm:grid-cols-3">
-                <div className="space-y-2 sm:col-span-2">
-                  <Label htmlFor="host">主机地址</Label>
-                  <Input
-                    id="host"
-                    placeholder="例如：db.example.com"
-                    value={formData.host}
-                    onChange={(e) => handleChange('host', e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="port">端口</Label>
-                  <Input
-                    id="port"
-                    placeholder="3306"
-                    value={formData.port}
-                    onChange={(e) => handleChange('port', e.target.value)}
-                  />
-                </div>
-              </div>
-
-              {/* 数据库名 */}
-              <div className="space-y-2">
-                <Label htmlFor="database">数据库名</Label>
-                <Input
-                  id="database"
-                  placeholder="输入数据库名称"
-                  value={formData.database}
-                  onChange={(e) => handleChange('database', e.target.value)}
-                />
-              </div>
-
-              {/* 用户名 */}
-              <div className="space-y-2">
-                <Label htmlFor="username">用户名</Label>
-                <Input
-                  id="username"
-                  placeholder="输入数据库用户名"
-                  value={formData.username}
-                  onChange={(e) => handleChange('username', e.target.value)}
-                />
-              </div>
-
-              {/* 密码 */}
-              <div className="space-y-2">
-                <Label htmlFor="password">密码</Label>
-                <div className="relative">
-                  <Input
-                    id="password"
-                    type={showPassword ? 'text' : 'password'}
-                    placeholder="输入数据库密码"
-                    value={formData.password}
-                    onChange={(e) => handleChange('password', e.target.value)}
-                    className="pr-10"
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    onClick={handleTogglePasswordVisibility}
-                    aria-label={showPassword ? '隐藏密码' : '显示密码'}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-                    {showPassword ? <EyeOffIcon className="size-4" /> : <EyeIcon className="size-4" />}
-                  </Button>
-                </div>
-                <p className="text-muted-foreground text-xs">密码将通过 HSM 加密，后端不会接触明文</p>
-              </div>
-            </>
-          )}
+          {isLocal ? renderLocalDatabaseFields() : renderRemoteDatabaseFields()}
 
           {error && <p className="text-destructive text-sm">{error}</p>}
         </form>

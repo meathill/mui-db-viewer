@@ -1,5 +1,12 @@
 import { create } from 'zustand';
 import { api, type CreateDatabaseRequest, type DatabaseConnection } from '@/lib/api';
+import {
+  createLocalSQLiteConnection,
+  deleteLocalSQLiteConnection,
+  isFileSystemFileHandle,
+  isLocalSQLiteConnectionId,
+  listLocalSQLiteConnections,
+} from '@/lib/local-sqlite/connection-store';
 
 const LOAD_ERROR_MESSAGE = '获取数据库列表失败';
 
@@ -37,6 +44,22 @@ function getErrorMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
+function mergeDatabases(
+  remoteDatabases: DatabaseConnection[],
+  localDatabases: DatabaseConnection[],
+): DatabaseConnection[] {
+  return [...localDatabases, ...remoteDatabases];
+}
+
+async function listLocalDatabasesSafely(): Promise<DatabaseConnection[]> {
+  try {
+    return await listLocalSQLiteConnections();
+  } catch (error) {
+    console.error('读取本地 SQLite 连接失败:', error);
+    return [];
+  }
+}
+
 export const useDatabaseStore = create<DatabaseStore>((set, get) => ({
   ...initialState,
 
@@ -54,7 +77,8 @@ export const useDatabaseStore = create<DatabaseStore>((set, get) => ({
 
     const request = (async () => {
       try {
-        const databases = await api.databases.list();
+        const [remoteDatabases, localDatabases] = await Promise.all([api.databases.list(), listLocalDatabasesSafely()]);
+        const databases = mergeDatabases(remoteDatabases, localDatabases);
         set({
           databases,
           loading: false,
@@ -82,7 +106,17 @@ export const useDatabaseStore = create<DatabaseStore>((set, get) => ({
   },
 
   async createDatabase(payload) {
-    const created = await api.databases.create(payload);
+    let created: DatabaseConnection;
+    if (payload.type === 'sqlite') {
+      if (!isFileSystemFileHandle(payload.fileHandle)) {
+        throw new Error('请先选择本地 SQLite 文件');
+      }
+      created = await createLocalSQLiteConnection(payload.name, payload.fileHandle);
+    } else {
+      const { fileHandle: _fileHandle, ...remotePayload } = payload;
+      created = await api.databases.create(remotePayload);
+    }
+
     set((state) => ({
       databases: [...state.databases, created],
       hasLoaded: true,
@@ -92,6 +126,14 @@ export const useDatabaseStore = create<DatabaseStore>((set, get) => ({
   },
 
   async deleteDatabase(id) {
+    if (isLocalSQLiteConnectionId(id)) {
+      await deleteLocalSQLiteConnection(id);
+      set((state) => ({
+        databases: state.databases.filter((database) => database.id !== id),
+      }));
+      return;
+    }
+
     await api.databases.delete(id);
     await get().refreshDatabases();
   },

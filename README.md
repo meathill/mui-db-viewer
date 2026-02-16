@@ -17,13 +17,21 @@ AI 驱动的数据库管理工具（Monorepo）。
 - 数据表浏览：分页、排序、过滤、增删改
 - Query 页面会话状态集中管理（Zustand）
 - 多数据库方言查询条件构建能力（`?` / PostgreSQL `$n` 占位符）
+- 浏览器本地 SQLite：基于 File System Access API 持久化文件句柄，支持保存多个本地数据库并直接读写
 
 ## 技术栈
 
 - Web：Next.js + React + Tailwind + Coss UI
 - API：Cloudflare Worker + Hono + D1
 - 数据库驱动：TiDB / MySQL / PostgreSQL / D1
+- 本地 SQLite 执行：`sql.js`（浏览器端）
 - 测试：Vitest + Playwright
+
+## 本地 SQLite（浏览器模式）
+
+- 本地 SQLite 走浏览器能力，不经过 Worker 的 `better-sqlite3`。
+- 连接信息（文件句柄）保存在当前浏览器的 IndexedDB；不同浏览器/设备之间不共享句柄。
+- 当句柄权限丢失或当前浏览器不支持 File System Access API 时，本地连接会显示为不可访问状态。
 
 ## 本地开发
 

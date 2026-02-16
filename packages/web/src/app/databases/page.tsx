@@ -22,8 +22,44 @@ import {
 import { Menu, MenuItem, MenuPopup, MenuTrigger } from '@/components/ui/menu';
 import { DatabaseConnectionForm } from '@/components/database-connection-form';
 import { Empty, EmptyMedia, EmptyTitle, EmptyDescription, EmptyContent } from '@/components/ui/empty';
+import type { DatabaseConnection } from '@/lib/api';
 import { getErrorMessage, showErrorAlert, showSuccessToast } from '@/lib/client-feedback';
 import { useDatabaseStore } from '@/stores/database-store';
+
+function getConnectionSubtitle(database: DatabaseConnection): string {
+  if (database.scope === 'local') {
+    return database.localFileName || database.database || '本地 SQLite 文件';
+  }
+  return database.host;
+}
+
+function getConnectionStatus(database: DatabaseConnection): { label: string; className: string } {
+  if (database.scope !== 'local') {
+    return {
+      label: '已连接',
+      className: 'bg-green-500/10 text-green-600 hover:bg-green-500/20',
+    };
+  }
+
+  if (database.localPermission === 'granted') {
+    return {
+      label: '可访问',
+      className: 'bg-blue-500/10 text-blue-600 hover:bg-blue-500/20',
+    };
+  }
+
+  if (database.localPermission === 'prompt') {
+    return {
+      label: '待授权',
+      className: 'bg-amber-500/10 text-amber-600 hover:bg-amber-500/20',
+    };
+  }
+
+  return {
+    label: '不可访问',
+    className: 'bg-muted text-muted-foreground hover:bg-muted',
+  };
+}
 
 export default function DatabasesPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -125,66 +161,74 @@ export default function DatabasesPage() {
             </Empty>
           ) : (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {databases.map((db) => (
-                <Card
-                  key={db.id}
-                  className="group relative">
-                  <Link
-                    href={`/databases/${db.id}`}
-                    className="absolute inset-0 z-1"
-                  />
-                  <CardHeader className="relative">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="flex size-10 items-center justify-center rounded-xl bg-blue-100 text-blue-600 dark:bg-blue-950 dark:text-blue-400">
-                          <DatabaseIcon className="size-5" />
+              {databases.map((db) => {
+                const status = getConnectionStatus(db);
+                const isLocalConnection = db.scope === 'local';
+                const inaccessible = isLocalConnection && db.localPermission !== 'granted';
+
+                return (
+                  <Card
+                    key={db.id}
+                    className={`group relative ${inaccessible ? 'opacity-70' : ''}`}>
+                    {!isLocalConnection && (
+                      <Link
+                        href={`/databases/${db.id}`}
+                        className="absolute inset-0 z-1"
+                      />
+                    )}
+                    <CardHeader className="relative">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="flex size-10 items-center justify-center rounded-xl bg-blue-100 text-blue-600 dark:bg-blue-950 dark:text-blue-400">
+                            <DatabaseIcon className="size-5" />
+                          </div>
+                          <div>
+                            <CardTitle className="text-base">{db.name}</CardTitle>
+                            <CardDescription className="text-xs">{getConnectionSubtitle(db)}</CardDescription>
+                          </div>
                         </div>
-                        <div>
-                          <CardTitle className="text-base">{db.name}</CardTitle>
-                          <CardDescription className="text-xs">{db.host}</CardDescription>
-                        </div>
+                        <Menu>
+                          <MenuTrigger
+                            render={
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="size-8 opacity-0 group-hover:opacity-100 relative z-20">
+                                <MoreHorizontalIcon className="size-4" />
+                              </Button>
+                            }
+                          />
+                          <MenuPopup align="end">
+                            <MenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRequestDelete(db.id, db.name);
+                              }}
+                              variant="destructive">
+                              <TrashIcon className="mr-2 size-4" />
+                              删除连接
+                            </MenuItem>
+                          </MenuPopup>
+                        </Menu>
                       </div>
-                      <Menu>
-                        <MenuTrigger
-                          render={
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="size-8 opacity-0 group-hover:opacity-100 relative z-20">
-                              <MoreHorizontalIcon className="size-4" />
-                            </Button>
-                          }
-                        />
-                        <MenuPopup align="end">
-                          <MenuItem
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleRequestDelete(db.id, db.name);
-                            }}
-                            variant="destructive">
-                            <TrashIcon className="mr-2 size-4" />
-                            删除连接
-                          </MenuItem>
-                        </MenuPopup>
-                      </Menu>
-                    </div>
-                  </CardHeader>
-                  <CardPanel className="pt-0 relative z-10 pointer-events-none">
-                    <div className="flex items-center justify-between">
-                      <Badge
-                        variant="outline"
-                        className="uppercase">
-                        {db.type}
-                      </Badge>
-                      <Badge
-                        variant="default"
-                        className="bg-green-500/10 text-green-600 hover:bg-green-500/20">
-                        已连接
-                      </Badge>
-                    </div>
-                  </CardPanel>
-                </Card>
-              ))}
+                    </CardHeader>
+                    <CardPanel className="pt-0 relative z-10 pointer-events-none">
+                      <div className="flex items-center justify-between">
+                        <Badge
+                          variant="outline"
+                          className="uppercase">
+                          {db.scope === 'local' ? 'LOCAL SQLITE' : db.type}
+                        </Badge>
+                        <Badge
+                          variant="default"
+                          className={status.className}>
+                          {status.label}
+                        </Badge>
+                      </div>
+                    </CardPanel>
+                  </Card>
+                );
+              })}
             </div>
           )}
           {error && <p className="mt-4 text-destructive text-sm">{error}</p>}

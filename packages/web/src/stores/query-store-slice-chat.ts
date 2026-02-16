@@ -1,6 +1,9 @@
 import type { StateCreator } from 'zustand';
 import { api } from '@/lib/api';
 import { showErrorAlert } from '@/lib/client-feedback';
+import { isLocalSQLiteConnectionId } from '@/lib/local-sqlite/connection-store';
+import { executeLocalSQLiteQuery } from '@/lib/local-sqlite/sqlite-engine';
+import { useDatabaseStore } from '@/stores/database-store';
 import type { QueryMessage, QueryStore } from './query-store-types';
 import { createMessageId, createSessionTitle, getErrorMessage, toApiMessage } from './query-store-helpers';
 
@@ -31,6 +34,15 @@ export const initialQueryStoreChatState: Pick<
   loading: false,
   sessionLoading: false,
 };
+
+function isLocalDatabase(databaseId: string): boolean {
+  if (isLocalSQLiteConnectionId(databaseId)) {
+    return true;
+  }
+
+  const database = useDatabaseStore.getState().databases.find((item) => item.id === databaseId);
+  return database?.scope === 'local';
+}
 
 export const createQueryStoreChatSlice: StateCreator<QueryStore, [], [], QueryStoreChatSlice> = (set, get) => ({
   ...initialQueryStoreChatState,
@@ -117,6 +129,41 @@ export const createQueryStoreChatSlice: StateCreator<QueryStore, [], [], QuerySt
       loading: true,
     }));
 
+    if (isLocalDatabase(selectedDatabaseId)) {
+      let assistantMessage: QueryMessage;
+      try {
+        const result = await executeLocalSQLiteQuery(selectedDatabaseId, prompt);
+        assistantMessage = {
+          id: createMessageId(),
+          role: 'assistant',
+          content: result.columns.length > 0 ? `SQL 执行完成，返回 ${result.total} 行。` : 'SQL 执行完成。',
+          sql: prompt,
+          result: result.columns.length > 0 ? result.rows : undefined,
+        };
+
+        set((state) => ({
+          messages: [...state.messages, assistantMessage],
+        }));
+      } catch (error) {
+        const message = getErrorMessage(error);
+        assistantMessage = {
+          id: createMessageId(),
+          role: 'assistant',
+          content: `执行失败：${message}`,
+          sql: prompt,
+          error: message,
+        };
+
+        set((state) => ({
+          messages: [...state.messages, assistantMessage],
+        }));
+        showErrorAlert(message, '执行 SQL 失败');
+      } finally {
+        set({ loading: false });
+      }
+      return;
+    }
+
     let assistantMessage: QueryMessage;
 
     try {
@@ -178,7 +225,9 @@ export const createQueryStoreChatSlice: StateCreator<QueryStore, [], [], QuerySt
     set({ loading: true });
 
     try {
-      const result = await api.query.execute(selectedDatabaseId, sql);
+      const result = isLocalDatabase(selectedDatabaseId)
+        ? await executeLocalSQLiteQuery(selectedDatabaseId, sql)
+        : await api.query.execute(selectedDatabaseId, sql);
 
       set((state) => ({
         messages: state.messages.map((msg) =>

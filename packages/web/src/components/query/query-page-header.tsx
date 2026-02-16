@@ -11,14 +11,36 @@ interface QueryPageHeaderProps {
   databases: DatabaseConnection[];
   selectedDatabaseId: string;
   schemaRefreshing: boolean;
+  disableRefresh?: boolean;
   onSelectedDatabaseIdChange: (databaseId: string) => void;
   onRefreshSchema: () => void;
+}
+
+function getLocalPermissionLabel(database: DatabaseConnection): string {
+  if (database.scope !== 'local') {
+    return '';
+  }
+
+  if (database.localPermission === 'granted') {
+    return '本地';
+  }
+
+  if (database.localPermission === 'prompt') {
+    return '待授权';
+  }
+
+  if (database.localPermission === 'unsupported') {
+    return '不支持';
+  }
+
+  return '无权限';
 }
 
 export function QueryPageHeader({
   databases,
   selectedDatabaseId,
   schemaRefreshing,
+  disableRefresh = false,
   onSelectedDatabaseIdChange,
   onRefreshSchema,
 }: QueryPageHeaderProps) {
@@ -45,7 +67,12 @@ export function QueryPageHeader({
               <SelectItem
                 key={db.id}
                 value={db.id}>
-                {db.name}
+                <div className="flex w-full items-center justify-between gap-2">
+                  <span className="truncate">{db.name}</span>
+                  {db.scope === 'local' && (
+                    <span className="shrink-0 text-muted-foreground text-xs">{getLocalPermissionLabel(db)}</span>
+                  )}
+                </div>
               </SelectItem>
             ))}
           </SelectPopup>
@@ -55,9 +82,9 @@ export function QueryPageHeader({
           variant="outline"
           size="icon"
           className="size-9"
-          disabled={!selectedDatabaseId || schemaRefreshing}
+          disabled={!selectedDatabaseId || schemaRefreshing || disableRefresh}
           onClick={onRefreshSchema}
-          title="刷新 Schema">
+          title={disableRefresh ? '本地 SQLite 模式无需刷新 Schema' : '刷新 Schema'}>
           {schemaRefreshing ? <Loader2Icon className="size-4 animate-spin" /> : <RefreshCwIcon className="size-4" />}
         </Button>
       </div>

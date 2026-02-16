@@ -2,6 +2,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { api } from '@/lib/api';
 import { useQueryStore } from '../query-store';
 
+const { mockExecuteLocalSQLiteQuery } = vi.hoisted(() => ({
+  mockExecuteLocalSQLiteQuery: vi.fn(),
+}));
+
 vi.mock('@/lib/api', () => ({
   api: {
     query: {
@@ -17,6 +21,10 @@ vi.mock('@/lib/api', () => ({
       delete: vi.fn(),
     },
   },
+}));
+
+vi.mock('@/lib/local-sqlite/sqlite-engine', () => ({
+  executeLocalSQLiteQuery: mockExecuteLocalSQLiteQuery,
 }));
 
 describe('query-store', () => {

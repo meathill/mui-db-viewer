@@ -12,6 +12,10 @@ vi.mock('@/lib/client-feedback', () => ({
   showSuccessToast: vi.fn(),
 }));
 
+vi.mock('@/lib/local-sqlite/sqlite-engine', () => ({
+  executeLocalSQLiteQuery: vi.fn(),
+}));
+
 vi.mock('@/lib/api', () => ({
   api: {
     databases: {

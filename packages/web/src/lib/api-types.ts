@@ -1,3 +1,5 @@
+export type LocalDatabasePermission = 'granted' | 'prompt' | 'denied' | 'unsupported';
+
 export interface DatabaseConnection {
   id: string;
   name: string;
@@ -9,6 +11,9 @@ export interface DatabaseConnection {
   keyPath: string;
   createdAt: string;
   updatedAt: string;
+  scope?: 'remote' | 'local';
+  localFileName?: string;
+  localPermission?: LocalDatabasePermission;
 }
 
 export interface CreateDatabaseRequest {
@@ -19,6 +24,7 @@ export interface CreateDatabaseRequest {
   database: string;
   username?: string;
   password?: string;
+  fileHandle?: unknown;
 }
 
 export interface FileEntry {
