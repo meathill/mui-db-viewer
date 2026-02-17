@@ -150,15 +150,64 @@ function getAllowedColumnNames(columns: TableColumn[]): Set<string> {
   return new Set(columns.map((column) => column.Field));
 }
 
+function pickTableName(row: TableRow): string | null {
+  const nameCandidate = row.table_name ?? row.name;
+  if (typeof nameCandidate !== 'string') {
+    return null;
+  }
+
+  const name = nameCandidate.trim();
+  if (!name || name.startsWith('sqlite_')) {
+    return null;
+  }
+
+  const tableType = typeof row.type === 'string' ? row.type.toLowerCase() : null;
+  if (tableType && tableType !== 'table') {
+    return null;
+  }
+
+  const schemaName = typeof row.schema === 'string' ? row.schema.toLowerCase() : null;
+  if (schemaName && schemaName !== 'main') {
+    return null;
+  }
+
+  return name;
+}
+
+function collectTableNames(rows: TableRow[]): string[] {
+  const names = new Set<string>();
+
+  for (const row of rows) {
+    const tableName = pickTableName(row);
+    if (tableName) {
+      names.add(tableName);
+    }
+  }
+
+  return Array.from(names).sort((left, right) => left.localeCompare(right));
+}
+
 export async function getLocalSQLiteTables(connectionId: string): Promise<string[]> {
-  const result = await executeLocalSQLiteQuery(
+  const schemaResult = await executeLocalSQLiteQuery(
+    connectionId,
+    "SELECT name AS table_name FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name ASC;",
+  );
+  const schemaTables = collectTableNames(schemaResult.rows);
+  if (schemaTables.length > 0) {
+    return schemaTables;
+  }
+
+  const masterResult = await executeLocalSQLiteQuery(
     connectionId,
     "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name ASC;",
   );
+  const masterTables = collectTableNames(masterResult.rows);
+  if (masterTables.length > 0) {
+    return masterTables;
+  }
 
-  return result.rows
-    .map((row) => row.name)
-    .filter((name): name is string => typeof name === 'string' && name.trim() !== '');
+  const tableListResult = await executeLocalSQLiteQuery(connectionId, 'PRAGMA table_list;');
+  return collectTableNames(tableListResult.rows);
 }
 
 export async function getLocalSQLiteTableSchema(connectionId: string, tableName: string): Promise<TableColumn[]> {

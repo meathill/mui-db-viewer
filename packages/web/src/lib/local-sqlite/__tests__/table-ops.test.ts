@@ -16,7 +16,7 @@ describe('local-sqlite table-ops', () => {
     vi.clearAllMocks();
   });
 
-  it('getLocalSQLiteTables 应返回 sqlite_master 中的表名', async () => {
+  it('getLocalSQLiteTables 应返回 sqlite_schema 查询到的表名', async () => {
     vi.mocked(executeLocalSQLiteQuery).mockResolvedValue({
       rows: [{ name: 'users' }, { name: 'orders' }],
       total: 2,
@@ -25,11 +25,46 @@ describe('local-sqlite table-ops', () => {
 
     const tables = await getLocalSQLiteTables('local-sqlite:1');
 
-    expect(tables).toEqual(['users', 'orders']);
+    expect(tables).toEqual(['orders', 'users']);
     expect(executeLocalSQLiteQuery).toHaveBeenCalledWith(
+      'local-sqlite:1',
+      "SELECT name AS table_name FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name ASC;",
+    );
+  });
+
+  it('getLocalSQLiteTables 在主查询为空时应回退到 sqlite_master 和 PRAGMA table_list', async () => {
+    vi.mocked(executeLocalSQLiteQuery)
+      .mockResolvedValueOnce({
+        rows: [],
+        total: 0,
+        columns: [],
+      })
+      .mockResolvedValueOnce({
+        rows: [],
+        total: 0,
+        columns: [],
+      })
+      .mockResolvedValueOnce({
+        rows: [
+          { schema: 'main', name: 'users', type: 'table' },
+          { schema: 'main', name: 'sqlite_sequence', type: 'table' },
+          { schema: 'temp', name: 'tmp_data', type: 'table' },
+          { schema: 'main', name: 'v_users', type: 'view' },
+          { schema: 'main', name: 'orders', type: 'table' },
+        ],
+        total: 5,
+        columns: [],
+      });
+
+    const tables = await getLocalSQLiteTables('local-sqlite:1');
+
+    expect(tables).toEqual(['orders', 'users']);
+    expect(executeLocalSQLiteQuery).toHaveBeenNthCalledWith(
+      2,
       'local-sqlite:1',
       "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name ASC;",
     );
+    expect(executeLocalSQLiteQuery).toHaveBeenNthCalledWith(3, 'local-sqlite:1', 'PRAGMA table_list;');
   });
 
   it('getLocalSQLiteTableData 应按分页/排序/过滤生成查询', async () => {
