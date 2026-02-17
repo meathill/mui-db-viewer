@@ -14,6 +14,13 @@
 - [ ] 回归：验证 AI 查询生成（Schema 注入）+ 刷新 Schema 按钮链路
 - [ ] 回归：验证查询历史（新建/自动保存/搜索/下一页/重命名/删除）
 
+## 近期：线上 D1 初始化兜底
+
+- [x] Worker：`database_connections` 缺表时，`GET /api/v1/databases` 降级返回空数组，避免 500
+- [x] Worker：`findConnectionById` 在缺表时降级返回 null，避免未捕获异常
+- [x] 测试：补充缺表降级用例
+- [x] 文档：补充 `no such table: database_connections` 的排障步骤（执行 D1 migration）
+
 ## 进行中：浏览器本地 SQLite（File System Access）
 
 - [x] Web：新增本地 SQLite 连接仓库（IndexedDB 持久化 `FileSystemFileHandle`，支持保存多个）

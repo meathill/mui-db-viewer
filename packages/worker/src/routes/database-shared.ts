@@ -2,6 +2,8 @@ import { DatabaseService } from '../services/db';
 import { createHsmClient, parseHsmCallMode } from '../services/hsm';
 import type { DatabaseConnection, TableQueryFilters, TableQueryOptions } from '../types';
 
+const DATABASE_CONNECTIONS_TABLE = 'database_connections';
+
 export type DatabaseServiceEnv = Pick<CloudflareBindings, 'DB'> &
   Partial<Pick<CloudflareBindings, 'HSM_CALL_MODE' | 'HSM_SERVICE' | 'HSM_URL' | 'HSM_SECRET'>>;
 
@@ -16,6 +18,16 @@ interface DatabaseConnectionRow {
   key_path: string;
   created_at: string;
   updated_at: string;
+}
+
+function isMissingD1TableError(error: unknown, tableName: string): boolean {
+  if (!(error instanceof Error)) return false;
+  const message = error.message.toLowerCase();
+  return message.includes('no such table') && message.includes(tableName.toLowerCase());
+}
+
+function isMissingDatabaseConnectionsTableError(error: unknown): boolean {
+  return isMissingD1TableError(error, DATABASE_CONNECTIONS_TABLE);
 }
 
 export function toDatabaseConnection(row: DatabaseConnectionRow): DatabaseConnection {
@@ -37,9 +49,22 @@ export async function findConnectionById(
   env: Pick<CloudflareBindings, 'DB'>,
   id: string,
 ): Promise<DatabaseConnection | null> {
-  const row = await env.DB.prepare(`SELECT * FROM database_connections WHERE id = ?`)
-    .bind(id)
-    .first<DatabaseConnectionRow>();
+  let row: DatabaseConnectionRow | null;
+
+  try {
+    row = await env.DB.prepare(`SELECT * FROM database_connections WHERE id = ?`)
+      .bind(id)
+      .first<DatabaseConnectionRow>();
+  } catch (error) {
+    if (isMissingDatabaseConnectionsTableError(error)) {
+      console.warn(
+        'D1 元数据表 database_connections 不存在，已降级为“连接不存在”。请执行迁移：pnpm --filter worker migrate:local 或 pnpm --filter worker migrate:remote',
+      );
+      return null;
+    }
+    throw error;
+  }
+
   if (!row) {
     return null;
   }
@@ -48,7 +73,19 @@ export async function findConnectionById(
 }
 
 export async function listConnections(env: Pick<CloudflareBindings, 'DB'>): Promise<DatabaseConnection[]> {
-  const { results } = await env.DB.prepare(`SELECT * FROM database_connections`).all<DatabaseConnectionRow>();
+  let results: DatabaseConnectionRow[];
+  try {
+    ({ results } = await env.DB.prepare(`SELECT * FROM database_connections`).all<DatabaseConnectionRow>());
+  } catch (error) {
+    if (isMissingDatabaseConnectionsTableError(error)) {
+      console.warn(
+        'D1 元数据表 database_connections 不存在，GET /api/v1/databases 已降级为空数组。请执行迁移：pnpm --filter worker migrate:local 或 pnpm --filter worker migrate:remote',
+      );
+      return [];
+    }
+    throw error;
+  }
+
   return results.map((row) => toDatabaseConnection(row));
 }
 

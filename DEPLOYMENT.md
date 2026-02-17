@@ -60,6 +60,14 @@ pnpm --filter worker migrate:remote
 pnpm --filter worker migrate:local
 ```
 
+常见故障排查：
+- 现象：`GET /api/v1/databases` 返回 500，日志包含 `no such table: database_connections`
+- 原因：目标 D1 尚未应用本项目 migration，元数据表未初始化
+- 处理：
+  - 生产/预发：`pnpm --filter worker migrate:remote`
+  - 本地：`pnpm --filter worker migrate:local`
+- 验证：重新请求 `/api/v1/databases`，应返回 200（无数据时为空数组）
+
 ## Web 部署
 
 构建并部署：

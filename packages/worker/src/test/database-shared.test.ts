@@ -1,5 +1,11 @@
-import { describe, expect, it } from 'vitest';
-import { getErrorMessage, parseTableQueryOptions, toDatabaseConnection } from '../routes/database-shared';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import {
+  findConnectionById,
+  getErrorMessage,
+  listConnections,
+  parseTableQueryOptions,
+  toDatabaseConnection,
+} from '../routes/database-shared';
 import {
   hasRequiredCreateFields,
   isRowUpdateArray,
@@ -12,7 +18,51 @@ import {
   parseValidateSqlRequest,
 } from '../routes/request-validation';
 
+interface MockD1BoundStatement {
+  first: <T>() => Promise<T | null>;
+}
+
+interface MockD1PreparedStatement {
+  bind: (...values: unknown[]) => MockD1BoundStatement;
+  all: <T>() => Promise<{ results: T[] }>;
+}
+
+interface MockD1Database {
+  prepare: (query: string) => MockD1PreparedStatement;
+}
+
+function createEnvWithMissingDatabaseConnectionsTable(): Pick<CloudflareBindings, 'DB'> {
+  const db: MockD1Database = {
+    prepare(query: string) {
+      if (query.includes('database_connections')) {
+        throw new Error('D1_ERROR: no such table: database_connections: SQLITE_ERROR');
+      }
+
+      return {
+        bind() {
+          return {
+            async first<T>() {
+              return null;
+            },
+          };
+        },
+        async all<T>() {
+          return { results: [] as T[] };
+        },
+      };
+    },
+  };
+
+  return {
+    DB: db as unknown as CloudflareBindings['DB'],
+  };
+}
+
 describe('database route shared helpers', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('parseTableQueryOptions 应解析分页、排序、过滤参数', () => {
     const options = parseTableQueryOptions({
       page: '2',
@@ -165,5 +215,25 @@ describe('database route shared helpers', () => {
     if (!invalidValidate.success) {
       expect(invalidValidate.error).toBe('缺少 SQL');
     }
+  });
+
+  it('listConnections 在 database_connections 缺表时应降级返回空数组', async () => {
+    const env = createEnvWithMissingDatabaseConnectionsTable();
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const connections = await listConnections(env);
+
+    expect(connections).toEqual([]);
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('findConnectionById 在 database_connections 缺表时应降级返回 null', async () => {
+    const env = createEnvWithMissingDatabaseConnectionsTable();
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const connection = await findConnectionById(env, 'db-1');
+
+    expect(connection).toBeNull();
+    expect(warnSpy).toHaveBeenCalledTimes(1);
   });
 });

@@ -43,6 +43,7 @@
 - 应用迁移：
   - 本地：`pnpm --filter worker migrate:local`
   - 远端：`pnpm --filter worker migrate:remote`
+- 线上若出现 `D1_ERROR: no such table: database_connections`，表示目标 D1 未完成初始化迁移；先执行对应环境的 migration，再排查业务逻辑。
 
 ## Web 状态与 API 约定
 
