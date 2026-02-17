@@ -44,6 +44,27 @@ function toTableRows(result: QueryExecResult): TableRow[] {
   });
 }
 
+function isQueryExecResult(value: unknown): value is QueryExecResult {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const result = value as { columns?: unknown; values?: unknown };
+  return Array.isArray(result.columns) && Array.isArray(result.values);
+}
+
+function normalizeExecResults(value: unknown): QueryExecResult[] {
+  if (Array.isArray(value)) {
+    return value.filter(isQueryExecResult);
+  }
+
+  if (isQueryExecResult(value)) {
+    return [value];
+  }
+
+  return [];
+}
+
 function pickLastResult(results: QueryExecResult[]): QueryExecResult | null {
   for (let index = results.length - 1; index >= 0; index -= 1) {
     const result = results[index];
@@ -109,7 +130,8 @@ export async function executeLocalSQLiteQuery(connectionId: string, sql: string)
 
   const database = await openSqliteFromHandle(handle);
   try {
-    const results = database.exec(sql);
+    const rawResults = database.exec(sql);
+    const results = normalizeExecResults(rawResults);
     const lastResult = pickLastResult(results);
 
     if (isWriteSql(sql)) {
