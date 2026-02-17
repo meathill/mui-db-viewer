@@ -44,22 +44,64 @@ function toTableRows(result: QueryExecResult): TableRow[] {
   });
 }
 
-function isQueryExecResult(value: unknown): value is QueryExecResult {
+function toUnknownArray(value: unknown): unknown[] {
+  if (Array.isArray(value)) {
+    return value;
+  }
+
   if (!value || typeof value !== 'object') {
-    return false;
+    return [];
+  }
+
+  const maybeIterable = value as { [Symbol.iterator]?: () => Iterator<unknown> };
+  if (typeof maybeIterable[Symbol.iterator] === 'function') {
+    return Array.from(value as Iterable<unknown>);
+  }
+
+  const maybeLength = value as { length?: unknown };
+  if (typeof maybeLength.length === 'number' && Number.isFinite(maybeLength.length) && maybeLength.length >= 0) {
+    const arrayLike = value as Record<number, unknown>;
+    const normalized: unknown[] = [];
+    const size = Math.floor(maybeLength.length);
+    for (let index = 0; index < size; index += 1) {
+      normalized.push(arrayLike[index]);
+    }
+    return normalized;
+  }
+
+  return [];
+}
+
+function normalizeQueryExecResult(value: unknown): QueryExecResult | null {
+  if (!value || typeof value !== 'object') {
+    return null;
   }
 
   const result = value as { columns?: unknown; values?: unknown };
-  return Array.isArray(result.columns) && Array.isArray(result.values);
+  if (!('columns' in result)) {
+    return null;
+  }
+
+  const columns = toUnknownArray(result.columns).map((column) => String(column));
+  const rowCandidates = 'values' in result ? toUnknownArray(result.values) : [];
+  const values = rowCandidates.map((row) => toUnknownArray(row));
+
+  return {
+    columns,
+    values,
+  } as QueryExecResult;
 }
 
 function normalizeExecResults(value: unknown): QueryExecResult[] {
   if (Array.isArray(value)) {
-    return value.filter(isQueryExecResult);
+    return value
+      .map((item) => normalizeQueryExecResult(item))
+      .filter((result): result is QueryExecResult => result !== null);
   }
 
-  if (isQueryExecResult(value)) {
-    return [value];
+  const result = normalizeQueryExecResult(value);
+  if (result) {
+    return [result];
   }
 
   return [];

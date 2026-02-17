@@ -21,6 +21,7 @@ describe('TableSidebar', () => {
       <TableSidebar
         tables={['users', 'orders']}
         selectedTable={null}
+        loadingTables={false}
         error={null}
         onSelectTable={onSelectTable}
       />,
@@ -35,6 +36,7 @@ describe('TableSidebar', () => {
       <TableSidebar
         tables={['users', 'orders']}
         selectedTable="orders"
+        loadingTables={false}
         error={null}
         onSelectTable={() => undefined}
       />,
@@ -42,5 +44,19 @@ describe('TableSidebar', () => {
 
     const selectedButton = screen.getByRole('button', { name: 'orders' });
     expect(selectedButton.className.includes('bg-primary')).toBe(true);
+  });
+
+  it('加载表列表时应显示骨架屏', () => {
+    render(
+      <TableSidebar
+        tables={[]}
+        selectedTable={null}
+        loadingTables={true}
+        error={null}
+        onSelectTable={() => undefined}
+      />,
+    );
+
+    expect(screen.getByLabelText('加载数据表中')).toBeTruthy();
   });
 });

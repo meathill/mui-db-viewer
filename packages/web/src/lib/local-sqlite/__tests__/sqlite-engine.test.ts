@@ -89,6 +89,29 @@ describe('local-sqlite sqlite-engine', () => {
     });
   });
 
+  it('exec 返回类数组 values 时应正确解析结果', async () => {
+    const { handle } = createFileHandle();
+    hoistedMocks.getHandleMock.mockResolvedValue(handle);
+    hoistedMocks.ensurePermissionMock.mockResolvedValue('granted');
+    hoistedMocks.execMock.mockReturnValue([
+      {
+        columns: ['table_name'],
+        values: {
+          0: ['users'],
+          1: ['orders'],
+          length: 2,
+        },
+      },
+    ]);
+
+    const result = await executeLocalSQLiteQuery('local-sqlite:1', 'SELECT name AS table_name FROM sqlite_master;');
+    expect(result).toEqual({
+      rows: [{ table_name: 'users' }, { table_name: 'orders' }],
+      total: 2,
+      columns: [{ Field: 'table_name', Type: 'unknown' }],
+    });
+  });
+
   it('写操作 SQL 应回写本地文件', async () => {
     const { handle, writable } = createFileHandle();
     hoistedMocks.getHandleMock.mockResolvedValue(handle);

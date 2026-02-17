@@ -162,7 +162,7 @@ function pickTableName(row: TableRow): string | null {
   }
 
   const tableType = typeof row.type === 'string' ? row.type.toLowerCase() : null;
-  if (tableType && tableType !== 'table') {
+  if (tableType && tableType !== 'table' && tableType !== 'view') {
     return null;
   }
 
@@ -190,7 +190,7 @@ function collectTableNames(rows: TableRow[]): string[] {
 export async function getLocalSQLiteTables(connectionId: string): Promise<string[]> {
   const schemaResult = await executeLocalSQLiteQuery(
     connectionId,
-    "SELECT name AS table_name FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name ASC;",
+    "SELECT name AS table_name FROM sqlite_schema WHERE type IN ('table', 'view') AND name NOT LIKE 'sqlite_%' ORDER BY name ASC;",
   );
   const schemaTables = collectTableNames(schemaResult.rows);
   if (schemaTables.length > 0) {
@@ -199,7 +199,7 @@ export async function getLocalSQLiteTables(connectionId: string): Promise<string
 
   const masterResult = await executeLocalSQLiteQuery(
     connectionId,
-    "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name ASC;",
+    "SELECT name FROM sqlite_master WHERE type IN ('table', 'view') AND name NOT LIKE 'sqlite_%' ORDER BY name ASC;",
   );
   const masterTables = collectTableNames(masterResult.rows);
   if (masterTables.length > 0) {

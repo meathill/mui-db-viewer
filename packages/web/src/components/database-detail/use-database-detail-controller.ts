@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import type { TableRow } from '@/lib/api';
 import { resolveDatabaseDetailStrategy } from '@/lib/database-detail/strategy';
+import { isLocalSQLiteConnectionId } from '@/lib/local-sqlite/connection-store';
 import { getPrimaryKeyField, resolveRowId } from '@/lib/table-data-utils';
 import { useDatabaseDetailStore } from '@/stores/database-detail-store';
 import { useEditStore } from '@/stores/edit-store';
@@ -12,6 +13,7 @@ export function useDatabaseDetailController(id: string) {
     tables,
     selectedTable,
     tableData,
+    loadingTables,
     loadingTableData,
     page,
     pageSize,
@@ -31,6 +33,7 @@ export function useDatabaseDetailController(id: string) {
       tables: state.tables,
       selectedTable: state.selectedTable,
       tableData: state.tableData,
+      loadingTables: state.loadingTables,
       loadingTableData: state.loadingTableData,
       page: state.page,
       pageSize: state.pageSize,
@@ -70,6 +73,11 @@ export function useDatabaseDetailController(id: string) {
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const hasPendingEdits = pendingEdits.size > 0;
+  const isLocalDatabase = isLocalSQLiteConnectionId(id);
+  const emptyTablesHint =
+    isLocalDatabase && !loadingTables && !error && tables.length === 0
+      ? '未检测到可见数据表。若其他工具可见，可能是 WAL 未 checkpoint，或当前选择的不是预期文件。'
+      : null;
 
   function getErrorMessage(error: unknown): string {
     if (error instanceof Error && error.message.trim()) {
@@ -270,6 +278,7 @@ export function useDatabaseDetailController(id: string) {
     tables,
     selectedTable,
     tableData,
+    loadingTables,
     loadingTableData,
     page,
     pageSize,
@@ -287,6 +296,7 @@ export function useDatabaseDetailController(id: string) {
     hasPendingEdits,
     pendingEditCount: pendingEdits.size,
     deleteError,
+    emptyTablesHint,
     setIsInsertOpen,
     stopEditing,
     handleSort,

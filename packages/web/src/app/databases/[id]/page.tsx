@@ -28,6 +28,7 @@ export default function DatabaseDetailPage({ params }: PageProps) {
     tables,
     selectedTable,
     tableData,
+    loadingTables,
     loadingTableData,
     page,
     pageSize,
@@ -45,6 +46,7 @@ export default function DatabaseDetailPage({ params }: PageProps) {
     hasPendingEdits,
     pendingEditCount,
     deleteError,
+    emptyTablesHint,
     setIsInsertOpen,
     stopEditing,
     handleSort,
@@ -72,7 +74,9 @@ export default function DatabaseDetailPage({ params }: PageProps) {
       <TableSidebar
         tables={tables}
         selectedTable={selectedTable}
+        loadingTables={loadingTables}
         error={error}
+        emptyHint={emptyTablesHint}
         onSelectTable={handleSelectTable}
       />
 

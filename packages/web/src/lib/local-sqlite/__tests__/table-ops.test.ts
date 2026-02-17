@@ -28,7 +28,7 @@ describe('local-sqlite table-ops', () => {
     expect(tables).toEqual(['orders', 'users']);
     expect(executeLocalSQLiteQuery).toHaveBeenCalledWith(
       'local-sqlite:1',
-      "SELECT name AS table_name FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name ASC;",
+      "SELECT name AS table_name FROM sqlite_schema WHERE type IN ('table', 'view') AND name NOT LIKE 'sqlite_%' ORDER BY name ASC;",
     );
   });
 
@@ -58,11 +58,11 @@ describe('local-sqlite table-ops', () => {
 
     const tables = await getLocalSQLiteTables('local-sqlite:1');
 
-    expect(tables).toEqual(['orders', 'users']);
+    expect(tables).toEqual(['orders', 'users', 'v_users']);
     expect(executeLocalSQLiteQuery).toHaveBeenNthCalledWith(
       2,
       'local-sqlite:1',
-      "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name ASC;",
+      "SELECT name FROM sqlite_master WHERE type IN ('table', 'view') AND name NOT LIKE 'sqlite_%' ORDER BY name ASC;",
     );
     expect(executeLocalSQLiteQuery).toHaveBeenNthCalledWith(3, 'local-sqlite:1', 'PRAGMA table_list;');
   });
