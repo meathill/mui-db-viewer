@@ -210,6 +210,23 @@ describe('database-store', () => {
     expect(api.databases.create).not.toHaveBeenCalled();
   });
 
+  it('createDatabase(type=sqlite) 未授权时应创建失败且不写入列表', async () => {
+    const fileHandle = { name: 'local.db' } as FileSystemFileHandle;
+    mockCreateLocalSQLiteConnection.mockRejectedValue(new Error('未获得本地 SQLite 文件读写权限，连接未保存'));
+
+    await expect(
+      useDatabaseStore.getState().createDatabase({
+        name: '本地库',
+        type: 'sqlite',
+        database: 'local.db',
+        fileHandle,
+      }),
+    ).rejects.toThrow('未获得本地 SQLite 文件读写权限，连接未保存');
+
+    expect(useDatabaseStore.getState().databases).toEqual([]);
+    expect(api.databases.create).not.toHaveBeenCalled();
+  });
+
   it('deleteDatabase(本地连接) 应删除本地连接而不调用远端 API', async () => {
     const localDatabase = createMockDatabase({
       id: 'local-sqlite:1',

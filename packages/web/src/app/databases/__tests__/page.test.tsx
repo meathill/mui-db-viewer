@@ -140,4 +140,53 @@ describe('DatabasesPage', () => {
 
     expect(api.databases.list).toHaveBeenCalledTimes(2);
   });
+
+  it('本地 SQLite prompt 权限应显示为不可访问', async () => {
+    const localDb: DatabaseConnection = {
+      id: 'local-sqlite:1',
+      name: 'Local DB',
+      type: 'sqlite',
+      host: '本地文件',
+      port: '',
+      database: 'local.db',
+      username: '',
+      keyPath: '',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+      scope: 'local',
+      localPermission: 'prompt',
+    };
+
+    vi.mocked(api.databases.list).mockResolvedValue([localDb]);
+
+    render(<DatabasesPage />);
+
+    await screen.findByText('Local DB');
+    await screen.findByText('不可访问');
+    expect(screen.queryByText('待授权')).toBeNull();
+  });
+
+  it('本地 SQLite 卡片应可点击并跳转到详情页面', async () => {
+    const localDb: DatabaseConnection = {
+      id: 'local-sqlite:1',
+      name: 'Local DB',
+      type: 'sqlite',
+      host: '本地文件',
+      port: '',
+      database: 'local.db',
+      username: '',
+      keyPath: '',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+      scope: 'local',
+      localPermission: 'denied',
+    };
+
+    vi.mocked(api.databases.list).mockResolvedValue([localDb]);
+
+    render(<DatabasesPage />);
+
+    const link = await screen.findByRole('link', { name: '打开 Local DB' });
+    expect(link.getAttribute('href')).toBe('/databases/local-sqlite%3A1');
+  });
 });

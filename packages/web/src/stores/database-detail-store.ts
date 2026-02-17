@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 import { api, type TableDataResult } from '@/lib/api';
+import { isLocalSQLiteConnectionId } from '@/lib/local-sqlite/connection-store';
+import { getLocalSQLiteTableData, getLocalSQLiteTables } from '@/lib/local-sqlite/table-ops';
 import type { SortOrder } from '@/lib/table-query';
 
 const DEFAULT_PAGE = 1;
@@ -64,7 +66,9 @@ export const useDatabaseDetailStore = create<DatabaseDetailStore>((set, get) => 
   async fetchTables(databaseId) {
     set({ loadingTables: true, error: null });
     try {
-      const tables = await api.databases.getTables(databaseId);
+      const tables = isLocalSQLiteConnectionId(databaseId)
+        ? await getLocalSQLiteTables(databaseId)
+        : await api.databases.getTables(databaseId);
       set({
         tables,
         loadingTables: false,
@@ -88,13 +92,16 @@ export const useDatabaseDetailStore = create<DatabaseDetailStore>((set, get) => 
 
     set({ loadingTableData: true });
     try {
-      const tableData = await api.databases.getTableData(databaseId, selectedTable, {
+      const query = {
         page,
         pageSize,
         sortField: sortField ?? undefined,
         sortOrder,
         filters,
-      });
+      };
+      const tableData = isLocalSQLiteConnectionId(databaseId)
+        ? await getLocalSQLiteTableData(databaseId, selectedTable, query)
+        : await api.databases.getTableData(databaseId, selectedTable, query);
       set({
         tableData,
         loadingTableData: false,

@@ -1,8 +1,14 @@
 import type { ReactNode } from 'react';
 import { vi } from 'vitest';
 
+let searchParams = new URLSearchParams();
+
+export function setMockSearchParams(value: string | URLSearchParams) {
+  searchParams = typeof value === 'string' ? new URLSearchParams(value) : new URLSearchParams(value);
+}
+
 vi.mock('next/navigation', () => ({
-  useSearchParams: () => new URLSearchParams(),
+  useSearchParams: () => searchParams,
 }));
 
 vi.mock('@/lib/client-feedback', () => ({

@@ -50,6 +50,8 @@
 - 跨页面共享状态优先放入 `zustand` store。
 - API 参数序列化逻辑集中在 `lib` 工具函数，避免页面手工拼 query。
 - 表格相关通用处理（主键识别、单元格格式化）抽到独立工具模块。
+- 数据库连接表单支持从 Database URL 自动解析并回填（`mysql://` / `postgres://` / `postgresql://`）。
+- 解析 URL 时会识别 `sslmode` / `ssl` / `tls` 查询参数，并在表单显示提示；当前 worker 驱动默认启用 TLS（`rejectUnauthorized=false`）。
 
 ## 本地 SQLite（File System Access）约定
 
@@ -59,6 +61,7 @@
   - 执行模块：`packages/web/src/lib/local-sqlite/sqlite-engine.ts`
 - Query 页面对本地连接走“SQL 直执行”模式，远端连接保持“AI 生成 SQL”模式。
 - 本地连接权限状态依赖浏览器 `queryPermission/requestPermission`，不可访问时前端应展示降级状态，不要假设权限恒为 granted。
+- 列表展示层不使用“待授权”中间态：`prompt` 按不可访问处理；新建本地连接时必须先拿到 `granted` 再写入持久化存储。
 
 ## Coss UI 组件用法约定
 
@@ -92,3 +95,4 @@
   - 成功分支
   - 后端失败分支
   - 参数序列化行为
+- 代提交前先运行一次 `pnpm run format`，再执行测试，最后再 `git add/commit`。

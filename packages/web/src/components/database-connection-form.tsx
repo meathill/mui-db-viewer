@@ -15,6 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { getErrorMessage, showErrorAlert, showSuccessToast } from '@/lib/client-feedback';
+import { parseDatabaseUrl } from '@/lib/database-url';
 import { isFileSystemAccessSupported, pickLocalSQLiteFileHandle } from '@/lib/local-sqlite/connection-store';
 import { validateLocalSQLiteHandle } from '@/lib/local-sqlite/sqlite-engine';
 import type { CreateDatabaseRequest } from '@/lib/api';
@@ -44,6 +45,14 @@ function getDescription(type: string): string {
   return '配置你的数据库连接信息，密码将通过 HSM 加密存储';
 }
 
+function getDatabaseUrlPlaceholder(type: string): string {
+  if (type === 'postgres' || type === 'supabase') {
+    return 'postgresql://user:password@host:5432/database';
+  }
+
+  return 'mysql://user:password@host:3306/database';
+}
+
 export function DatabaseConnectionForm({ onSuccess }: DatabaseConnectionFormProps) {
   const createDatabase = useDatabaseStore((state) => state.createDatabase);
   const [formData, setFormData] = useState<ConnectionFormData>({
@@ -62,6 +71,8 @@ export function DatabaseConnectionForm({ onSuccess }: DatabaseConnectionFormProp
   const [error, setError] = useState<string | null>(null);
   const [selectedFileHandle, setSelectedFileHandle] = useState<FileSystemFileHandle | null>(null);
   const [selectedFileName, setSelectedFileName] = useState('');
+  const [databaseUrl, setDatabaseUrl] = useState('');
+  const [databaseUrlHint, setDatabaseUrlHint] = useState<{ level: 'info' | 'warning'; message: string } | null>(null);
 
   const isLocal = LOCAL_DB_TYPES.has(formData.type);
   const fileSystemSupported = isFileSystemAccessSupported();
@@ -79,6 +90,37 @@ export function DatabaseConnectionForm({ onSuccess }: DatabaseConnectionFormProp
 
   function handleTogglePasswordVisibility() {
     setShowPassword((prev) => !prev);
+  }
+
+  function handleDatabaseUrlChange(value: string) {
+    setDatabaseUrl(value);
+    setDatabaseUrlHint(null);
+    setTestResult(null);
+    setError(null);
+  }
+
+  function handleParseDatabaseUrl() {
+    try {
+      const parsed = parseDatabaseUrl(databaseUrl, formData.type);
+
+      setFormData((prev) => ({
+        ...prev,
+        type: parsed.type,
+        host: parsed.host,
+        port: parsed.port,
+        database: parsed.database,
+        username: parsed.username,
+        password: parsed.password,
+      }));
+      setDatabaseUrlHint(parsed.hint ?? null);
+      setTestResult(null);
+      setError(null);
+    } catch (parseError) {
+      const message = getErrorMessage(parseError, '解析 URL 失败');
+      setDatabaseUrlHint(null);
+      setError(message);
+      showErrorAlert(message, '解析 URL 失败');
+    }
   }
 
   async function handleTestConnection() {
@@ -203,6 +245,37 @@ export function DatabaseConnectionForm({ onSuccess }: DatabaseConnectionFormProp
   function renderRemoteDatabaseFields() {
     return (
       <>
+        <div className="space-y-2">
+          <Label htmlFor="database-url">数据库 URL</Label>
+          <div className="flex gap-2">
+            <Input
+              id="database-url"
+              placeholder={getDatabaseUrlPlaceholder(formData.type)}
+              value={databaseUrl}
+              onChange={(e) => handleDatabaseUrlChange(e.target.value)}
+              className="font-mono text-sm"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleParseDatabaseUrl}
+              disabled={testing || saving || !databaseUrl.trim()}>
+              解析 URL
+            </Button>
+          </div>
+          <p className="text-muted-foreground text-xs">
+            支持 `mysql://`、`postgres://`、`postgresql://`，可自动填充主机、端口、库名、用户名和密码
+          </p>
+          {databaseUrlHint && (
+            <p
+              className={
+                databaseUrlHint.level === 'warning' ? 'text-amber-600 text-xs' : 'text-muted-foreground text-xs'
+              }>
+              {databaseUrlHint.message}
+            </p>
+          )}
+        </div>
+
         {/* Host 和 Port */}
         <div className="grid gap-4 sm:grid-cols-3">
           <div className="space-y-2 sm:col-span-2">

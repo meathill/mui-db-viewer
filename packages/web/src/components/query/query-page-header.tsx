@@ -25,15 +25,11 @@ function getLocalPermissionLabel(database: DatabaseConnection): string {
     return '本地';
   }
 
-  if (database.localPermission === 'prompt') {
-    return '待授权';
-  }
-
   if (database.localPermission === 'unsupported') {
     return '不支持';
   }
 
-  return '无权限';
+  return '不可访问';
 }
 
 export function QueryPageHeader({

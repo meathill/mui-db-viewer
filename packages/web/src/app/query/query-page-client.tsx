@@ -50,6 +50,7 @@ export default function QueryPageClient() {
   const [schemaRefreshing, setSchemaRefreshing] = useState(false);
   const searchParams = useSearchParams();
   const sessionIdFromUrl = searchParams.get('session');
+  const databaseIdFromUrl = searchParams.get('databaseId');
   const selectedDatabase = databases.find((database) => database.id === selectedDatabaseId);
   const isLocalDatabase = selectedDatabase?.scope === 'local';
 
@@ -70,6 +71,18 @@ export default function QueryPageClient() {
 
     void openSession(sessionIdFromUrl);
   }, [sessionIdFromUrl, currentSessionId, openSession]);
+
+  useEffect(() => {
+    if (!databaseIdFromUrl || sessionIdFromUrl) {
+      return;
+    }
+
+    if (databaseIdFromUrl === selectedDatabaseId) {
+      return;
+    }
+
+    setSelectedDatabaseId(databaseIdFromUrl);
+  }, [databaseIdFromUrl, sessionIdFromUrl, selectedDatabaseId, setSelectedDatabaseId]);
 
   function handleExecuteSql(messageId: string, sql: string) {
     void executeSql(messageId, sql);

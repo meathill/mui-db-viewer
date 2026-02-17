@@ -2,6 +2,7 @@ import './page-mocks';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import QueryPage from '../page';
+import { setMockSearchParams } from './page-mocks';
 import { api, type DatabaseConnection } from '@/lib/api';
 import { showSuccessToast } from '@/lib/client-feedback';
 import { useDatabaseStore } from '@/stores/database-store';
@@ -10,6 +11,7 @@ import { useQueryStore } from '@/stores/query-store';
 describe('QueryPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    setMockSearchParams('');
     useDatabaseStore.getState().reset();
     useQueryStore.getState().reset();
     vi.mocked(api.querySessions.create).mockResolvedValue({
@@ -71,6 +73,45 @@ describe('QueryPage', () => {
     await screen.findByText('Production DB');
     await screen.findByText('Test DB');
     expect(screen.getByText('Query Sidebar')).toBeDefined();
+  });
+
+  it('本地 SQLite 非 granted 权限应展示为不可访问', async () => {
+    const localDbs: DatabaseConnection[] = [
+      {
+        id: 'local-sqlite:1',
+        name: 'Local DB',
+        type: 'sqlite',
+        host: '本地文件',
+        port: '',
+        database: 'local.db',
+        username: '',
+        keyPath: '',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+        scope: 'local',
+        localPermission: 'prompt',
+      },
+    ];
+    vi.mocked(api.databases.list).mockResolvedValue(localDbs);
+
+    useQueryStore.getState().setSelectedDatabaseId('local-sqlite:1');
+
+    render(<QueryPage />);
+
+    await screen.findByText('Local DB');
+    await screen.findByText('不可访问');
+    expect(screen.queryByText('待授权')).toBeNull();
+  });
+
+  it('URL 包含 databaseId 时应自动选中对应数据库', async () => {
+    vi.mocked(api.databases.list).mockResolvedValue(mockDbs);
+    setMockSearchParams('databaseId=2');
+
+    render(<QueryPage />);
+
+    await waitFor(() => {
+      expect(useQueryStore.getState().selectedDatabaseId).toBe('2');
+    });
   });
 
   it('无消息时展示引导文案', async () => {

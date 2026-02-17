@@ -87,6 +87,13 @@ function buildLocalDatabaseConnection(
   };
 }
 
+function toConnectionPermission(permission: LocalSQLitePermissionState): LocalSQLitePermissionState {
+  if (permission === 'prompt') {
+    return 'denied';
+  }
+  return permission;
+}
+
 function runStoreRequest<T>(
   db: IDBDatabase,
   mode: IDBTransactionMode,
@@ -163,7 +170,7 @@ export async function listLocalSQLiteConnections(): Promise<DatabaseConnection[]
 
   const connections: DatabaseConnection[] = [];
   for (const record of records) {
-    const permission = await getPermissionStateForHandle(record.handle);
+    const permission = toConnectionPermission(await getPermissionStateForHandle(record.handle));
     connections.push(buildLocalDatabaseConnection(record, permission));
   }
   return connections;
@@ -175,6 +182,11 @@ export async function createLocalSQLiteConnection(
 ): Promise<DatabaseConnection> {
   if (!isFileSystemAccessSupported()) {
     throw new Error('当前浏览器不支持 File System Access API，请使用 Chrome 或 Edge');
+  }
+
+  const permission = await ensureLocalSQLiteHandlePermission(handle, true);
+  if (permission !== 'granted') {
+    throw new Error('未获得本地 SQLite 文件读写权限，连接未保存');
   }
 
   const now = new Date().toISOString();
@@ -189,8 +201,7 @@ export async function createLocalSQLiteConnection(
 
   const db = await openLocalSQLiteDatabase();
   await runStoreRequest(db, 'readwrite', (store) => store.put(record));
-  const permission = await getPermissionStateForHandle(handle);
-  return buildLocalDatabaseConnection(record, permission);
+  return buildLocalDatabaseConnection(record, 'granted');
 }
 
 export async function deleteLocalSQLiteConnection(id: string): Promise<void> {

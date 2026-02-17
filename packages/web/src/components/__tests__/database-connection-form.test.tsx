@@ -116,4 +116,56 @@ describe('DatabaseConnectionForm', () => {
 
     await screen.findByText('创建失败');
   });
+
+  it('应支持解析数据库 URL 自动填充表单并保存', async () => {
+    mockCreateDatabase.mockResolvedValue({ id: 'db-2' });
+
+    render(<DatabaseConnectionForm />);
+
+    fireEvent.change(screen.getByLabelText('连接名称'), { target: { value: 'URL 连接' } });
+    fireEvent.click(screen.getByTestId('mock-select-mysql'));
+    fireEvent.change(screen.getByLabelText('数据库 URL'), {
+      target: { value: 'postgresql://alice:secret@db.example.com:5432/app_db' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: '解析 URL' }));
+
+    expect((screen.getByLabelText('主机地址') as HTMLInputElement).value).toBe('db.example.com');
+    expect((screen.getByLabelText('端口') as HTMLInputElement).value).toBe('5432');
+    expect((screen.getByLabelText('数据库名') as HTMLInputElement).value).toBe('app_db');
+    expect((screen.getByLabelText('用户名') as HTMLInputElement).value).toBe('alice');
+    expect((screen.getByLabelText('密码') as HTMLInputElement).value).toBe('secret');
+
+    fireEvent.click(screen.getByRole('button', { name: '测试连接' }));
+    await act(async () => {
+      vi.advanceTimersByTime(1500);
+    });
+    vi.useRealTimers();
+
+    fireEvent.click(screen.getByRole('button', { name: '保存连接' }));
+
+    await waitFor(() => {
+      expect(mockCreateDatabase).toHaveBeenCalledWith({
+        name: 'URL 连接',
+        type: 'postgres',
+        host: 'db.example.com',
+        port: '5432',
+        database: 'app_db',
+        username: 'alice',
+        password: 'secret',
+      });
+    });
+  });
+
+  it('解析包含 SSL 参数的 URL 时应展示提示文案', () => {
+    render(<DatabaseConnectionForm />);
+
+    fireEvent.click(screen.getByTestId('mock-select-mysql'));
+    fireEvent.change(screen.getByLabelText('数据库 URL'), {
+      target: { value: 'postgresql://alice:secret@db.example.com:5432/app_db?sslmode=disable' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: '解析 URL' }));
+
+    expect(screen.getByText(/sslmode=disable/)).toBeDefined();
+    expect(screen.getByText(/默认启用 TLS/)).toBeDefined();
+  });
 });

@@ -48,17 +48,14 @@ function getConnectionStatus(database: DatabaseConnection): { label: string; cla
     };
   }
 
-  if (database.localPermission === 'prompt') {
-    return {
-      label: '待授权',
-      className: 'bg-amber-500/10 text-amber-600 hover:bg-amber-500/20',
-    };
-  }
-
   return {
     label: '不可访问',
     className: 'bg-muted text-muted-foreground hover:bg-muted',
   };
+}
+
+function getConnectionHref(database: DatabaseConnection): string {
+  return `/databases/${encodeURIComponent(database.id)}`;
 }
 
 export default function DatabasesPage() {
@@ -165,17 +162,17 @@ export default function DatabasesPage() {
                 const status = getConnectionStatus(db);
                 const isLocalConnection = db.scope === 'local';
                 const inaccessible = isLocalConnection && db.localPermission !== 'granted';
+                const href = getConnectionHref(db);
 
                 return (
                   <Card
                     key={db.id}
                     className={`group relative ${inaccessible ? 'opacity-70' : ''}`}>
-                    {!isLocalConnection && (
-                      <Link
-                        href={`/databases/${db.id}`}
-                        className="absolute inset-0 z-1"
-                      />
-                    )}
+                    <Link
+                      href={href}
+                      aria-label={`打开 ${db.name}`}
+                      className="absolute inset-0 z-1"
+                    />
                     <CardHeader className="relative">
                       <div className="flex items-start justify-between">
                         <div className="flex items-center gap-3">

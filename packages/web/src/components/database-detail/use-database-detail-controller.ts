@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { api, type TableRow } from '@/lib/api';
+import { isLocalSQLiteConnectionId } from '@/lib/local-sqlite/connection-store';
+import { deleteLocalSQLiteRows, insertLocalSQLiteRow, updateLocalSQLiteRows } from '@/lib/local-sqlite/table-ops';
 import { getPrimaryKeyField, resolveRowId } from '@/lib/table-data-utils';
 import { useDatabaseDetailStore } from '@/stores/database-detail-store';
 import { useEditStore } from '@/stores/edit-store';
@@ -161,7 +163,11 @@ export function useDatabaseDetailController(id: string) {
     setDeleteError(null);
 
     try {
-      await api.databases.deleteRows(id, selectedTable, Array.from(selectedRows));
+      if (isLocalSQLiteConnectionId(id)) {
+        await deleteLocalSQLiteRows(id, selectedTable, Array.from(selectedRows));
+      } else {
+        await api.databases.deleteRows(id, selectedTable, Array.from(selectedRows));
+      }
       await fetchTableData(id);
       setSelectedRows(new Set());
       return true;
@@ -180,7 +186,11 @@ export function useDatabaseDetailController(id: string) {
     setInsertError(null);
 
     try {
-      await api.databases.insertRow(id, selectedTable, insertData);
+      if (isLocalSQLiteConnectionId(id)) {
+        await insertLocalSQLiteRow(id, selectedTable, insertData);
+      } else {
+        await api.databases.insertRow(id, selectedTable, insertData);
+      }
       setIsInsertOpen(false);
       setInsertData({});
       await fetchTableData(id);
@@ -203,7 +213,11 @@ export function useDatabaseDetailController(id: string) {
     setUpdateError(null);
 
     try {
-      await api.databases.updateRows(id, selectedTable, getPendingRows());
+      if (isLocalSQLiteConnectionId(id)) {
+        await updateLocalSQLiteRows(id, selectedTable, getPendingRows());
+      } else {
+        await api.databases.updateRows(id, selectedTable, getPendingRows());
+      }
       clearEdits();
       await fetchTableData(id);
       setSelectedRows(new Set());

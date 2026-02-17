@@ -21,6 +21,19 @@
 - [x] 测试：补充缺表降级用例
 - [x] 文档：补充 `no such table: database_connections` 的排障步骤（执行 D1 migration）
 
+## 近期：本地 SQLite 授权状态收敛
+
+- [x] Web：本地 SQLite 保存前强制完成读写授权，未授权不写入本地连接存储
+- [x] Web：移除“待授权”展示，非 granted 统一显示为不可访问
+- [x] 测试：补充本地 SQLite 未授权时创建失败分支
+
+## 近期：Database URL 自动填充
+
+- [x] Web：新增数据库 URL 解析工具（mysql/postgresql 协议）
+- [x] Web：连接表单增加 URL 输入与“解析 URL”自动回填（host/port/database/username/password/type）
+- [x] 测试：补充 URL 解析的单测与表单集成测试
+- [x] Web：识别 URL 中 `ssl/tls` 参数并展示兼容性提示
+
 ## 进行中：浏览器本地 SQLite（File System Access）
 
 - [x] Web：新增本地 SQLite 连接仓库（IndexedDB 持久化 `FileSystemFileHandle`，支持保存多个）
@@ -28,4 +41,5 @@
 - [x] Web：改造数据库连接流程（`sqlite` 走本地文件选择，不再提交本地路径到后端）
 - [x] Web：改造数据库 store（合并远端连接和本地连接，统一列表与删除）
 - [x] Web：改造查询页（本地库切换为 SQL 直执行模式；远端保持 AI 生成）
+- [x] Web：改造数据库详情页（本地 SQLite 支持表浏览、分页读取与行级增删改）
 - [x] Web：回归测试（数据库列表/查询页/store 现有测试通过）

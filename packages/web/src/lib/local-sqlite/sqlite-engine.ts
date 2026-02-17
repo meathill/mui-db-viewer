@@ -51,6 +51,7 @@ function pickLastResult(results: QueryExecResult[]): QueryExecResult | null {
       return result;
     }
   }
+
   return null;
 }
 

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { api, type TableDataResult } from '@/lib/api';
+import { getLocalSQLiteTableData, getLocalSQLiteTables } from '@/lib/local-sqlite/table-ops';
 import { useDatabaseDetailStore } from '../database-detail-store';
 
 vi.mock('@/lib/api', () => ({
@@ -9,6 +10,15 @@ vi.mock('@/lib/api', () => ({
       getTableData: vi.fn(),
     },
   },
+}));
+
+vi.mock('@/lib/local-sqlite/connection-store', () => ({
+  isLocalSQLiteConnectionId: (id: string) => id.startsWith('local-sqlite:'),
+}));
+
+vi.mock('@/lib/local-sqlite/table-ops', () => ({
+  getLocalSQLiteTables: vi.fn(),
+  getLocalSQLiteTableData: vi.fn(),
 }));
 
 function createMockTableData(): TableDataResult {
@@ -55,6 +65,18 @@ describe('database-detail-store', () => {
     const state = useDatabaseDetailStore.getState();
     expect(state.loadingTables).toBe(false);
     expect(state.error).toBe('网络异常');
+  });
+
+  it('fetchTables 在本地 SQLite 连接时应读取本地表列表', async () => {
+    vi.mocked(getLocalSQLiteTables).mockResolvedValue(['users_local']);
+
+    await useDatabaseDetailStore.getState().fetchTables('local-sqlite:1');
+
+    const state = useDatabaseDetailStore.getState();
+    expect(getLocalSQLiteTables).toHaveBeenCalledWith('local-sqlite:1');
+    expect(api.databases.getTables).not.toHaveBeenCalled();
+    expect(state.tables).toEqual(['users_local']);
+    expect(state.error).toBeNull();
   });
 
   it('selectTable 应重置查询条件', () => {
@@ -112,5 +134,28 @@ describe('database-detail-store', () => {
     });
     expect(useDatabaseDetailStore.getState().tableData).toEqual(tableData);
     expect(useDatabaseDetailStore.getState().loadingTableData).toBe(false);
+  });
+
+  it('fetchTableData 在本地 SQLite 连接时应读取本地表数据', async () => {
+    const tableData = createMockTableData();
+    vi.mocked(getLocalSQLiteTableData).mockResolvedValue(tableData);
+
+    const store = useDatabaseDetailStore.getState();
+    store.selectTable('users');
+    store.setSort('id');
+    store.setFilter('_search', 'Alice');
+    store.setPage(2);
+
+    await store.fetchTableData('local-sqlite:1');
+
+    expect(getLocalSQLiteTableData).toHaveBeenCalledWith('local-sqlite:1', 'users', {
+      page: 2,
+      pageSize: 20,
+      sortField: 'id',
+      sortOrder: 'asc',
+      filters: { _search: 'Alice' },
+    });
+    expect(api.databases.getTableData).not.toHaveBeenCalled();
+    expect(useDatabaseDetailStore.getState().tableData).toEqual(tableData);
   });
 });
