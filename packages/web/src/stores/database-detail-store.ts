@@ -1,7 +1,6 @@
 import { create } from 'zustand';
-import { api, type TableDataResult } from '@/lib/api';
-import { isLocalSQLiteConnectionId } from '@/lib/local-sqlite/connection-store';
-import { getLocalSQLiteTableData, getLocalSQLiteTables } from '@/lib/local-sqlite/table-ops';
+import type { TableDataResult } from '@/lib/api';
+import { resolveDatabaseDetailStrategy } from '@/lib/database-detail/strategy';
 import type { SortOrder } from '@/lib/table-query';
 
 const DEFAULT_PAGE = 1;
@@ -66,9 +65,8 @@ export const useDatabaseDetailStore = create<DatabaseDetailStore>((set, get) => 
   async fetchTables(databaseId) {
     set({ loadingTables: true, error: null });
     try {
-      const tables = isLocalSQLiteConnectionId(databaseId)
-        ? await getLocalSQLiteTables(databaseId)
-        : await api.databases.getTables(databaseId);
+      const strategy = resolveDatabaseDetailStrategy(databaseId);
+      const tables = await strategy.listTables(databaseId);
       set({
         tables,
         loadingTables: false,
@@ -99,9 +97,8 @@ export const useDatabaseDetailStore = create<DatabaseDetailStore>((set, get) => 
         sortOrder,
         filters,
       };
-      const tableData = isLocalSQLiteConnectionId(databaseId)
-        ? await getLocalSQLiteTableData(databaseId, selectedTable, query)
-        : await api.databases.getTableData(databaseId, selectedTable, query);
+      const strategy = resolveDatabaseDetailStrategy(databaseId);
+      const tableData = await strategy.getTableData(databaseId, selectedTable, query);
       set({
         tableData,
         loadingTableData: false,

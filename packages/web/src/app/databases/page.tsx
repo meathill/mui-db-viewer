@@ -55,7 +55,7 @@ function getConnectionStatus(database: DatabaseConnection): { label: string; cla
 }
 
 function getConnectionHref(database: DatabaseConnection): string {
-  return `/databases/${encodeURIComponent(database.id)}`;
+  return `/databases/${database.id}`;
 }
 
 export default function DatabasesPage() {

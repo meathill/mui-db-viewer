@@ -187,6 +187,6 @@ describe('DatabasesPage', () => {
     render(<DatabasesPage />);
 
     const link = await screen.findByRole('link', { name: '打开 Local DB' });
-    expect(link.getAttribute('href')).toBe('/databases/local-sqlite%3A1');
+    expect(link.getAttribute('href')).toBe('/databases/local-sqlite:1');
   });
 });

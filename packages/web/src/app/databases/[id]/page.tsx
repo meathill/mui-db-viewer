@@ -13,8 +13,17 @@ interface PageProps {
   params: Promise<{ id: string }>;
 }
 
+function normalizeDatabaseId(id: string): string {
+  try {
+    return decodeURIComponent(id);
+  } catch {
+    return id;
+  }
+}
+
 export default function DatabaseDetailPage({ params }: PageProps) {
-  const { id } = use(params);
+  const { id: rawId } = use(params);
+  const id = normalizeDatabaseId(rawId);
   const {
     tables,
     selectedTable,
