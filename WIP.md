@@ -14,48 +14,12 @@
 - [ ] 回归：验证 AI 查询生成（Schema 注入）+ 刷新 Schema 按钮链路
 - [ ] 回归：验证查询历史（新建/自动保存/搜索/下一页/重命名/删除）
 
-## 近期：连接类型默认选择
+## 已完成
 
-- [x] Web：新增连接类型偏好读取逻辑（首次默认 `tidb`）
-- [x] Web：连接类型切换后持久化上次选择（用于下次打开表单）
-- [x] 测试：补充默认类型与“记住上次选择”用例
-
-## 近期：线上 D1 初始化兜底
-
-- [x] Worker：`database_connections` 缺表时，`GET /api/v1/databases` 降级返回空数组，避免 500
-- [x] Worker：`findConnectionById` 在缺表时降级返回 null，避免未捕获异常
-- [x] 测试：补充缺表降级用例
-- [x] 文档：补充 `no such table: database_connections` 的排障步骤（执行 D1 migration）
-
-## 近期：本地 SQLite 授权状态收敛
-
-- [x] Web：本地 SQLite 保存前强制完成读写授权，未授权不写入本地连接存储
-- [x] Web：移除“待授权”展示，非 granted 统一显示为不可访问
-- [x] 测试：补充本地 SQLite 未授权时创建失败分支
-
-## 近期：Database URL 自动填充
-
-- [x] Web：新增数据库 URL 解析工具（mysql/postgresql 协议）
-- [x] Web：连接表单增加 URL 输入与“解析 URL”自动回填（host/port/database/username/password/type）
-- [x] 测试：补充 URL 解析的单测与表单集成测试
-- [x] Web：识别 URL 中 `ssl/tls` 参数并展示兼容性提示
-
-## 进行中：浏览器本地 SQLite（File System Access）
-
-- [x] Web：新增本地 SQLite 连接仓库（IndexedDB 持久化 `FileSystemFileHandle`，支持保存多个）
-- [x] Web：新增本地 SQLite 执行引擎（`sql.js`，支持读写并回写原文件）
-- [x] Web：改造数据库连接流程（`sqlite` 走本地文件选择，不再提交本地路径到后端）
-- [x] Web：改造数据库 store（合并远端连接和本地连接，统一列表与删除）
-- [x] Web：改造查询页（本地库切换为 SQL 直执行模式；远端保持 AI 生成）
-- [x] Web：改造数据库详情页（本地 SQLite 支持表浏览、分页读取与行级增删改）
-- [x] Web：数据库详情引入策略模式（本地/远端统一接口分发，降低多数据库分支风险）
-- [x] Web：回归测试（数据库列表/查询页/store 现有测试通过）
-
-## 近期：本地 Sidecar（SQLite 直连）
-
-- [x] Sidecar：新增本地 HTTP 服务（`localhost`），支持 `health/query` 能力
-- [x] Sidecar：使用本地 sqlite 驱动直连文件（支持 WAL/锁场景下稳定读取）
-- [x] Web：本地 SQLite 执行链路优先走 Sidecar（失败时回退现有 FSA 方案）
-- [x] Web：增加 Sidecar 连接状态提示与错误信息展示
-- [x] 测试：补充 Sidecar 客户端与本地连接创建策略测试
-- [x] 回归：`pnpm run format` + `pnpm --filter web test --run` + `pnpm --filter web build`
+- [x] 文档清理与改进：更新了 `DEV_NOTE.md` 以包含新的维护规范。
+- [x] 测试用例补全与修复：修复了 `database-connection-form.test.tsx` 并在重构过程中确保了测试通过。
+- [x] 大文件重构：
+    - `packages/sidecar/src/index.ts` (使用 Hono + Zod)
+    - `packages/web/src/components/database-connection-form.tsx` (抽离 Hook 和子组件)
+    - `packages/web/src/components/database-detail/use-database-detail-controller.ts` (抽离专业化 Hooks)
+- [x] 引入成熟第三方库：`hono`, `zod`, `react-hook-form`, `@hookform/resolvers`。

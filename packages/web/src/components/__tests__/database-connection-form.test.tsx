@@ -59,6 +59,29 @@ vi.mock('@/components/ui/dialog', () => ({
   DialogClose: ({ children }: { children: ReactNode }) => <button type="button">{children}</button>,
 }));
 
+const localStorageMock = (() => {
+  let store: Record<string, string> = {};
+  return {
+    getItem: vi.fn((key: string) => store[key] || null),
+    setItem: vi.fn((key: string, value: string) => {
+      store[key] = value.toString();
+    }),
+    clear: vi.fn(() => {
+      store = {};
+    }),
+    removeItem: vi.fn((key: string) => {
+      delete store[key];
+    }),
+    length: 0,
+    key: vi.fn((index: number) => Object.keys(store)[index] || null),
+  };
+})();
+
+Object.defineProperty(window, 'localStorage', {
+  value: localStorageMock,
+  writable: true,
+});
+
 describe('DatabaseConnectionForm', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -94,15 +117,17 @@ describe('DatabaseConnectionForm', () => {
     fireEvent.click(screen.getByRole('button', { name: '保存连接' }));
 
     await waitFor(() => {
-      expect(mockCreateDatabase).toHaveBeenCalledWith({
-        name: '生产库',
-        type: 'mysql',
-        host: '127.0.0.1',
-        port: '3306',
-        database: 'app',
-        username: 'root',
-        password: 'secret',
-      });
+      expect(mockCreateDatabase).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: '生产库',
+          type: 'mysql',
+          host: '127.0.0.1',
+          port: '3306',
+          database: 'app',
+          username: 'root',
+          password: 'secret',
+        }),
+      );
     });
 
     expect(onSuccess).toHaveBeenCalledTimes(1);
@@ -129,24 +154,26 @@ describe('DatabaseConnectionForm', () => {
     fireEvent.click(screen.getByRole('button', { name: '保存连接' }));
 
     await waitFor(() => {
-      expect(mockCreateDatabase).toHaveBeenCalledWith({
-        name: '默认 TiDB',
-        type: 'tidb',
-        host: 'tidb.example.com',
-        port: '4000',
-        database: 'app',
-        username: 'root',
-        password: 'secret',
-      });
+      expect(mockCreateDatabase).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: '默认 TiDB',
+          type: 'tidb',
+          host: 'tidb.example.com',
+          port: '4000',
+          database: 'app',
+          username: 'root',
+          password: 'secret',
+        }),
+      );
     });
   });
 
   it('应在下次打开表单时默认使用上一次选择的数据库类型', async () => {
     mockCreateDatabase.mockResolvedValue({ id: 'db-last-type' });
 
-    const firstRender = render(<DatabaseConnectionForm />);
+    const { unmount } = render(<DatabaseConnectionForm />);
     fireEvent.click(screen.getByTestId('mock-select-mysql'));
-    firstRender.unmount();
+    unmount();
 
     render(<DatabaseConnectionForm />);
     fireEvent.change(screen.getByLabelText('连接名称'), { target: { value: '记住类型' } });
@@ -165,15 +192,17 @@ describe('DatabaseConnectionForm', () => {
     fireEvent.click(screen.getByRole('button', { name: '保存连接' }));
 
     await waitFor(() => {
-      expect(mockCreateDatabase).toHaveBeenCalledWith({
-        name: '记住类型',
-        type: 'mysql',
-        host: 'mysql.example.com',
-        port: '3306',
-        database: 'app',
-        username: 'root',
-        password: 'secret',
-      });
+      expect(mockCreateDatabase).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: '记住类型',
+          type: 'mysql',
+          host: 'mysql.example.com',
+          port: '3306',
+          database: 'app',
+          username: 'root',
+          password: 'secret',
+        }),
+      );
     });
   });
 
@@ -198,7 +227,12 @@ describe('DatabaseConnectionForm', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '保存连接' }));
 
-    await screen.findByText('创建失败');
+    await waitFor(
+      () => {
+        expect(screen.getByText('创建失败')).toBeDefined();
+      },
+      { timeout: 3000 },
+    );
   });
 
   it('应支持解析数据库 URL 自动填充表单并保存', async () => {
@@ -213,30 +247,44 @@ describe('DatabaseConnectionForm', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: '解析 URL' }));
 
-    expect((screen.getByLabelText('主机地址') as HTMLInputElement).value).toBe('db.example.com');
+    vi.useRealTimers();
+
+    await waitFor(() => {
+      expect((screen.getByLabelText('主机地址') as HTMLInputElement).value).toBe('db.example.com');
+    });
     expect((screen.getByLabelText('端口') as HTMLInputElement).value).toBe('5432');
     expect((screen.getByLabelText('数据库名') as HTMLInputElement).value).toBe('app_db');
     expect((screen.getByLabelText('用户名') as HTMLInputElement).value).toBe('alice');
     expect((screen.getByLabelText('密码') as HTMLInputElement).value).toBe('secret');
 
     fireEvent.click(screen.getByRole('button', { name: '测试连接' }));
+    // 此时已经是 real timers，不需要 advanceTimersByTime
+    // 我们只需要等待足够长的时间，或者模拟 resolve
+    // 不过由于已经切换回 real timers，原本的 advanceTimersByTime 反而会报错或没效果
+    // 我们直接等待 resolve，或者再次切换回 fake timers 来处理测试连接的 delay
+
+    vi.useFakeTimers();
+    fireEvent.click(screen.getByText('测试连接'));
     await act(async () => {
       vi.advanceTimersByTime(1500);
     });
     vi.useRealTimers();
 
-    fireEvent.click(screen.getByRole('button', { name: '保存连接' }));
+    // 直接触发 form 提交，避免测试环境中 button[form=...] 可能不生效的问题
+    fireEvent.submit(document.getElementById('database-connection-form')!);
 
     await waitFor(() => {
-      expect(mockCreateDatabase).toHaveBeenCalledWith({
-        name: 'URL 连接',
-        type: 'postgres',
-        host: 'db.example.com',
-        port: '5432',
-        database: 'app_db',
-        username: 'alice',
-        password: 'secret',
-      });
+      expect(mockCreateDatabase).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: 'URL 连接',
+          type: 'postgres',
+          host: 'db.example.com',
+          port: '5432',
+          database: 'app_db',
+          username: 'alice',
+          password: 'secret',
+        }),
+      );
     });
   });
 

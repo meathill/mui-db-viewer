@@ -1,34 +1,18 @@
-import { useEffect, useMemo, useState } from 'react';
+'use client';
+
+import { useEffect, useMemo } from 'react';
 import { useShallow } from 'zustand/react/shallow';
-import type { TableRow } from '@/lib/api';
 import { resolveDatabaseDetailStrategy } from '@/lib/database-detail/strategy';
 import { isLocalSQLiteConnectionId } from '@/lib/local-sqlite/connection-store';
-import { getPrimaryKeyField, resolveRowId } from '@/lib/table-data-utils';
 import { useDatabaseDetailStore } from '@/stores/database-detail-store';
 import { useEditStore } from '@/stores/edit-store';
+import { useTableSelection } from './hooks/use-table-selection';
+import { useTableDataOperations } from './hooks/use-table-data-operations';
+import { useTablePagination } from './hooks/use-table-pagination';
 
 export function useDatabaseDetailController(id: string) {
   const strategy = useMemo(() => resolveDatabaseDetailStrategy(id), [id]);
-  const {
-    tables,
-    selectedTable,
-    tableData,
-    loadingTables,
-    loadingTableData,
-    page,
-    pageSize,
-    sortField,
-    sortOrder,
-    filters,
-    error,
-    fetchTables,
-    fetchTableData,
-    selectTable,
-    setPage,
-    setSort,
-    setFilter,
-    reset: resetDetailState,
-  } = useDatabaseDetailStore(
+  const detailStore = useDatabaseDetailStore(
     useShallow((state) => ({
       tables: state.tables,
       selectedTable: state.selectedTable,
@@ -51,7 +35,7 @@ export function useDatabaseDetailController(id: string) {
     })),
   );
 
-  const { editingCell, pendingEdits, startEditing, stopEditing, setEdit, getPendingRows, clearEdits } = useEditStore(
+  const editStore = useEditStore(
     useShallow((state) => ({
       editingCell: state.editingCell,
       pendingEdits: state.pendingEdits,
@@ -63,229 +47,83 @@ export function useDatabaseDetailController(id: string) {
     })),
   );
 
-  const [selectedRows, setSelectedRows] = useState<Set<string | number>>(new Set());
-  const [isInsertOpen, setIsInsertOpen] = useState(false);
-  const [insertData, setInsertData] = useState<Record<string, unknown>>({});
-  const [insertLoading, setInsertLoading] = useState(false);
-  const [insertError, setInsertError] = useState<string | null>(null);
-  const [updateLoading, setUpdateLoading] = useState(false);
-  const [updateError, setUpdateError] = useState<string | null>(null);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const { selectedRows, getRowId, handleSelectAll, handleSelectRow, clearSelection } = useTableSelection(
+    detailStore.tableData,
+  );
 
-  const hasPendingEdits = pendingEdits.size > 0;
+  const {
+    isInsertOpen,
+    setIsInsertOpen,
+    insertData,
+    insertLoading,
+    insertError,
+    updateLoading,
+    updateError,
+    deleteError,
+    setDeleteError,
+    handleInsertFieldChange,
+    handleDeleteSelected,
+    handleInsert,
+    handleUpdate,
+  } = useTableDataOperations({
+    id,
+    selectedTable: detailStore.selectedTable,
+    strategy,
+    fetchTableData: detailStore.fetchTableData,
+    getPendingRows: editStore.getPendingRows,
+    clearEdits: editStore.clearEdits,
+    clearSelection,
+  });
+
+  const { handleSort, handleFilterChange, handlePreviousPage, handleNextPage } = useTablePagination({
+    page: detailStore.page,
+    setPage: detailStore.setPage,
+    setSort: detailStore.setSort,
+    setFilter: detailStore.setFilter,
+  });
+
   const isLocalDatabase = isLocalSQLiteConnectionId(id);
   const emptyTablesHint =
-    isLocalDatabase && !loadingTables && !error && tables.length === 0
+    isLocalDatabase && !detailStore.loadingTables && !detailStore.error && detailStore.tables.length === 0
       ? '未检测到可见数据表。若其他工具可见，可能是 WAL 未 checkpoint，或当前选择的不是预期文件。'
       : null;
 
-  function getErrorMessage(error: unknown): string {
-    if (error instanceof Error && error.message.trim()) {
-      return error.message;
-    }
-
-    return '未知错误';
-  }
-
-  function clearDeleteError() {
-    setDeleteError(null);
-  }
-
   useEffect(() => {
-    void fetchTables(id).catch((fetchError) => {
-      console.error('Failed to fetch tables:', fetchError);
-    });
-
+    void detailStore.fetchTables(id).catch(console.error);
     return () => {
-      resetDetailState();
-      clearEdits();
+      detailStore.reset();
+      editStore.clearEdits();
     };
-  }, [id, fetchTables, resetDetailState, clearEdits]);
+  }, [id, detailStore.fetchTables, detailStore.reset, editStore.clearEdits]);
 
   useEffect(() => {
-    if (!selectedTable) {
-      setSelectedRows(new Set());
+    if (!detailStore.selectedTable) {
+      clearSelection();
       setDeleteError(null);
       return;
     }
-
-    void fetchTableData(id)
+    void detailStore
+      .fetchTableData(id)
       .then(() => {
-        setSelectedRows(new Set());
+        clearSelection();
         setDeleteError(null);
       })
-      .catch((fetchError) => {
-        console.error('Failed to fetch table data:', fetchError);
-      });
-  }, [fetchTableData, filters, id, page, pageSize, selectedTable, sortField, sortOrder]);
-
-  useEffect(() => {
-    if (isInsertOpen) {
-      setInsertError(null);
-    }
-  }, [isInsertOpen]);
-
-  function handleSort(field: string) {
-    setSort(field);
-  }
-
-  function handleFilterChange(field: string, value: string) {
-    setFilter(field, value);
-  }
-
-  function getRowId(row: TableRow, index: number): string | number {
-    return resolveRowId(row, getPrimaryKeyField(tableData?.columns), index);
-  }
-
-  function handleSelectAll(checked: boolean | 'indeterminate') {
-    if (checked === true && tableData) {
-      const ids = tableData.rows
-        .map((row, index) => getRowId(row, index))
-        .filter((value) => typeof value === 'string' || typeof value === 'number');
-      setSelectedRows(new Set(ids));
-      return;
-    }
-
-    setSelectedRows(new Set());
-  }
-
-  function handleSelectRow(rowId: string | number, checked: boolean | 'indeterminate') {
-    setSelectedRows((previous) => {
-      const nextSelectedRows = new Set(previous);
-
-      if (checked === true) {
-        nextSelectedRows.add(rowId);
-      } else {
-        nextSelectedRows.delete(rowId);
-      }
-
-      return nextSelectedRows;
-    });
-  }
-
-  async function handleDeleteSelected(): Promise<boolean> {
-    if (!selectedTable || selectedRows.size === 0) {
-      return false;
-    }
-
-    setDeleteError(null);
-
-    try {
-      await strategy.deleteRows(id, selectedTable, Array.from(selectedRows));
-      await fetchTableData(id);
-      setSelectedRows(new Set());
-      return true;
-    } catch (error) {
-      setDeleteError(`删除失败：${getErrorMessage(error)}`);
-      return false;
-    }
-  }
-
-  async function handleInsert(): Promise<boolean> {
-    if (!selectedTable) {
-      return false;
-    }
-
-    setInsertLoading(true);
-    setInsertError(null);
-
-    try {
-      await strategy.insertRow(id, selectedTable, insertData);
-      setIsInsertOpen(false);
-      setInsertData({});
-      await fetchTableData(id);
-      setSelectedRows(new Set());
-      return true;
-    } catch (error) {
-      setInsertError(`新增失败：${getErrorMessage(error)}`);
-      return false;
-    } finally {
-      setInsertLoading(false);
-    }
-  }
-
-  async function handleUpdate(): Promise<boolean> {
-    if (!selectedTable || !hasPendingEdits) {
-      return false;
-    }
-
-    setUpdateLoading(true);
-    setUpdateError(null);
-
-    try {
-      await strategy.updateRows(id, selectedTable, getPendingRows());
-      clearEdits();
-      await fetchTableData(id);
-      setSelectedRows(new Set());
-      return true;
-    } catch (error) {
-      setUpdateError(`更新失败：${getErrorMessage(error)}`);
-      return false;
-    } finally {
-      setUpdateLoading(false);
-    }
-  }
-
-  function handleCellDoubleClick(rowId: string | number, field: string) {
-    startEditing(rowId, field);
-  }
-
-  function handleCellBlur(rowId: string | number, field: string, originalValue: unknown, newValue: string) {
-    stopEditing();
-    if (String(originalValue) === newValue) {
-      return;
-    }
-
-    setEdit(rowId, field, newValue);
-  }
-
-  function handleSelectTable(table: string) {
-    selectTable(table);
-    setSelectedRows(new Set());
-    clearEdits();
-  }
-
-  function isCellEdited(rowId: string | number, field: string): boolean {
-    const rowEdits = pendingEdits.get(rowId);
-    return rowEdits !== undefined && field in rowEdits;
-  }
-
-  function getEditedCellValue(rowId: string | number, field: string): unknown {
-    const rowEdits = pendingEdits.get(rowId);
-    return rowEdits?.[field];
-  }
-
-  function isCellEditing(rowId: string | number, field: string): boolean {
-    return editingCell?.rowKey === rowId && editingCell?.field === field;
-  }
-
-  function handleInsertFieldChange(field: string, value: string) {
-    setInsertData((previous) => ({
-      ...previous,
-      [field]: value,
-    }));
-  }
-
-  function handlePreviousPage() {
-    setPage(page - 1);
-  }
-
-  function handleNextPage() {
-    setPage(page + 1);
-  }
+      .catch(console.error);
+  }, [
+    detailStore.fetchTableData,
+    detailStore.filters,
+    id,
+    detailStore.page,
+    detailStore.pageSize,
+    detailStore.selectedTable,
+    detailStore.sortField,
+    detailStore.sortOrder,
+    clearSelection,
+    setDeleteError,
+  ]);
 
   return {
-    tables,
-    selectedTable,
-    tableData,
-    loadingTables,
-    loadingTableData,
-    page,
-    pageSize,
-    sortField,
-    sortOrder,
-    filters,
-    error,
+    ...detailStore,
     selectedRows,
     isInsertOpen,
     insertData,
@@ -293,29 +131,40 @@ export function useDatabaseDetailController(id: string) {
     insertError,
     updateLoading,
     updateError,
-    hasPendingEdits,
-    pendingEditCount: pendingEdits.size,
+    hasPendingEdits: editStore.pendingEdits.size > 0,
+    pendingEditCount: editStore.pendingEdits.size,
     deleteError,
     emptyTablesHint,
     setIsInsertOpen,
-    stopEditing,
+    stopEditing: editStore.stopEditing,
     handleSort,
     handleFilterChange,
     getRowId,
     handleSelectAll,
     handleSelectRow,
-    handleDeleteSelected,
+    handleDeleteSelected: () => handleDeleteSelected(selectedRows),
     handleInsert,
     handleUpdate,
-    handleCellDoubleClick,
-    handleCellBlur,
-    handleSelectTable,
-    isCellEdited,
-    getEditedCellValue,
-    isCellEditing,
+    handleCellDoubleClick: editStore.startEditing,
+    handleCellBlur: (rowId: string | number, field: string, original: unknown, current: string) => {
+      editStore.stopEditing();
+      if (String(original) !== current) editStore.setEdit(rowId, field, current);
+    },
+    handleSelectTable: (table: string) => {
+      detailStore.selectTable(table);
+      clearSelection();
+      editStore.clearEdits();
+    },
+    isCellEdited: (rowId: string | number, field: string) => {
+      const rowEdits = editStore.pendingEdits.get(rowId);
+      return rowEdits !== undefined && field in rowEdits;
+    },
+    getEditedCellValue: (rowId: string | number, field: string) => editStore.pendingEdits.get(rowId)?.[field],
+    isCellEditing: (rowId: string | number, field: string) =>
+      editStore.editingCell?.rowKey === rowId && editStore.editingCell?.field === field,
     handleInsertFieldChange,
     handlePreviousPage,
     handleNextPage,
-    clearDeleteError,
+    clearDeleteError: () => setDeleteError(null),
   };
 }
