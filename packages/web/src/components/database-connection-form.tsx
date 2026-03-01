@@ -17,6 +17,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { getErrorMessage, showErrorAlert, showSuccessToast } from '@/lib/client-feedback';
 import { parseDatabaseUrl } from '@/lib/database-url';
 import { isFileSystemAccessSupported, pickLocalSQLiteFileHandle } from '@/lib/local-sqlite/connection-store';
+import { validateSidecarSQLitePath } from '@/lib/local-sqlite/sidecar-client';
 import { validateLocalSQLiteHandle } from '@/lib/local-sqlite/sqlite-engine';
 import type { CreateDatabaseRequest } from '@/lib/api';
 import { useDatabaseStore } from '@/stores/database-store';
@@ -29,6 +30,9 @@ const DB_TYPES = [
   { value: 'postgres', label: 'PostgreSQL' },
   { value: 'sqlite', label: 'SQLite' },
 ];
+const DEFAULT_DB_TYPE = 'tidb';
+const LAST_DB_TYPE_STORAGE_KEY = 'db-viewer-last-database-type';
+const DB_TYPE_VALUES = new Set(DB_TYPES.map((item) => item.value));
 
 type ConnectionFormData = CreateDatabaseRequest;
 
@@ -37,6 +41,35 @@ interface DatabaseConnectionFormProps {
 }
 
 const LOCAL_DB_TYPES = new Set(['sqlite']);
+
+function resolveInitialDatabaseType(): string {
+  if (typeof window === 'undefined') {
+    return DEFAULT_DB_TYPE;
+  }
+
+  try {
+    const storedType = window.localStorage.getItem(LAST_DB_TYPE_STORAGE_KEY);
+    if (storedType && DB_TYPE_VALUES.has(storedType)) {
+      return storedType;
+    }
+  } catch {
+    // 忽略 localStorage 不可用场景，回退默认值
+  }
+
+  return DEFAULT_DB_TYPE;
+}
+
+function persistLastDatabaseType(type: string) {
+  if (!DB_TYPE_VALUES.has(type) || typeof window === 'undefined') {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(LAST_DB_TYPE_STORAGE_KEY, type);
+  } catch {
+    // 忽略 localStorage 不可用场景，不影响主流程
+  }
+}
 
 function getDescription(type: string): string {
   if (LOCAL_DB_TYPES.has(type)) {
@@ -55,15 +88,15 @@ function getDatabaseUrlPlaceholder(type: string): string {
 
 export function DatabaseConnectionForm({ onSuccess }: DatabaseConnectionFormProps) {
   const createDatabase = useDatabaseStore((state) => state.createDatabase);
-  const [formData, setFormData] = useState<ConnectionFormData>({
+  const [formData, setFormData] = useState<ConnectionFormData>(() => ({
     name: '',
-    type: '',
+    type: resolveInitialDatabaseType(),
     host: '',
     port: '',
     database: '',
     username: '',
     password: '',
-  });
+  }));
   const [showPassword, setShowPassword] = useState(false);
   const [testing, setTesting] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -71,6 +104,7 @@ export function DatabaseConnectionForm({ onSuccess }: DatabaseConnectionFormProp
   const [error, setError] = useState<string | null>(null);
   const [selectedFileHandle, setSelectedFileHandle] = useState<FileSystemFileHandle | null>(null);
   const [selectedFileName, setSelectedFileName] = useState('');
+  const [localSQLitePath, setLocalSQLitePath] = useState('');
   const [databaseUrl, setDatabaseUrl] = useState('');
   const [databaseUrlHint, setDatabaseUrlHint] = useState<{ level: 'info' | 'warning'; message: string } | null>(null);
 
@@ -83,6 +117,10 @@ export function DatabaseConnectionForm({ onSuccess }: DatabaseConnectionFormProp
     if (field === 'type' && value !== 'sqlite') {
       setSelectedFileHandle(null);
       setSelectedFileName('');
+      setLocalSQLitePath('');
+    }
+    if (field === 'type') {
+      persistLastDatabaseType(value);
     }
     setTestResult(null);
     setError(null);
@@ -95,6 +133,12 @@ export function DatabaseConnectionForm({ onSuccess }: DatabaseConnectionFormProp
   function handleDatabaseUrlChange(value: string) {
     setDatabaseUrl(value);
     setDatabaseUrlHint(null);
+    setTestResult(null);
+    setError(null);
+  }
+
+  function handleLocalSQLitePathChange(value: string) {
+    setLocalSQLitePath(value);
     setTestResult(null);
     setError(null);
   }
@@ -112,6 +156,7 @@ export function DatabaseConnectionForm({ onSuccess }: DatabaseConnectionFormProp
         username: parsed.username,
         password: parsed.password,
       }));
+      persistLastDatabaseType(parsed.type);
       setDatabaseUrlHint(parsed.hint ?? null);
       setTestResult(null);
       setError(null);
@@ -125,9 +170,10 @@ export function DatabaseConnectionForm({ onSuccess }: DatabaseConnectionFormProp
 
   async function handleTestConnection() {
     if (isLocal) {
-      if (!selectedFileHandle) {
+      const trimmedLocalPath = localSQLitePath.trim();
+      if (!selectedFileHandle && !trimmedLocalPath) {
         setTestResult('error');
-        setError('请先选择 SQLite 文件');
+        setError('请先选择 SQLite 文件，或填写 sidecar 本地路径');
         return;
       }
 
@@ -136,7 +182,11 @@ export function DatabaseConnectionForm({ onSuccess }: DatabaseConnectionFormProp
       setError(null);
 
       try {
-        await validateLocalSQLiteHandle(selectedFileHandle);
+        if (trimmedLocalPath) {
+          await validateSidecarSQLitePath(trimmedLocalPath);
+        } else if (selectedFileHandle) {
+          await validateLocalSQLiteHandle(selectedFileHandle);
+        }
         setTestResult('success');
       } catch (testError) {
         const message = getErrorMessage(testError, '测试失败');
@@ -168,6 +218,7 @@ export function DatabaseConnectionForm({ onSuccess }: DatabaseConnectionFormProp
             ...formData,
             database: selectedFileName || formData.database,
             fileHandle: selectedFileHandle ?? undefined,
+            localPath: localSQLitePath.trim() || undefined,
           }
         : formData;
 
@@ -202,7 +253,7 @@ export function DatabaseConnectionForm({ onSuccess }: DatabaseConnectionFormProp
   }
 
   const isValid = isLocal
-    ? Boolean(formData.name && formData.type && selectedFileHandle && fileSystemSupported)
+    ? Boolean(formData.name && formData.type && (selectedFileHandle || localSQLitePath.trim()))
     : Boolean(
         formData.name && formData.type && formData.host && formData.database && formData.username && formData.password,
       );
@@ -217,27 +268,43 @@ export function DatabaseConnectionForm({ onSuccess }: DatabaseConnectionFormProp
     const disabled = !fileSystemSupported || testing || saving;
 
     return (
-      <div className="space-y-2">
-        <Label htmlFor="database">数据库文件</Label>
-        <div className="flex gap-2">
-          <Input
-            id="database"
-            placeholder="请选择 SQLite 文件"
-            value={selectedFileName}
-            readOnly
-            className="flex-1 font-mono text-sm"
-          />
-          <Button
-            type="button"
-            variant="outline"
-            onClick={handlePickLocalFile}
-            disabled={disabled}>
-            <FolderOpenIcon className="mr-1.5 size-4" />
-            选择文件
-          </Button>
+      <div className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="database">数据库文件（FSA）</Label>
+          <div className="flex gap-2">
+            <Input
+              id="database"
+              placeholder="请选择 SQLite 文件"
+              value={selectedFileName}
+              readOnly
+              className="flex-1 font-mono text-sm"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handlePickLocalFile}
+              disabled={disabled}>
+              <FolderOpenIcon className="mr-1.5 size-4" />
+              选择文件
+            </Button>
+          </div>
+          <p className="text-muted-foreground text-xs">{localFileHint}</p>
         </div>
-        <p className="text-muted-foreground text-xs">{localFileHint}</p>
-        <p className="text-muted-foreground text-xs">连接保存后会持久化文件句柄，下次可直接打开，无需重复选择。</p>
+
+        <div className="space-y-2">
+          <Label htmlFor="local-path">本地路径（sidecar，可选）</Label>
+          <Input
+            id="local-path"
+            placeholder="/Users/you/project/dev.sqlite"
+            value={localSQLitePath}
+            onChange={(event) => handleLocalSQLitePathChange(event.target.value)}
+            className="font-mono text-sm"
+          />
+          <p className="text-muted-foreground text-xs">
+            填写后会优先通过本地 sidecar 访问；未启动时回退到浏览器文件句柄。
+          </p>
+          <p className="text-muted-foreground text-xs">可只填路径（无需 FSA），也可同时保存路径与文件句柄。</p>
+        </div>
       </div>
     );
   }

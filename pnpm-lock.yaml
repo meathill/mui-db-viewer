@@ -17,6 +17,8 @@ importers:
 
   packages/shared: {}
 
+  packages/sidecar: {}
+
   packages/web:
     dependencies:
       '@base-ui/react':

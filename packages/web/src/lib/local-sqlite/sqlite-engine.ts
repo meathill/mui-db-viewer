@@ -1,6 +1,7 @@
 import initSqlJs, { type Database as SqlDatabase, type QueryExecResult, type SqlJsStatic } from 'sql.js';
 import type { TableColumn, TableDataResult, TableRow } from '../api-types';
-import { ensureLocalSQLiteHandlePermission, getLocalSQLiteConnectionHandle } from './connection-store';
+import { ensureLocalSQLiteHandlePermission, getLocalSQLiteConnectionRecord } from './connection-store';
+import { executeSidecarSQLiteQuery } from './sidecar-client';
 
 const SQL_JS_WASM_URL = 'https://cdn.jsdelivr.net/npm/sql.js@1.13.0/dist/sql-wasm.wasm';
 const READ_ONLY_SQL_KEYWORDS = new Set(['SELECT', 'WITH', 'PRAGMA', 'EXPLAIN']);
@@ -145,6 +146,14 @@ async function saveSqliteToHandle(handle: FileSystemFileHandle, database: SqlDat
   await writable.close();
 }
 
+function getErrorText(error: unknown, fallback: string): string {
+  if (error instanceof Error && error.message.trim()) {
+    return error.message;
+  }
+
+  return fallback;
+}
+
 export async function validateLocalSQLiteHandle(handle: FileSystemFileHandle): Promise<void> {
   const permission = await ensureLocalSQLiteHandlePermission(handle, true);
   if (permission !== 'granted') {
@@ -160,9 +169,25 @@ export async function validateLocalSQLiteHandle(handle: FileSystemFileHandle): P
 }
 
 export async function executeLocalSQLiteQuery(connectionId: string, sql: string): Promise<TableDataResult> {
-  const handle = await getLocalSQLiteConnectionHandle(connectionId);
-  if (!handle) {
+  const record = await getLocalSQLiteConnectionRecord(connectionId);
+  if (!record) {
     throw new Error('本地 SQLite 连接不存在，请重新选择文件');
+  }
+
+  const localPath = record.localPath?.trim();
+  if (localPath) {
+    try {
+      return await executeSidecarSQLiteQuery(localPath, sql);
+    } catch (sidecarError) {
+      if (!record.handle) {
+        throw new Error(`sidecar 执行失败，且缺少浏览器文件句柄可回退：${getErrorText(sidecarError, '未知错误')}`);
+      }
+    }
+  }
+
+  const handle = record.handle;
+  if (!handle) {
+    throw new Error('本地 SQLite 连接缺少可用访问方式，请重新保存连接');
   }
 
   const permission = await ensureLocalSQLiteHandlePermission(handle, true);

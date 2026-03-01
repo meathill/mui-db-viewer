@@ -108,12 +108,20 @@ export const useDatabaseStore = create<DatabaseStore>((set, get) => ({
   async createDatabase(payload) {
     let created: DatabaseConnection;
     if (payload.type === 'sqlite') {
-      if (!isFileSystemFileHandle(payload.fileHandle)) {
-        throw new Error('请先选择本地 SQLite 文件');
+      const fileHandle = isFileSystemFileHandle(payload.fileHandle) ? payload.fileHandle : undefined;
+      const localPath = payload.localPath?.trim() || undefined;
+
+      if (!fileHandle && !localPath) {
+        throw new Error('请先选择本地 SQLite 文件，或填写 sidecar 本地路径');
       }
-      created = await createLocalSQLiteConnection(payload.name, payload.fileHandle);
+
+      created = await createLocalSQLiteConnection({
+        name: payload.name,
+        handle: fileHandle,
+        localPath,
+      });
     } else {
-      const { fileHandle: _fileHandle, ...remotePayload } = payload;
+      const { fileHandle: _fileHandle, localPath: _localPath, ...remotePayload } = payload;
       created = await api.databases.create(remotePayload);
     }
 

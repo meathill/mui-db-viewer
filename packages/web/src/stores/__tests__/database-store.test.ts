@@ -24,7 +24,8 @@ vi.mock('@/lib/local-sqlite/connection-store', () => ({
   listLocalSQLiteConnections: mockListLocalSQLiteConnections,
   createLocalSQLiteConnection: mockCreateLocalSQLiteConnection,
   deleteLocalSQLiteConnection: mockDeleteLocalSQLiteConnection,
-  isFileSystemFileHandle: () => true,
+  isFileSystemFileHandle: (value: unknown) =>
+    Boolean(value) && typeof value === 'object' && 'getFile' in (value as Record<string, unknown>),
   isLocalSQLiteConnectionId: (id: string) => id.startsWith('local-sqlite:'),
 }));
 
@@ -42,6 +43,10 @@ function createMockDatabase(
     keyPath: partial.keyPath ?? 'k/path',
     createdAt: partial.createdAt ?? '2026-01-01T00:00:00.000Z',
     updatedAt: partial.updatedAt ?? '2026-01-01T00:00:00.000Z',
+    scope: partial.scope,
+    localFileName: partial.localFileName,
+    localPermission: partial.localPermission,
+    localPath: partial.localPath,
   };
 }
 
@@ -183,7 +188,11 @@ describe('database-store', () => {
   });
 
   it('createDatabase(type=sqlite) 应创建本地 SQLite 连接', async () => {
-    const fileHandle = { name: 'local.db' } as FileSystemFileHandle;
+    const fileHandle = {
+      name: 'local.db',
+      getFile: vi.fn(),
+      createWritable: vi.fn(),
+    } as unknown as FileSystemFileHandle;
     const created = createMockDatabase({
       id: 'local-sqlite:1',
       name: '本地库',
@@ -206,12 +215,20 @@ describe('database-store', () => {
     });
 
     expect(result).toEqual(created);
-    expect(mockCreateLocalSQLiteConnection).toHaveBeenCalledWith('本地库', fileHandle);
+    expect(mockCreateLocalSQLiteConnection).toHaveBeenCalledWith({
+      name: '本地库',
+      handle: fileHandle,
+      localPath: undefined,
+    });
     expect(api.databases.create).not.toHaveBeenCalled();
   });
 
   it('createDatabase(type=sqlite) 未授权时应创建失败且不写入列表', async () => {
-    const fileHandle = { name: 'local.db' } as FileSystemFileHandle;
+    const fileHandle = {
+      name: 'local.db',
+      getFile: vi.fn(),
+      createWritable: vi.fn(),
+    } as unknown as FileSystemFileHandle;
     mockCreateLocalSQLiteConnection.mockRejectedValue(new Error('未获得本地 SQLite 文件读写权限，连接未保存'));
 
     await expect(
@@ -224,6 +241,37 @@ describe('database-store', () => {
     ).rejects.toThrow('未获得本地 SQLite 文件读写权限，连接未保存');
 
     expect(useDatabaseStore.getState().databases).toEqual([]);
+    expect(api.databases.create).not.toHaveBeenCalled();
+  });
+
+  it('createDatabase(type=sqlite) 仅填写 localPath 时应创建本地连接', async () => {
+    const created = createMockDatabase({
+      id: 'local-sqlite:2',
+      name: '路径模式',
+      type: 'sqlite',
+      host: '本地文件',
+      port: '',
+      database: 'dev.sqlite',
+      username: '',
+      keyPath: '',
+      scope: 'local',
+      localPath: '/Users/demo/dev.sqlite',
+    });
+    mockCreateLocalSQLiteConnection.mockResolvedValue(created);
+
+    const result = await useDatabaseStore.getState().createDatabase({
+      name: '路径模式',
+      type: 'sqlite',
+      database: 'dev.sqlite',
+      localPath: '/Users/demo/dev.sqlite',
+    });
+
+    expect(result).toEqual(created);
+    expect(mockCreateLocalSQLiteConnection).toHaveBeenCalledWith({
+      name: '路径模式',
+      handle: undefined,
+      localPath: '/Users/demo/dev.sqlite',
+    });
     expect(api.databases.create).not.toHaveBeenCalled();
   });
 

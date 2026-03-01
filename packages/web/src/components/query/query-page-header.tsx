@@ -21,6 +21,10 @@ function getLocalPermissionLabel(database: DatabaseConnection): string {
     return '';
   }
 
+  if (database.localPath) {
+    return 'Sidecar';
+  }
+
   if (database.localPermission === 'granted') {
     return '本地';
   }

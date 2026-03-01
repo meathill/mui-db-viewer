@@ -5,6 +5,7 @@ AI 驱动的数据库管理工具（Monorepo）。
 当前仓库包含：
 - `packages/web`：基于 Next.js 的管理界面
 - `packages/worker`：基于 Hono 的 Cloudflare Worker API
+- `packages/sidecar`：本地 SQLite Sidecar（Node + `node:sqlite`）
 - `packages/shared`：预留的共享包
 
 ## 核心能力
@@ -18,20 +19,24 @@ AI 驱动的数据库管理工具（Monorepo）。
 - Query 页面会话状态集中管理（Zustand）
 - 多数据库方言查询条件构建能力（`?` / PostgreSQL `$n` 占位符）
 - 浏览器本地 SQLite：基于 File System Access API 持久化文件句柄，支持保存多个本地数据库并直接读写
+- 本地 SQLite Sidecar：通过 `localhost` 服务直连本机 SQLite 文件（优先于浏览器 FSA，兼容 WAL 场景）
 
 ## 技术栈
 
 - Web：Next.js + React + Tailwind + Coss UI
 - API：Cloudflare Worker + Hono + D1
 - 数据库驱动：TiDB / MySQL / PostgreSQL / D1
-- 本地 SQLite 执行：`sql.js`（浏览器端）
+- 本地 SQLite 执行：`node:sqlite` sidecar（优先）+ `sql.js`（浏览器回退）
 - 测试：Vitest + Playwright
 
-## 本地 SQLite（浏览器模式）
+## 本地 SQLite（Sidecar + 浏览器回退）
 
-- 本地 SQLite 走浏览器能力，不经过 Worker 的 `better-sqlite3`。
-- 连接信息（文件句柄）保存在当前浏览器的 IndexedDB；不同浏览器/设备之间不共享句柄。
-- 当句柄权限丢失或当前浏览器不支持 File System Access API 时，本地连接会显示为不可访问状态。
+- 本地 SQLite 连接信息保存在当前浏览器的 IndexedDB，支持同时保存：
+  - `FileSystemFileHandle`（浏览器 FSA）
+  - `localPath`（sidecar 访问路径）
+- 当连接配置了 `localPath` 时，Web 会优先请求本机 sidecar（默认 `http://127.0.0.1:19666`）。
+- sidecar 不可用时，若连接仍保存了浏览器文件句柄，会自动回退到 FSA + `sql.js`。
+- sidecar 模式不会把本地路径提交到 Worker。
 
 ## 本地开发
 
@@ -55,6 +60,12 @@ pnpm --filter web dev
 
 ```bash
 pnpm --filter worker dev
+```
+
+启动本地 SQLite sidecar（可选，但推荐）：
+
+```bash
+pnpm --filter sidecar dev
 ```
 
 ## 维护约定

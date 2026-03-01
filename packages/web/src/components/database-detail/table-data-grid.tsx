@@ -65,7 +65,8 @@ export function TableDataGrid({
                   variant="ghost"
                   size="sm"
                   className="-ml-3 h-8 data-[state=open]:bg-accent"
-                  onClick={() => onSort(column.Field)}>
+                  onClick={() => onSort(column.Field)}
+                  disabled={loading}>
                   <span>{column.Field}</span>
                   {sortField === column.Field &&
                     (sortOrder === 'asc' ? (

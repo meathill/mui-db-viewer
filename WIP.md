@@ -14,6 +14,12 @@
 - [ ] 回归：验证 AI 查询生成（Schema 注入）+ 刷新 Schema 按钮链路
 - [ ] 回归：验证查询历史（新建/自动保存/搜索/下一页/重命名/删除）
 
+## 近期：连接类型默认选择
+
+- [x] Web：新增连接类型偏好读取逻辑（首次默认 `tidb`）
+- [x] Web：连接类型切换后持久化上次选择（用于下次打开表单）
+- [x] 测试：补充默认类型与“记住上次选择”用例
+
 ## 近期：线上 D1 初始化兜底
 
 - [x] Worker：`database_connections` 缺表时，`GET /api/v1/databases` 降级返回空数组，避免 500
@@ -44,3 +50,12 @@
 - [x] Web：改造数据库详情页（本地 SQLite 支持表浏览、分页读取与行级增删改）
 - [x] Web：数据库详情引入策略模式（本地/远端统一接口分发，降低多数据库分支风险）
 - [x] Web：回归测试（数据库列表/查询页/store 现有测试通过）
+
+## 近期：本地 Sidecar（SQLite 直连）
+
+- [x] Sidecar：新增本地 HTTP 服务（`localhost`），支持 `health/query` 能力
+- [x] Sidecar：使用本地 sqlite 驱动直连文件（支持 WAL/锁场景下稳定读取）
+- [x] Web：本地 SQLite 执行链路优先走 Sidecar（失败时回退现有 FSA 方案）
+- [x] Web：增加 Sidecar 连接状态提示与错误信息展示
+- [x] 测试：补充 Sidecar 客户端与本地连接创建策略测试
+- [x] 回归：`pnpm run format` + `pnpm --filter web test --run` + `pnpm --filter web build`

@@ -14,6 +14,7 @@ export interface DatabaseConnection {
   scope?: 'remote' | 'local';
   localFileName?: string;
   localPermission?: LocalDatabasePermission;
+  localPath?: string;
 }
 
 export interface CreateDatabaseRequest {
@@ -25,6 +26,7 @@ export interface CreateDatabaseRequest {
   username?: string;
   password?: string;
   fileHandle?: unknown;
+  localPath?: string;
 }
 
 export interface FileEntry {

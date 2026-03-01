@@ -99,6 +99,7 @@ export default function DatabaseDetailPage({ params }: PageProps) {
               onClearDeleteError={clearDeleteError}
               onOpenInsert={() => setIsInsertOpen(true)}
               onSearchChange={(value) => handleFilterChange('_search', value)}
+              loading={loadingTableData}
             />
 
             <div className="flex-1 overflow-auto p-4">

@@ -9,9 +9,16 @@ interface LocalSQLiteConnectionRecord {
   id: string;
   name: string;
   fileName: string;
-  handle: FileSystemFileHandle;
+  handle?: FileSystemFileHandle;
+  localPath?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface CreateLocalSQLiteConnectionInput {
+  name: string;
+  handle?: FileSystemFileHandle;
+  localPath?: string;
 }
 
 export type LocalSQLitePermissionState = LocalDatabasePermission;
@@ -84,6 +91,7 @@ function buildLocalDatabaseConnection(
     scope: 'local',
     localFileName: record.fileName,
     localPermission: permission,
+    localPath: record.localPath,
   };
 }
 
@@ -139,6 +147,17 @@ async function getPermissionStateForHandle(handle: FileSystemFileHandle): Promis
   }
 }
 
+function getFileNameFromLocalPath(localPath: string): string {
+  const normalizedPath = localPath.replaceAll('\\', '/').trim();
+  if (!normalizedPath) {
+    return 'local.sqlite';
+  }
+
+  const segments = normalizedPath.split('/').filter(Boolean);
+  const fileName = segments.at(-1);
+  return fileName && fileName.length > 0 ? fileName : 'local.sqlite';
+}
+
 export async function ensureLocalSQLiteHandlePermission(
   handle: FileSystemFileHandle,
   requestIfNeeded: boolean,
@@ -161,7 +180,7 @@ export async function ensureLocalSQLiteHandlePermission(
 }
 
 export async function listLocalSQLiteConnections(): Promise<DatabaseConnection[]> {
-  if (!isFileSystemAccessSupported() || !isIndexedDbSupported()) {
+  if (!isIndexedDbSupported()) {
     return [];
   }
 
@@ -170,31 +189,53 @@ export async function listLocalSQLiteConnections(): Promise<DatabaseConnection[]
 
   const connections: DatabaseConnection[] = [];
   for (const record of records) {
-    const permission = toConnectionPermission(await getPermissionStateForHandle(record.handle));
+    const permission = record.localPath
+      ? 'granted'
+      : record.handle
+        ? toConnectionPermission(await getPermissionStateForHandle(record.handle))
+        : 'granted';
     connections.push(buildLocalDatabaseConnection(record, permission));
   }
   return connections;
 }
 
 export async function createLocalSQLiteConnection(
-  name: string,
-  handle: FileSystemFileHandle,
+  input: CreateLocalSQLiteConnectionInput,
 ): Promise<DatabaseConnection> {
-  if (!isFileSystemAccessSupported()) {
-    throw new Error('当前浏览器不支持 File System Access API，请使用 Chrome 或 Edge');
+  const name = input.name.trim();
+  const localPath = input.localPath?.trim() || undefined;
+  const handle = input.handle;
+
+  if (!name) {
+    throw new Error('连接名称不能为空');
   }
 
-  const permission = await ensureLocalSQLiteHandlePermission(handle, true);
-  if (permission !== 'granted') {
-    throw new Error('未获得本地 SQLite 文件读写权限，连接未保存');
+  if (!handle && !localPath) {
+    throw new Error('请至少提供 SQLite 文件或本地路径');
+  }
+
+  let permission: LocalSQLitePermissionState = 'granted';
+  let fileName = localPath ? getFileNameFromLocalPath(localPath) : 'local.sqlite';
+
+  if (handle) {
+    if (!isFileSystemAccessSupported()) {
+      throw new Error('当前浏览器不支持 File System Access API，请使用 Chrome 或 Edge');
+    }
+
+    permission = await ensureLocalSQLiteHandlePermission(handle, true);
+    if (permission !== 'granted') {
+      throw new Error('未获得本地 SQLite 文件读写权限，连接未保存');
+    }
+    fileName = handle.name;
   }
 
   const now = new Date().toISOString();
   const record: LocalSQLiteConnectionRecord = {
     id: `${LOCAL_SQLITE_ID_PREFIX}${crypto.randomUUID()}`,
-    name: name.trim(),
-    fileName: handle.name,
+    name,
+    fileName,
     handle,
+    localPath,
     createdAt: now,
     updatedAt: now,
   };
@@ -205,7 +246,7 @@ export async function createLocalSQLiteConnection(
 }
 
 export async function deleteLocalSQLiteConnection(id: string): Promise<void> {
-  if (!isFileSystemAccessSupported() || !isIndexedDbSupported()) {
+  if (!isIndexedDbSupported()) {
     return;
   }
 
@@ -214,12 +255,20 @@ export async function deleteLocalSQLiteConnection(id: string): Promise<void> {
 }
 
 export async function getLocalSQLiteConnectionHandle(id: string): Promise<FileSystemFileHandle | null> {
-  if (!isFileSystemAccessSupported() || !isIndexedDbSupported()) {
+  if (!isIndexedDbSupported()) {
     return null;
   }
 
   const record = await getLocalConnectionRecord(id);
   return record?.handle ?? null;
+}
+
+export async function getLocalSQLiteConnectionRecord(id: string): Promise<LocalSQLiteConnectionRecord | null> {
+  if (!isIndexedDbSupported()) {
+    return null;
+  }
+
+  return getLocalConnectionRecord(id);
 }
 
 export async function pickLocalSQLiteFileHandle(): Promise<FileSystemFileHandle> {

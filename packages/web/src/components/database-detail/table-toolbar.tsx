@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { PlusIcon, SaveIcon, TableIcon, Trash2Icon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,6 +27,7 @@ interface TableToolbarProps {
   onClearDeleteError: () => void;
   onOpenInsert: () => void;
   onSearchChange: (value: string) => void;
+  loading?: boolean;
 }
 
 export function TableToolbar({
@@ -44,9 +45,22 @@ export function TableToolbar({
   onClearDeleteError,
   onOpenInsert,
   onSearchChange,
+  loading = false,
 }: TableToolbarProps) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [localSearchValue, setLocalSearchValue] = useState(searchValue);
+
+  // Sync local search value when searchValue prop changes (e.g. from store reset)
+  useEffect(() => {
+    setLocalSearchValue(searchValue);
+  }, [searchValue]);
+
+  function handleKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
+    if (event.key === 'Enter') {
+      onSearchChange(localSearchValue);
+    }
+  }
 
   async function handleConfirmDeleteSelected() {
     if (deleting) {
@@ -101,8 +115,10 @@ export function TableToolbar({
           <div className="h-4 w-[1px] bg-border mx-2" />
           <Input
             placeholder="搜索... 支持 id>100 && num<200"
-            value={searchValue}
-            onChange={(event) => onSearchChange(event.target.value)}
+            value={localSearchValue}
+            onChange={(event) => setLocalSearchValue(event.target.value)}
+            onKeyDown={handleKeyDown}
+            disabled={loading}
             className="max-w-sm h-8"
           />
           <span className="text-sm text-muted-foreground whitespace-nowrap">总计：{totalRows} 行</span>

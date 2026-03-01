@@ -28,6 +28,9 @@ import { useDatabaseStore } from '@/stores/database-store';
 
 function getConnectionSubtitle(database: DatabaseConnection): string {
   if (database.scope === 'local') {
+    if (database.localPath) {
+      return database.localPath;
+    }
     return database.localFileName || database.database || '本地 SQLite 文件';
   }
   return database.host;
@@ -38,6 +41,13 @@ function getConnectionStatus(database: DatabaseConnection): { label: string; cla
     return {
       label: '已连接',
       className: 'bg-green-500/10 text-green-600 hover:bg-green-500/20',
+    };
+  }
+
+  if (database.localPath) {
+    return {
+      label: 'Sidecar 优先',
+      className: 'bg-blue-500/10 text-blue-600 hover:bg-blue-500/20',
     };
   }
 

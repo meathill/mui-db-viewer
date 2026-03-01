@@ -63,6 +63,16 @@
 - 本地连接权限状态依赖浏览器 `queryPermission/requestPermission`，不可访问时前端应展示降级状态，不要假设权限恒为 granted。
 - 列表展示层不使用“待授权”中间态：`prompt` 按不可访问处理；新建本地连接时必须先拿到 `granted` 再写入持久化存储。
 
+## 本地 SQLite Sidecar 约定
+
+- sidecar 包位置：`packages/sidecar`，默认监听 `127.0.0.1:19666`。
+- Web 连接可额外保存 `localPath`（本机文件路径）；执行 SQL 时优先走 sidecar：
+  - sidecar API：`POST /api/v1/sqlite/query`（`{ path, sql }`）
+  - 健康检查：`GET /health`
+- sidecar 调用失败且连接存在 `FileSystemFileHandle` 时，自动回退浏览器 `sql.js` 执行链路。
+- 若仅配置 `localPath` 而未保存句柄，sidecar 不可用时应直接报错，不做静默降级。
+- 提交前先执行 `pnpm run format`，再执行测试并提交。
+
 ## Coss UI 组件用法约定
 
 - 业务代码只从 `@/components/ui/*` 引用组件，不直接引用 `@base-ui/react/*`（除非在 `components/ui` 封装内部）。
