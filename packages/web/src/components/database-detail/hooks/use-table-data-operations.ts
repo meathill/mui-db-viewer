@@ -2,11 +2,12 @@
 
 import { useState, useCallback } from 'react';
 import { getErrorMessage } from '@/lib/client-feedback';
+import type { DatabaseDetailStrategy } from '@/lib/database-detail/strategy';
 
 interface DataOperationsParams {
   id: string;
   selectedTable: string | null;
-  strategy: any;
+  strategy: DatabaseDetailStrategy;
   fetchTableData: (id: string) => Promise<void>;
   getPendingRows: () => any[];
   clearEdits: () => void;

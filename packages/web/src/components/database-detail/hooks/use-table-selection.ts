@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import type { TableQueryResult, TableRow } from '@/lib/api';
+import type { TableDataResult, TableRow } from '@/lib/api';
 import { getPrimaryKeyField, resolveRowId } from '@/lib/table-data-utils';
 
-export function useTableSelection(tableData: TableQueryResult | null) {
+export function useTableSelection(tableData: TableDataResult | null) {
   const [selectedRows, setSelectedRows] = useState<Set<string | number>>(new Set());
 
   const getRowId = useCallback(
