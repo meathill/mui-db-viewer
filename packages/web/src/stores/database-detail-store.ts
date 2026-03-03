@@ -11,6 +11,7 @@ const LOAD_TABLES_ERROR_MESSAGE = '获取表列表失败';
 interface DatabaseDetailStoreState {
   tables: string[];
   selectedTable: string | null;
+  openTables: string[];
   tableData: TableDataResult | null;
   loadingTables: boolean;
   loadingTableData: boolean;
@@ -26,6 +27,7 @@ interface DatabaseDetailStoreActions {
   fetchTables: (databaseId: string) => Promise<void>;
   fetchTableData: (databaseId: string) => Promise<void>;
   selectTable: (table: string) => void;
+  closeTable: (table: string) => void;
   setPage: (page: number) => void;
   setPageSize: (pageSize: number) => void;
   setSort: (field: string) => void;
@@ -39,6 +41,7 @@ function createInitialState(): DatabaseDetailStoreState {
   return {
     tables: [],
     selectedTable: null,
+    openTables: [],
     tableData: null,
     loadingTables: false,
     loadingTableData: false,
@@ -110,13 +113,45 @@ export const useDatabaseDetailStore = create<DatabaseDetailStore>((set, get) => 
   },
 
   selectTable(table) {
-    set({
-      selectedTable: table,
-      page: DEFAULT_PAGE,
-      sortField: null,
-      sortOrder: DEFAULT_SORT_ORDER,
-      filters: {},
-      tableData: null,
+    set((state) => {
+      if (state.selectedTable === table) return state;
+
+      const openTables = state.openTables.includes(table) ? state.openTables : [...state.openTables, table];
+
+      return {
+        selectedTable: table,
+        openTables,
+        page: DEFAULT_PAGE,
+        sortField: null,
+        sortOrder: DEFAULT_SORT_ORDER,
+        filters: {},
+        tableData: null,
+      };
+    });
+  },
+
+  closeTable(table) {
+    set((state) => {
+      const openTables = state.openTables.filter((t) => t !== table);
+      let selectedTable = state.selectedTable;
+
+      if (selectedTable === table) {
+        selectedTable = openTables.length > 0 ? openTables[openTables.length - 1] : null;
+      }
+
+      if (selectedTable === state.selectedTable) {
+        return { openTables };
+      }
+
+      return {
+        openTables,
+        selectedTable,
+        page: DEFAULT_PAGE,
+        sortField: null,
+        sortOrder: DEFAULT_SORT_ORDER,
+        filters: {},
+        tableData: null,
+      };
     });
   },
 

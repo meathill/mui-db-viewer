@@ -79,20 +79,60 @@ describe('database-detail-store', () => {
     expect(state.error).toBeNull();
   });
 
-  it('selectTable 应重置查询条件', () => {
+  it('selectTable 应重置查询条件并维护 openTables', () => {
     const store = useDatabaseDetailStore.getState();
     store.setPage(3);
     store.setSort('id');
     store.setFilter('_search', 'Alice');
 
     store.selectTable('users');
-    const state = useDatabaseDetailStore.getState();
+    let state = useDatabaseDetailStore.getState();
 
     expect(state.selectedTable).toBe('users');
+    expect(state.openTables).toEqual(['users']);
     expect(state.page).toBe(1);
     expect(state.sortField).toBeNull();
     expect(state.sortOrder).toBe('asc');
     expect(state.filters).toEqual({});
+
+    store.selectTable('orders');
+    state = useDatabaseDetailStore.getState();
+    expect(state.selectedTable).toBe('orders');
+    expect(state.openTables).toEqual(['users', 'orders']);
+
+    store.selectTable('users');
+    state = useDatabaseDetailStore.getState();
+    expect(state.selectedTable).toBe('users');
+    expect(state.openTables).toEqual(['users', 'orders']); // 不重复添加
+  });
+
+  it('closeTable 应维护 openTables 和 selectedTable', () => {
+    const store = useDatabaseDetailStore.getState();
+    store.selectTable('t1');
+    store.selectTable('t2');
+    store.selectTable('t3');
+
+    let state = useDatabaseDetailStore.getState();
+    expect(state.openTables).toEqual(['t1', 't2', 't3']);
+    expect(state.selectedTable).toBe('t3');
+
+    // 关闭非当前选中的表
+    store.closeTable('t2');
+    state = useDatabaseDetailStore.getState();
+    expect(state.openTables).toEqual(['t1', 't3']);
+    expect(state.selectedTable).toBe('t3');
+
+    // 关闭当前选中的表
+    store.closeTable('t3');
+    state = useDatabaseDetailStore.getState();
+    expect(state.openTables).toEqual(['t1']);
+    expect(state.selectedTable).toBe('t1');
+
+    // 关闭最后一张表
+    store.closeTable('t1');
+    state = useDatabaseDetailStore.getState();
+    expect(state.openTables).toEqual([]);
+    expect(state.selectedTable).toBeNull();
   });
 
   it('setSort 在同列应切换排序方向', () => {

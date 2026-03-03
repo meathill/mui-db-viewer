@@ -1,5 +1,6 @@
 'use client';
 
+import { XIcon } from 'lucide-react';
 import { use } from 'react';
 import { DatabaseDetailEmptyState } from '@/components/database-detail/empty-state';
 import { InsertRowDialog } from '@/components/database-detail/insert-row-dialog';
@@ -8,6 +9,7 @@ import { TablePagination } from '@/components/database-detail/table-pagination';
 import { TableSidebar } from '@/components/database-detail/table-sidebar';
 import { TableToolbar } from '@/components/database-detail/table-toolbar';
 import { useDatabaseDetailController } from '@/components/database-detail/use-database-detail-controller';
+import { Tabs, TabsList, TabsTab } from '@/components/ui/tabs';
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -27,6 +29,7 @@ export default function DatabaseDetailPage({ params }: PageProps) {
   const {
     tables,
     selectedTable,
+    openTables,
     tableData,
     loadingTables,
     loadingTableData,
@@ -60,6 +63,7 @@ export default function DatabaseDetailPage({ params }: PageProps) {
     handleCellDoubleClick,
     handleCellBlur,
     handleSelectTable,
+    handleCloseTable,
     isCellEdited,
     getEditedCellValue,
     isCellEditing,
@@ -82,6 +86,37 @@ export default function DatabaseDetailPage({ params }: PageProps) {
 
       {/* 右侧主区域：数据表格 */}
       <main className="flex-1 flex flex-col overflow-hidden">
+        {openTables.length > 0 && (
+          <div className="flex w-full items-end border-b bg-muted/30 pt-2 px-2">
+            <Tabs
+              value={selectedTable || undefined}
+              onValueChange={(val) => handleSelectTable(val as string)}
+              className="w-full">
+              <TabsList
+                variant="underline"
+                className="w-full justify-start rounded-none bg-transparent gap-1 p-0">
+                {openTables.map((table) => (
+                  <TabsTab
+                    key={table}
+                    value={table}
+                    className="group relative pr-8">
+                    {table}
+                    <div
+                      className="absolute right-1 flex size-5 items-center justify-center rounded-sm opacity-0 transition-opacity hover:bg-muted group-hover:opacity-100"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        handleCloseTable(table);
+                      }}>
+                      <XIcon className="size-3 text-muted-foreground" />
+                    </div>
+                  </TabsTab>
+                ))}
+              </TabsList>
+            </Tabs>
+          </div>
+        )}
+
         {selectedTable ? (
           <>
             <TableToolbar

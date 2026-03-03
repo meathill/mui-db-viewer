@@ -6,9 +6,9 @@ import { resolveDatabaseDetailStrategy } from '@/lib/database-detail/strategy';
 import { isLocalSQLiteConnectionId } from '@/lib/local-sqlite/connection-store';
 import { useDatabaseDetailStore } from '@/stores/database-detail-store';
 import { useEditStore } from '@/stores/edit-store';
-import { useTableSelection } from './hooks/use-table-selection';
 import { useTableDataOperations } from './hooks/use-table-data-operations';
 import { useTablePagination } from './hooks/use-table-pagination';
+import { useTableSelection } from './hooks/use-table-selection';
 
 export function useDatabaseDetailController(id: string) {
   const strategy = useMemo(() => resolveDatabaseDetailStrategy(id), [id]);
@@ -16,6 +16,7 @@ export function useDatabaseDetailController(id: string) {
     useShallow((state) => ({
       tables: state.tables,
       selectedTable: state.selectedTable,
+      openTables: state.openTables,
       tableData: state.tableData,
       loadingTables: state.loadingTables,
       loadingTableData: state.loadingTableData,
@@ -28,6 +29,7 @@ export function useDatabaseDetailController(id: string) {
       fetchTables: state.fetchTables,
       fetchTableData: state.fetchTableData,
       selectTable: state.selectTable,
+      closeTable: state.closeTable,
       setPage: state.setPage,
       setSort: state.setSort,
       setFilter: state.setFilter,
@@ -152,6 +154,11 @@ export function useDatabaseDetailController(id: string) {
     },
     handleSelectTable: (table: string) => {
       detailStore.selectTable(table);
+      clearSelection();
+      editStore.clearEdits();
+    },
+    handleCloseTable: (table: string) => {
+      detailStore.closeTable(table);
       clearSelection();
       editStore.clearEdits();
     },
