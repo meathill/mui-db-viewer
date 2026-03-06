@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { useDatabasePreferencesStore, DEFAULT_PAGE, DEFAULT_PAGE_SIZE, DEFAULT_SORT_ORDER } from '../database-preferences-store';
+import {
+  useDatabasePreferencesStore,
+  DEFAULT_PAGE,
+  DEFAULT_PAGE_SIZE,
+  DEFAULT_SORT_ORDER,
+} from '../database-preferences-store';
 
 describe('database-preferences-store', () => {
   beforeEach(() => {
@@ -30,7 +35,7 @@ describe('database-preferences-store', () => {
       pageSize: DEFAULT_PAGE_SIZE,
       sortField: null,
       sortOrder: DEFAULT_SORT_ORDER,
-      filters: {}
+      filters: {},
     });
 
     // 选中新的表
@@ -99,7 +104,7 @@ describe('database-preferences-store', () => {
     store.setFilter('db-1', 'users', '_search', 'test');
 
     const state = useDatabasePreferencesStore.getState();
-    expect(state.databases['db-1'].tablePreferences['users'].filters).toEqual({ '_search': 'test' });
+    expect(state.databases['db-1'].tablePreferences['users'].filters).toEqual({ _search: 'test' });
     expect(state.databases['db-1'].tablePreferences['users'].page).toBe(1);
 
     store.setFilter('db-1', 'users', '_search', ''); // empty string unsets it

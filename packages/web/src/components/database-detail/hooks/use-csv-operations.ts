@@ -68,9 +68,7 @@ export function useCsvOperations({
           const CHUNK_SIZE = 20;
           for (let i = 0; i < rows.length; i += CHUNK_SIZE) {
             const chunk = rows.slice(i, i + CHUNK_SIZE);
-            await Promise.all(
-              chunk.map((row) => strategy.insertRow(id, selectedTable, row))
-            );
+            await Promise.all(chunk.map((row) => strategy.insertRow(id, selectedTable, row)));
           }
 
           alert(`成功导入 ${rows.length} 条数据`);
@@ -86,7 +84,7 @@ export function useCsvOperations({
         console.error('CSV Parse Error:', error);
         alert('CSV 解析失败');
         setIsImportingCsv(false);
-      }
+      },
     });
   }
 

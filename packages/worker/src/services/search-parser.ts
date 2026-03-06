@@ -30,14 +30,33 @@ export interface ParseResult {
   rawText?: string;
 }
 
-const OPERATORS = ['>=', '<=', '!=', '>', '<', '=', ' LIKE ', ' like ', ' IN ', ' in ', ' NOT IN ', ' not in '] as const;
+const OPERATORS = [
+  '>=',
+  '<=',
+  '!=',
+  '>',
+  '<',
+  '=',
+  ' LIKE ',
+  ' like ',
+  ' IN ',
+  ' in ',
+  ' NOT IN ',
+  ' not in ',
+] as const;
 const OPERATOR_PATTERN = /^(>=|<=|!=|>|<|=| LIKE | like | IN | in | NOT IN | not in )$/i;
 
 /**
  * 判断输入是否包含表达式特征
  */
 function looksLikeExpression(input: string): boolean {
-  return /[><=!]/.test(input) || input.includes('&&') || input.includes('||') || / like /i.test(input) || / in\s*\(/i.test(input);
+  return (
+    /[><=!]/.test(input) ||
+    input.includes('&&') ||
+    input.includes('||') ||
+    / like /i.test(input) ||
+    / in\s*\(/i.test(input)
+  );
 }
 
 /**
@@ -74,7 +93,10 @@ function parseCondition(expr: string): FilterCondition | null {
     const field = inMatch[1].trim();
     const opRaw = inMatch[2].toUpperCase().replace(/\s+/g, ' '); // 统一为 'IN' 或 'NOT IN'
     const valuesStr = inMatch[3];
-    const values = valuesStr.split(',').map(v => parseValue(v.trim())).filter(v => v !== '');
+    const values = valuesStr
+      .split(',')
+      .map((v) => parseValue(v.trim()))
+      .filter((v) => v !== '');
     if (field && values.length > 0) {
       return {
         field,
@@ -267,11 +289,13 @@ export function expressionToSqlPg(
 
     if (cond.operator === 'IN' || cond.operator === 'NOT IN') {
       if (Array.isArray(cond.value)) {
-        const placeholders = cond.value.map(() => {
-          const ph = `$${pIdx}`;
-          pIdx++;
-          return ph;
-        }).join(', ');
+        const placeholders = cond.value
+          .map(() => {
+            const ph = `$${pIdx}`;
+            pIdx++;
+            return ph;
+          })
+          .join(', ');
         sqlParts.push(`"${cond.field}" ${cond.operator} (${placeholders})`);
         params.push(...cond.value);
       }

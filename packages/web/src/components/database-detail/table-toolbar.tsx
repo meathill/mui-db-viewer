@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { ChangeEvent, SubmitEvent, useEffect, useRef, useState } from 'react';
 import { DownloadIcon, PlusIcon, RefreshCwIcon, SaveIcon, TableIcon, Trash2Icon, UploadIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -66,10 +66,9 @@ export function TableToolbar({
     setLocalSearchValue(searchValue);
   }, [searchValue]);
 
-  function handleKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
-    if (event.key === 'Enter') {
-      onSearchChange(localSearchValue);
-    }
+  function handleSearchSubmit(event: SubmitEvent<HTMLFormElement>) {
+    event.preventDefault();
+    onSearchChange(localSearchValue);
   }
 
   async function handleConfirmDeleteSelected() {
@@ -80,7 +79,7 @@ export function TableToolbar({
     if (succeeded) setDeleteDialogOpen(false);
   }
 
-  function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
+  function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (file) {
       onImportCsv(file);
@@ -102,8 +101,7 @@ export function TableToolbar({
             size="sm"
             onClick={onRefresh}
             disabled={loading}
-            title="刷新数据"
-          >
+            title="刷新数据">
             <RefreshCwIcon className={`size-4 ${loading ? 'animate-spin' : ''}`} />
           </Button>
           <div className="h-4 w-[1px] bg-border mx-1" />
@@ -112,8 +110,7 @@ export function TableToolbar({
             size="sm"
             onClick={onExportCsv}
             disabled={loading || isExportingCsv}
-            title="导出为 CSV (当前筛选条件下全量或最多1万条)"
-          >
+            title="导出为 CSV (当前筛选条件下全量或最多1万条)">
             <DownloadIcon className="size-4 mr-2" />
             {isExportingCsv ? '导出中...' : '导出 CSV'}
           </Button>
@@ -122,8 +119,7 @@ export function TableToolbar({
             size="sm"
             onClick={() => fileInputRef.current?.click()}
             disabled={loading || isImportingCsv}
-            title="上传 CSV 追加到当前表"
-          >
+            title="上传 CSV 追加到当前表">
             <UploadIcon className="size-4 mr-2" />
             {isImportingCsv ? '上传中...' : '上传 CSV'}
           </Button>
@@ -166,14 +162,17 @@ export function TableToolbar({
             新增行
           </Button>
           <div className="h-4 w-[1px] bg-border mx-2" />
-          <Input
-            placeholder="搜索... 支持 id>100 && num<200"
-            value={localSearchValue}
-            onChange={(event) => setLocalSearchValue(event.target.value)}
-            onKeyDown={handleKeyDown}
-            disabled={loading}
-            className="max-w-xs md:max-w-sm h-8"
-          />
+          <form
+            onSubmit={handleSearchSubmit}
+            className="flex items-center gap-2 m-0 p-0">
+            <Input
+              placeholder="搜索... 支持 id>100 && num<200"
+              value={localSearchValue}
+              onChange={(event) => setLocalSearchValue(event.target.value)}
+              disabled={loading}
+              className="max-w-xs md:max-w-sm h-8"
+            />
+          </form>
           <span className="text-sm text-muted-foreground whitespace-nowrap hidden sm:inline-block">
             总计：{totalRows}
           </span>

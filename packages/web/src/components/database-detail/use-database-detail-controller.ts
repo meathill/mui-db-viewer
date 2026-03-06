@@ -5,7 +5,12 @@ import { useShallow } from 'zustand/react/shallow';
 import { resolveDatabaseDetailStrategy } from '@/lib/database-detail/strategy';
 import { isLocalSQLiteConnectionId } from '@/lib/local-sqlite/connection-store';
 import { useDatabaseDetailStore } from '@/stores/database-detail-store';
-import { useDatabasePreferencesStore, DEFAULT_PAGE, DEFAULT_PAGE_SIZE, DEFAULT_SORT_ORDER } from '@/stores/database-preferences-store';
+import {
+  useDatabasePreferencesStore,
+  DEFAULT_PAGE,
+  DEFAULT_PAGE_SIZE,
+  DEFAULT_SORT_ORDER,
+} from '@/stores/database-preferences-store';
 import { useEditStore } from '@/stores/edit-store';
 import { useTableDataOperations } from './hooks/use-table-data-operations';
 import { useTablePagination } from './hooks/use-table-pagination';
@@ -23,9 +28,16 @@ export function useDatabaseDetailController(id: string) {
   const selectedTable = dbPref?.selectedTable || null;
   const openTables = dbPref?.openTables || [];
 
-  const tablePref = selectedTable && dbPref?.tablePreferences?.[selectedTable]
-    ? dbPref.tablePreferences[selectedTable]
-    : { page: DEFAULT_PAGE, pageSize: DEFAULT_PAGE_SIZE, sortField: null, sortOrder: DEFAULT_SORT_ORDER, filters: {} };
+  const tablePref =
+    selectedTable && dbPref?.tablePreferences?.[selectedTable]
+      ? dbPref.tablePreferences[selectedTable]
+      : {
+          page: DEFAULT_PAGE,
+          pageSize: DEFAULT_PAGE_SIZE,
+          sortField: null,
+          sortOrder: DEFAULT_SORT_ORDER,
+          filters: {},
+        };
 
   const { page, pageSize, sortField, sortOrder, filters } = tablePref;
 

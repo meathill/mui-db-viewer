@@ -210,6 +210,6 @@ export const useDatabasePreferencesStore = create<DatabasePreferencesState>()(
     }),
     {
       name: 'db-viewer-preferences',
-    }
-  )
+    },
+  ),
 );
