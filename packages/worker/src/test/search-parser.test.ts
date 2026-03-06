@@ -134,4 +134,34 @@ describe('expressionToSql', () => {
     expect(sql?.whereClause).toBe('WHERE `name` = ?');
     expect(sql?.params).toEqual(['Alice']);
   });
+
+  it('IN 条件生成 SQL', () => {
+    const parsed = parseSearchExpression('id IN (1, 2, 3)');
+    const sql = expressionToSql(parsed.expression!, validColumns);
+    expect(sql).not.toBeNull();
+    expect(sql?.whereClause).toBe('WHERE `id` IN (?, ?, ?)');
+    expect(sql?.params).toEqual([1, 2, 3]);
+  });
+
+  it('NOT IN 条件生成 SQL并且带字符串参数', () => {
+    const parsed = parseSearchExpression("name NOT IN ('Alice', 'Bob')");
+    const sql = expressionToSql(parsed.expression!, validColumns);
+    expect(sql).not.toBeNull();
+    expect(sql?.whereClause).toBe('WHERE `name` NOT IN (?, ?)');
+    expect(sql?.params).toEqual(['Alice', 'Bob']);
+  });
+});
+
+import { expressionToSqlPg } from '../services/search-parser';
+
+describe('expressionToSqlPg', () => {
+  const validColumns = ['id', 'name'];
+
+  it('IN 条件生成 PostgreSQL', () => {
+    const parsed = parseSearchExpression('id IN (1, 2)');
+    const sql = expressionToSqlPg(parsed.expression!, validColumns);
+    expect(sql).not.toBeNull();
+    expect(sql?.whereClause).toBe('WHERE "id" IN ($1, $2)');
+    expect(sql?.params).toEqual([1, 2]);
+  });
 });

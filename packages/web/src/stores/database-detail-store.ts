@@ -3,19 +3,19 @@ import type { TableDataResult } from '@/lib/api';
 import { resolveDatabaseDetailStrategy } from '@/lib/database-detail/strategy';
 import type { SortOrder } from '@/lib/table-query';
 
-const DEFAULT_PAGE = 1;
-const DEFAULT_PAGE_SIZE = 20;
-const DEFAULT_SORT_ORDER: SortOrder = 'asc';
 const LOAD_TABLES_ERROR_MESSAGE = '获取表列表失败';
 
 interface DatabaseDetailStoreState {
   tables: string[];
-  selectedTable: string | null;
-  openTables: string[];
-  tableData: TableDataResult | null;
+  tableDataMap: Record<string, TableDataResult>;
   loadingTables: boolean;
   loadingTableData: boolean;
   error: string | null;
+}
+
+export interface FetchTableDataParams {
+  databaseId: string;
+  tableName: string;
   page: number;
   pageSize: number;
   sortField: string | null;
@@ -25,14 +25,9 @@ interface DatabaseDetailStoreState {
 
 interface DatabaseDetailStoreActions {
   fetchTables: (databaseId: string) => Promise<void>;
-  fetchTableData: (databaseId: string) => Promise<void>;
-  selectTable: (table: string) => void;
-  closeTable: (table: string) => void;
-  setPage: (page: number) => void;
-  setPageSize: (pageSize: number) => void;
-  setSort: (field: string) => void;
-  setFilter: (field: string, value: string) => void;
+  fetchTableData: (params: FetchTableDataParams) => Promise<void>;
   reset: () => void;
+  clearTableData: (tableName: string) => void;
 }
 
 export type DatabaseDetailStore = DatabaseDetailStoreState & DatabaseDetailStoreActions;
@@ -40,17 +35,10 @@ export type DatabaseDetailStore = DatabaseDetailStoreState & DatabaseDetailStore
 function createInitialState(): DatabaseDetailStoreState {
   return {
     tables: [],
-    selectedTable: null,
-    openTables: [],
-    tableData: null,
+    tableDataMap: {},
     loadingTables: false,
     loadingTableData: false,
     error: null,
-    page: DEFAULT_PAGE,
-    pageSize: DEFAULT_PAGE_SIZE,
-    sortField: null,
-    sortOrder: DEFAULT_SORT_ORDER,
-    filters: {},
   };
 }
 
@@ -62,7 +50,7 @@ function getErrorMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
-export const useDatabaseDetailStore = create<DatabaseDetailStore>((set, get) => ({
+export const useDatabaseDetailStore = create<DatabaseDetailStore>((set) => ({
   ...createInitialState(),
 
   async fetchTables(databaseId) {
@@ -84,12 +72,8 @@ export const useDatabaseDetailStore = create<DatabaseDetailStore>((set, get) => 
     }
   },
 
-  async fetchTableData(databaseId) {
-    const { selectedTable, page, pageSize, sortField, sortOrder, filters } = get();
-    if (!selectedTable) {
-      set({ tableData: null, loadingTableData: false });
-      return;
-    }
+  async fetchTableData(params) {
+    const { databaseId, tableName, page, pageSize, sortField, sortOrder, filters } = params;
 
     set({ loadingTableData: true });
     try {
@@ -100,98 +84,28 @@ export const useDatabaseDetailStore = create<DatabaseDetailStore>((set, get) => 
         sortOrder,
         filters,
       };
+
       const strategy = resolveDatabaseDetailStrategy(databaseId);
-      const tableData = await strategy.getTableData(databaseId, selectedTable, query);
-      set({
-        tableData,
+      const tableData = await strategy.getTableData(databaseId, tableName, query);
+
+      set((state) => ({
+        tableDataMap: {
+          ...state.tableDataMap,
+          [tableName]: tableData,
+        },
         loadingTableData: false,
-      });
+      }));
     } catch (error) {
       set({ loadingTableData: false });
       throw error;
     }
   },
 
-  selectTable(table) {
+  clearTableData(tableName) {
     set((state) => {
-      if (state.selectedTable === table) return state;
-
-      const openTables = state.openTables.includes(table) ? state.openTables : [...state.openTables, table];
-
-      return {
-        selectedTable: table,
-        openTables,
-        page: DEFAULT_PAGE,
-        sortField: null,
-        sortOrder: DEFAULT_SORT_ORDER,
-        filters: {},
-        tableData: null,
-      };
-    });
-  },
-
-  closeTable(table) {
-    set((state) => {
-      const openTables = state.openTables.filter((t) => t !== table);
-      let selectedTable = state.selectedTable;
-
-      if (selectedTable === table) {
-        selectedTable = openTables.length > 0 ? openTables[openTables.length - 1] : null;
-      }
-
-      if (selectedTable === state.selectedTable) {
-        return { openTables };
-      }
-
-      return {
-        openTables,
-        selectedTable,
-        page: DEFAULT_PAGE,
-        sortField: null,
-        sortOrder: DEFAULT_SORT_ORDER,
-        filters: {},
-        tableData: null,
-      };
-    });
-  },
-
-  setPage(page) {
-    set({ page: Math.max(DEFAULT_PAGE, page) });
-  },
-
-  setPageSize(pageSize) {
-    set({
-      pageSize: Math.max(1, pageSize),
-      page: DEFAULT_PAGE,
-    });
-  },
-
-  setSort(field) {
-    const { sortField, sortOrder } = get();
-    if (sortField === field) {
-      set({ sortOrder: sortOrder === 'asc' ? 'desc' : 'asc' });
-      return;
-    }
-
-    set({
-      sortField: field,
-      sortOrder: DEFAULT_SORT_ORDER,
-    });
-  },
-
-  setFilter(field, value) {
-    set((state) => {
-      const nextFilters = { ...state.filters };
-      if (value === '') {
-        delete nextFilters[field];
-      } else {
-        nextFilters[field] = value;
-      }
-
-      return {
-        filters: nextFilters,
-        page: DEFAULT_PAGE,
-      };
+      const nextMap = { ...state.tableDataMap };
+      delete nextMap[tableName];
+      return { tableDataMap: nextMap };
     });
   },
 

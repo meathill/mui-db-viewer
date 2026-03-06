@@ -1,41 +1,50 @@
 'use client';
 
-import { useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { resolveDatabaseDetailStrategy } from '@/lib/database-detail/strategy';
 import { isLocalSQLiteConnectionId } from '@/lib/local-sqlite/connection-store';
 import { useDatabaseDetailStore } from '@/stores/database-detail-store';
+import { useDatabasePreferencesStore, DEFAULT_PAGE, DEFAULT_PAGE_SIZE, DEFAULT_SORT_ORDER } from '@/stores/database-preferences-store';
 import { useEditStore } from '@/stores/edit-store';
 import { useTableDataOperations } from './hooks/use-table-data-operations';
 import { useTablePagination } from './hooks/use-table-pagination';
 import { useTableSelection } from './hooks/use-table-selection';
+import { useCsvOperations } from './hooks/use-csv-operations';
 
 export function useDatabaseDetailController(id: string) {
+  const prefStore = useDatabasePreferencesStore();
+
+  useEffect(() => {
+    prefStore.initDatabase(id);
+  }, [id, prefStore.initDatabase]);
+
+  const dbPref = prefStore.databases[id];
+  const selectedTable = dbPref?.selectedTable || null;
+  const openTables = dbPref?.openTables || [];
+
+  const tablePref = selectedTable && dbPref?.tablePreferences?.[selectedTable]
+    ? dbPref.tablePreferences[selectedTable]
+    : { page: DEFAULT_PAGE, pageSize: DEFAULT_PAGE_SIZE, sortField: null, sortOrder: DEFAULT_SORT_ORDER, filters: {} };
+
+  const { page, pageSize, sortField, sortOrder, filters } = tablePref;
+
   const strategy = useMemo(() => resolveDatabaseDetailStrategy(id), [id]);
+
   const detailStore = useDatabaseDetailStore(
     useShallow((state) => ({
       tables: state.tables,
-      selectedTable: state.selectedTable,
-      openTables: state.openTables,
-      tableData: state.tableData,
+      tableDataMap: state.tableDataMap,
       loadingTables: state.loadingTables,
       loadingTableData: state.loadingTableData,
-      page: state.page,
-      pageSize: state.pageSize,
-      sortField: state.sortField,
-      sortOrder: state.sortOrder,
-      filters: state.filters,
       error: state.error,
       fetchTables: state.fetchTables,
       fetchTableData: state.fetchTableData,
-      selectTable: state.selectTable,
-      closeTable: state.closeTable,
-      setPage: state.setPage,
-      setSort: state.setSort,
-      setFilter: state.setFilter,
       reset: state.reset,
     })),
   );
+
+  const tableData = selectedTable ? detailStore.tableDataMap[selectedTable] || null : null;
 
   const editStore = useEditStore(
     useShallow((state) => ({
@@ -49,9 +58,20 @@ export function useDatabaseDetailController(id: string) {
     })),
   );
 
-  const { selectedRows, getRowId, handleSelectAll, handleSelectRow, clearSelection } = useTableSelection(
-    detailStore.tableData,
-  );
+  const { selectedRows, getRowId, handleSelectAll, handleSelectRow, clearSelection } = useTableSelection(tableData);
+
+  const doFetchTableData = useCallback(async () => {
+    if (!selectedTable) return;
+    return detailStore.fetchTableData({
+      databaseId: id,
+      tableName: selectedTable,
+      page,
+      pageSize,
+      sortField,
+      sortOrder,
+      filters,
+    });
+  }, [id, selectedTable, page, pageSize, sortField, sortOrder, filters, detailStore.fetchTableData]);
 
   const {
     isInsertOpen,
@@ -69,19 +89,29 @@ export function useDatabaseDetailController(id: string) {
     handleUpdate,
   } = useTableDataOperations({
     id,
-    selectedTable: detailStore.selectedTable,
+    selectedTable,
     strategy,
-    fetchTableData: detailStore.fetchTableData,
+    fetchTableData: doFetchTableData,
     getPendingRows: editStore.getPendingRows,
     clearEdits: editStore.clearEdits,
     clearSelection,
   });
 
   const { handleSort, handleFilterChange, handlePreviousPage, handleNextPage } = useTablePagination({
-    page: detailStore.page,
-    setPage: detailStore.setPage,
-    setSort: detailStore.setSort,
-    setFilter: detailStore.setFilter,
+    page,
+    setPage: (p) => selectedTable && prefStore.setPage(id, selectedTable, p),
+    setSort: (f) => selectedTable && prefStore.setSort(id, selectedTable, f),
+    setFilter: (f, v) => selectedTable && prefStore.setFilter(id, selectedTable, f, v),
+  });
+
+  const { isExportingCsv, isImportingCsv, handleExportCsv, handleImportCsv } = useCsvOperations({
+    id,
+    selectedTable,
+    strategy,
+    filters,
+    sortField,
+    sortOrder,
+    onRefresh: doFetchTableData,
   });
 
   const isLocalDatabase = isLocalSQLiteConnectionId(id);
@@ -99,33 +129,34 @@ export function useDatabaseDetailController(id: string) {
   }, [id, detailStore.fetchTables, detailStore.reset, editStore.clearEdits]);
 
   useEffect(() => {
-    if (!detailStore.selectedTable) {
+    if (!selectedTable) {
       clearSelection();
       setDeleteError(null);
       return;
     }
-    void detailStore
-      .fetchTableData(id)
+
+    void doFetchTableData()
       .then(() => {
         clearSelection();
         setDeleteError(null);
       })
       .catch(console.error);
-  }, [
-    detailStore.fetchTableData,
-    detailStore.filters,
-    id,
-    detailStore.page,
-    detailStore.pageSize,
-    detailStore.selectedTable,
-    detailStore.sortField,
-    detailStore.sortOrder,
-    clearSelection,
-    setDeleteError,
-  ]);
+  }, [doFetchTableData, clearSelection, setDeleteError, selectedTable]);
 
   return {
-    ...detailStore,
+    tables: detailStore.tables,
+    selectedTable,
+    openTables,
+    tableData,
+    loadingTables: detailStore.loadingTables,
+    loadingTableData: detailStore.loadingTableData,
+    page,
+    pageSize,
+    sortField,
+    sortOrder,
+    filters,
+    error: detailStore.error,
+
     selectedRows,
     isInsertOpen,
     insertData,
@@ -153,12 +184,12 @@ export function useDatabaseDetailController(id: string) {
       if (String(original) !== current) editStore.setEdit(rowId, field, current);
     },
     handleSelectTable: (table: string) => {
-      detailStore.selectTable(table);
+      prefStore.selectTable(id, table);
       clearSelection();
       editStore.clearEdits();
     },
     handleCloseTable: (table: string) => {
-      detailStore.closeTable(table);
+      prefStore.closeTable(id, table);
       clearSelection();
       editStore.clearEdits();
     },
@@ -173,5 +204,10 @@ export function useDatabaseDetailController(id: string) {
     handlePreviousPage,
     handleNextPage,
     clearDeleteError: () => setDeleteError(null),
+    handleRefresh: doFetchTableData,
+    isExportingCsv,
+    isImportingCsv,
+    handleExportCsv,
+    handleImportCsv,
   };
 }

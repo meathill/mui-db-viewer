@@ -71,6 +71,11 @@ export default function DatabaseDetailPage({ params }: PageProps) {
     handlePreviousPage,
     handleNextPage,
     clearDeleteError,
+    handleRefresh,
+    isExportingCsv,
+    isImportingCsv,
+    handleExportCsv,
+    handleImportCsv,
   } = useDatabaseDetailController(id);
 
   return (
@@ -134,6 +139,11 @@ export default function DatabaseDetailPage({ params }: PageProps) {
               onClearDeleteError={clearDeleteError}
               onOpenInsert={() => setIsInsertOpen(true)}
               onSearchChange={(value) => handleFilterChange('_search', value)}
+              onRefresh={handleRefresh}
+              onExportCsv={handleExportCsv}
+              onImportCsv={handleImportCsv}
+              isExportingCsv={isExportingCsv}
+              isImportingCsv={isImportingCsv}
               loading={loadingTableData}
             />
 

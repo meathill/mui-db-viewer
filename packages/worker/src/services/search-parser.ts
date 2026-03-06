@@ -11,7 +11,7 @@
 export interface FilterCondition {
   field: string;
   operator: string;
-  value: string | number;
+  value: string | number | Array<string | number>;
 }
 
 /** 解析后的表达式组 */
@@ -30,14 +30,14 @@ export interface ParseResult {
   rawText?: string;
 }
 
-const OPERATORS = ['>=', '<=', '!=', '>', '<', '='] as const;
-const OPERATOR_PATTERN = /^(>=|<=|!=|>|<|=)$/;
+const OPERATORS = ['>=', '<=', '!=', '>', '<', '=', ' LIKE ', ' like ', ' IN ', ' in ', ' NOT IN ', ' not in '] as const;
+const OPERATOR_PATTERN = /^(>=|<=|!=|>|<|=| LIKE | like | IN | in | NOT IN | not in )$/i;
 
 /**
  * 判断输入是否包含表达式特征
  */
 function looksLikeExpression(input: string): boolean {
-  return /[><=!]/.test(input) || input.includes('&&') || input.includes('||');
+  return /[><=!]/.test(input) || input.includes('&&') || input.includes('||') || / like /i.test(input) || / in\s*\(/i.test(input);
 }
 
 /**
@@ -62,14 +62,45 @@ function parseValue(raw: string): string | number {
 }
 
 /**
- * 解析单个条件表达式，如 `id > 100`
+ * 解析单个条件表达式，如 `id > 100` 或 `name like '%Alice%'` 或 `id in (1, 2, 3)`
  */
 function parseCondition(expr: string): FilterCondition | null {
   const trimmed = expr.trim();
   if (!trimmed) return null;
 
-  // 按运算符分割（优先匹配多字符运算符）
-  for (const op of OPERATORS) {
+  // 优先匹配 IN 和 NOT IN (包含前后确定的空格与括号)
+  const inMatch = trimmed.match(/^(.*?)\s+(NOT\s+IN|IN|not\s+in|in)\s*\((.*)\)$/i);
+  if (inMatch) {
+    const field = inMatch[1].trim();
+    const opRaw = inMatch[2].toUpperCase().replace(/\s+/g, ' '); // 统一为 'IN' 或 'NOT IN'
+    const valuesStr = inMatch[3];
+    const values = valuesStr.split(',').map(v => parseValue(v.trim())).filter(v => v !== '');
+    if (field && values.length > 0) {
+      return {
+        field,
+        operator: opRaw,
+        value: values,
+      };
+    }
+  }
+
+  // 匹配 LIKE (包含前后空格，忽略大小写)
+  const likeMatch = trimmed.match(/^(.*?)\s+(LIKE|like)\s+(.*)$/i);
+  if (likeMatch) {
+    const field = likeMatch[1].trim();
+    const valueStr = likeMatch[3].trim();
+    if (field && valueStr) {
+      return {
+        field,
+        operator: 'LIKE', // 统一转换为大写
+        value: parseValue(valueStr),
+      };
+    }
+  }
+
+  // 按其他运算符分割（优先匹配多字符运算符）
+  const basicOperators = ['>=', '<=', '!=', '>', '<', '='];
+  for (const op of basicOperators) {
     const idx = trimmed.indexOf(op);
     if (idx > 0) {
       const field = trimmed.substring(0, idx).trim();
@@ -168,24 +199,34 @@ export function expressionToSql(
       return null;
     }
 
-    // 构建 SQL 片段
-    const sqlOp =
-      cond.operator === '='
-        ? '='
-        : cond.operator === '!='
-          ? '!='
-          : cond.operator === '>'
-            ? '>'
-            : cond.operator === '<'
-              ? '<'
-              : cond.operator === '>='
-                ? '>='
-                : cond.operator === '<='
-                  ? '<='
-                  : '=';
+    if (cond.operator === 'IN' || cond.operator === 'NOT IN') {
+      if (Array.isArray(cond.value)) {
+        const placeholders = cond.value.map(() => '?').join(', ');
+        sqlParts.push(`\`${cond.field}\` ${cond.operator} (${placeholders})`);
+        params.push(...cond.value);
+      }
+    } else {
+      // 构建 SQL 片段
+      const sqlOp =
+        cond.operator === '='
+          ? '='
+          : cond.operator === '!='
+            ? '!='
+            : cond.operator === '>'
+              ? '>'
+              : cond.operator === '<'
+                ? '<'
+                : cond.operator === '>='
+                  ? '>='
+                  : cond.operator === '<='
+                    ? '<='
+                    : cond.operator === 'LIKE'
+                      ? 'LIKE'
+                      : '=';
 
-    sqlParts.push(`\`${cond.field}\` ${sqlOp} ?`);
-    params.push(cond.value);
+      sqlParts.push(`\`${cond.field}\` ${sqlOp} ?`);
+      params.push(cond.value as string | number);
+    }
 
     // 添加连接符
     if (i < expression.connectors.length) {
@@ -224,9 +265,21 @@ export function expressionToSqlPg(
       return null;
     }
 
-    sqlParts.push(`"${cond.field}" ${cond.operator} $${pIdx}`);
-    params.push(cond.value);
-    pIdx++;
+    if (cond.operator === 'IN' || cond.operator === 'NOT IN') {
+      if (Array.isArray(cond.value)) {
+        const placeholders = cond.value.map(() => {
+          const ph = `$${pIdx}`;
+          pIdx++;
+          return ph;
+        }).join(', ');
+        sqlParts.push(`"${cond.field}" ${cond.operator} (${placeholders})`);
+        params.push(...cond.value);
+      }
+    } else {
+      sqlParts.push(`"${cond.field}" ${cond.operator} $${pIdx}`);
+      params.push(cond.value as string | number);
+      pIdx++;
+    }
 
     if (i < expression.connectors.length) {
       sqlParts.push(expression.connectors[i]);
