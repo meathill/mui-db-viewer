@@ -7,6 +7,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 
 interface TableSidebarProps {
+  databaseName: string | null;
+  loadingDatabase?: boolean;
   tables: string[];
   selectedTable: string | null;
   loadingTables: boolean;
@@ -16,6 +18,8 @@ interface TableSidebarProps {
 }
 
 export function TableSidebar({
+  databaseName,
+  loadingDatabase,
   tables,
   selectedTable,
   loadingTables,
@@ -40,9 +44,17 @@ export function TableSidebar({
             className="hover:bg-muted p-1 rounded">
             <ChevronLeftIcon className="size-4" />
           </Link>
-          <h2 className="font-semibold text-lg flex items-center gap-2">
-            <DatabaseIcon className="size-4" />
-            数据库对象
+          <h2 className="font-semibold text-lg flex items-center gap-2 truncate">
+            <DatabaseIcon className="size-4 shrink-0" />
+            {loadingDatabase ? (
+              <Skeleton className="h-5 w-24" />
+            ) : (
+              <span
+                className="truncate"
+                title={databaseName || '数据库对象'}>
+                {databaseName || '数据库对象'}
+              </span>
+            )}
           </h2>
         </div>
         <div className="relative">

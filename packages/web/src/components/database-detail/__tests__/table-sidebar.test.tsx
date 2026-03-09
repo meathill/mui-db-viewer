@@ -19,6 +19,7 @@ describe('TableSidebar', () => {
 
     render(
       <TableSidebar
+        databaseName="Test DB"
         tables={['users', 'orders']}
         selectedTable={null}
         loadingTables={false}
@@ -34,6 +35,7 @@ describe('TableSidebar', () => {
   it('选中的表应高亮显示', () => {
     render(
       <TableSidebar
+        databaseName="Test DB"
         tables={['users', 'orders']}
         selectedTable="orders"
         loadingTables={false}
@@ -49,6 +51,7 @@ describe('TableSidebar', () => {
   it('输入搜索关键词应过滤表列表', () => {
     render(
       <TableSidebar
+        databaseName="Test DB"
         tables={['users', 'orders', 'user_profiles']}
         selectedTable={null}
         loadingTables={false}
@@ -72,6 +75,7 @@ describe('TableSidebar', () => {
   it('加载表列表时应显示骨架屏', () => {
     render(
       <TableSidebar
+        databaseName="Test DB"
         tables={[]}
         selectedTable={null}
         loadingTables={true}

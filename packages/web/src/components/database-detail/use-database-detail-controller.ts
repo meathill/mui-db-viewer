@@ -12,6 +12,7 @@ import {
   DEFAULT_SORT_ORDER,
 } from '@/stores/database-preferences-store';
 import { useEditStore } from '@/stores/edit-store';
+import { useDatabaseStore } from '@/stores/database-store';
 import { useTableDataOperations } from './hooks/use-table-data-operations';
 import { useTablePagination } from './hooks/use-table-pagination';
 import { useTableSelection } from './hooks/use-table-selection';
@@ -132,6 +133,15 @@ export function useDatabaseDetailController(id: string) {
       ? '未检测到可见数据表。若其他工具可见，可能是 WAL 未 checkpoint，或当前选择的不是预期文件。'
       : null;
 
+  const { databases, fetchDatabases, loading: loadingDbs } = useDatabaseStore();
+  const database = databases.find((db) => db.id === id);
+
+  useEffect(() => {
+    if (databases.length === 0) {
+      void fetchDatabases().catch(console.error);
+    }
+  }, [databases.length, fetchDatabases]);
+
   useEffect(() => {
     void detailStore.fetchTables(id).catch(console.error);
     return () => {
@@ -168,6 +178,8 @@ export function useDatabaseDetailController(id: string) {
     sortOrder,
     filters,
     error: detailStore.error,
+    databaseName: database?.name || null,
+    loadingDatabase: loadingDbs && databases.length === 0,
 
     selectedRows,
     isInsertOpen,

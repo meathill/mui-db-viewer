@@ -76,11 +76,15 @@ export default function DatabaseDetailPage({ params }: PageProps) {
     isImportingCsv,
     handleExportCsv,
     handleImportCsv,
+    databaseName,
+    loadingDatabase,
   } = useDatabaseDetailController(id);
 
   return (
     <div className="flex h-screen w-full bg-background">
       <TableSidebar
+        databaseName={databaseName}
+        loadingDatabase={loadingDatabase}
         tables={tables}
         selectedTable={selectedTable}
         loadingTables={loadingTables}

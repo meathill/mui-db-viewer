@@ -11,7 +11,12 @@ import {
   toConnectionPermission,
 } from './connection-utils';
 
-export { pickLocalSQLiteFileHandle, isLocalSQLiteConnectionId, isFileSystemFileHandle } from './connection-utils';
+export {
+  pickLocalSQLiteFileHandle,
+  isLocalSQLiteConnectionId,
+  isFileSystemFileHandle,
+  isFileSystemAccessSupported,
+} from './connection-utils';
 
 interface LocalSQLiteConnectionRecord {
   id: string;
