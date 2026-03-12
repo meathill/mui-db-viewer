@@ -4,6 +4,7 @@ import { XIcon } from 'lucide-react';
 import { use } from 'react';
 import { DatabaseDetailEmptyState } from '@/components/database-detail/empty-state';
 import { InsertRowDialog } from '@/components/database-detail/insert-row-dialog';
+import { StructureView } from '@/components/database-detail/structure-view';
 import { TableDataGrid } from '@/components/database-detail/table-data-grid';
 import { TablePagination } from '@/components/database-detail/table-pagination';
 import { TableSidebar } from '@/components/database-detail/table-sidebar';
@@ -38,6 +39,14 @@ export default function DatabaseDetailPage({ params }: PageProps) {
     sortField,
     sortOrder,
     filters,
+    pinnedColumns,
+    viewMode,
+    structureEditorContext,
+    tableStructure,
+    loadingStructureEditorContext,
+    loadingTableStructure,
+    savingStructure,
+    structureError,
     error,
     selectedRows,
     isInsertOpen,
@@ -52,7 +61,9 @@ export default function DatabaseDetailPage({ params }: PageProps) {
     emptyTablesHint,
     setIsInsertOpen,
     stopEditing,
+    handleSetViewMode,
     handleSort,
+    handleToggleColumnPin,
     handleFilterChange,
     getRowId,
     handleSelectAll,
@@ -71,7 +82,13 @@ export default function DatabaseDetailPage({ params }: PageProps) {
     handlePreviousPage,
     handleNextPage,
     clearDeleteError,
+    clearStructureError,
     handleRefresh,
+    handleRefreshTableStructure,
+    handleCreateTable,
+    handleUpdateColumn,
+    handleCreateIndex,
+    handleUpdateIndex,
     isExportingCsv,
     isImportingCsv,
     handleExportCsv,
@@ -126,7 +143,35 @@ export default function DatabaseDetailPage({ params }: PageProps) {
           </div>
         )}
 
-        {selectedTable ? (
+        <div className="border-b bg-background/90 px-4 py-3">
+          <Tabs
+            value={viewMode}
+            onValueChange={(value) => handleSetViewMode(value as 'data' | 'structure')}
+            className="w-full">
+            <TabsList className="w-fit">
+              <TabsTab value="data">数据</TabsTab>
+              <TabsTab value="structure">结构</TabsTab>
+            </TabsList>
+          </Tabs>
+        </div>
+
+        {viewMode === 'structure' ? (
+          <StructureView
+            selectedTable={selectedTable}
+            editorContext={structureEditorContext}
+            tableStructure={tableStructure}
+            loadingEditorContext={loadingStructureEditorContext}
+            loadingTableStructure={loadingTableStructure}
+            savingStructure={savingStructure}
+            structureError={structureError}
+            onClearStructureError={clearStructureError}
+            onRefreshTableStructure={handleRefreshTableStructure}
+            onCreateTable={handleCreateTable}
+            onUpdateColumn={handleUpdateColumn}
+            onCreateIndex={handleCreateIndex}
+            onUpdateIndex={handleUpdateIndex}
+          />
+        ) : selectedTable ? (
           <>
             <TableToolbar
               selectedTable={selectedTable}
@@ -158,11 +203,13 @@ export default function DatabaseDetailPage({ params }: PageProps) {
                 selectedRows={selectedRows}
                 sortField={sortField}
                 sortOrder={sortOrder}
+                pinnedColumns={pinnedColumns}
                 resolveRowId={getRowId}
                 isCellEditing={isCellEditing}
                 isCellEdited={isCellEdited}
                 getEditedCellValue={getEditedCellValue}
                 onSort={handleSort}
+                onToggleColumnPin={handleToggleColumnPin}
                 onSelectAll={handleSelectAll}
                 onSelectRow={handleSelectRow}
                 onCellDoubleClick={handleCellDoubleClick}

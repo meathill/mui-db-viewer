@@ -1,4 +1,11 @@
-import type { DatabaseConnection, RowUpdate, TableQueryOptions } from '../types';
+import type {
+  CreateTableRequest,
+  DatabaseConnection,
+  RowUpdate,
+  TableQueryOptions,
+  TableStructureColumnInput,
+  TableStructureIndexInput,
+} from '../types';
 import { createDatabaseDriver } from './drivers/factory';
 import type { IDatabaseDriver } from './drivers/interface';
 
@@ -35,8 +42,32 @@ export class DatabaseService {
     return this.driver.getTableSchema(tableName);
   }
 
+  async getStructureEditorContext() {
+    return this.driver.getStructureEditorContext();
+  }
+
+  async getTableStructure(tableName: string) {
+    return this.driver.getTableStructure(tableName);
+  }
+
   async getTableData(tableName: string, options: TableQueryOptions = {}) {
     return this.driver.getTableData(tableName, options);
+  }
+
+  async createTable(input: CreateTableRequest) {
+    return this.driver.createTable(input);
+  }
+
+  async updateColumn(tableName: string, columnName: string, input: TableStructureColumnInput) {
+    return this.driver.updateColumn(tableName, columnName, input);
+  }
+
+  async createIndex(tableName: string, input: TableStructureIndexInput) {
+    return this.driver.createIndex(tableName, input);
+  }
+
+  async updateIndex(tableName: string, indexName: string, input: TableStructureIndexInput) {
+    return this.driver.updateIndex(tableName, indexName, input);
   }
 
   async deleteRows(tableName: string, ids: Array<string | number>) {

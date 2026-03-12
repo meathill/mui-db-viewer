@@ -51,6 +51,83 @@ export interface TableColumn {
   Extra?: string;
 }
 
+export type SqlDialect = 'mysql' | 'postgres' | 'sqlite';
+
+export interface TableStructureColumn {
+  name: string;
+  type: string;
+  nullable: boolean;
+  defaultExpression: string | null;
+  primaryKey: boolean;
+  primaryKeyOrder: number | null;
+  autoIncrement: boolean;
+}
+
+export interface TableStructureIndex {
+  name: string;
+  columns: string[];
+  unique: boolean;
+  primary: boolean;
+}
+
+export interface TableStructure {
+  tableName: string;
+  dialect: SqlDialect;
+  columns: TableStructureColumn[];
+  indexes: TableStructureIndex[];
+  createStatement: string | null;
+}
+
+export interface StructureEditorCapabilities {
+  canCreateTable: boolean;
+  canEditColumns: boolean;
+  canEditIndexes: boolean;
+  canRenameColumns: boolean;
+  canEditColumnType: boolean;
+  canEditColumnNullability: boolean;
+  canEditColumnDefault: boolean;
+  supportsPrimaryKey: boolean;
+  supportsAutoIncrement: boolean;
+  canEditColumnPrimaryKey: boolean;
+  canEditColumnAutoIncrement: boolean;
+}
+
+export interface StructureEditorContext {
+  dialect: SqlDialect;
+  typeSuggestions: string[];
+  keywordSuggestions: string[];
+  capabilities: StructureEditorCapabilities;
+}
+
+export interface TableStructureColumnInput {
+  name: string;
+  type: string;
+  nullable: boolean;
+  defaultExpression?: string | null;
+  primaryKey?: boolean;
+  autoIncrement?: boolean;
+}
+
+export interface TableStructureIndexInput {
+  name: string;
+  columns: string[];
+  unique?: boolean;
+}
+
+export interface CreateTableRequest {
+  tableName: string;
+  columns: TableStructureColumnInput[];
+  indexes?: TableStructureIndexInput[];
+}
+
+export interface UpdateTableColumnRequest {
+  column: TableStructureColumnInput;
+}
+
+export interface UpsertTableIndexRequest {
+  index: TableStructureIndexInput;
+}
+
 export type TableRow = Record<string, unknown>;
 
 export interface TableDataResult<Row extends TableRow = TableRow> {

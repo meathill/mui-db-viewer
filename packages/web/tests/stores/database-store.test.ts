@@ -1,0 +1,304 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { api, type DatabaseConnection } from '@/lib/api';
+import { useDatabaseStore } from '@/stores/database-store';
+
+const { mockListLocalSQLiteConnections, mockCreateLocalSQLiteConnection, mockDeleteLocalSQLiteConnection } = vi.hoisted(
+  () => ({
+    mockListLocalSQLiteConnections: vi.fn(),
+    mockCreateLocalSQLiteConnection: vi.fn(),
+    mockDeleteLocalSQLiteConnection: vi.fn(),
+  }),
+);
+
+vi.mock('@/lib/api', () => ({
+  api: {
+    databases: {
+      list: vi.fn(),
+      create: vi.fn(),
+      delete: vi.fn(),
+    },
+  },
+}));
+
+vi.mock('@/lib/local-sqlite/connection-store', () => ({
+  listLocalSQLiteConnections: mockListLocalSQLiteConnections,
+  createLocalSQLiteConnection: mockCreateLocalSQLiteConnection,
+  deleteLocalSQLiteConnection: mockDeleteLocalSQLiteConnection,
+  isFileSystemFileHandle: (value: unknown) =>
+    Boolean(value) && typeof value === 'object' && 'getFile' in (value as Record<string, unknown>),
+  isLocalSQLiteConnectionId: (id: string) => id.startsWith('local-sqlite:'),
+}));
+
+function createMockDatabase(
+  partial: Partial<DatabaseConnection> & Pick<DatabaseConnection, 'id' | 'name'>,
+): DatabaseConnection {
+  return {
+    id: partial.id,
+    name: partial.name,
+    type: partial.type ?? 'tidb',
+    host: partial.host ?? 'localhost',
+    port: partial.port ?? '4000',
+    database: partial.database ?? 'app',
+    username: partial.username ?? 'root',
+    keyPath: partial.keyPath ?? 'k/path',
+    createdAt: partial.createdAt ?? '2026-01-01T00:00:00.000Z',
+    updatedAt: partial.updatedAt ?? '2026-01-01T00:00:00.000Z',
+    scope: partial.scope,
+    localFileName: partial.localFileName,
+    localPermission: partial.localPermission,
+    localPath: partial.localPath,
+  };
+}
+
+describe('database-store', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockListLocalSQLiteConnections.mockResolvedValue([]);
+    useDatabaseStore.getState().reset();
+  });
+
+  it('首次加载后应缓存数据库列表', async () => {
+    const databases = [
+      createMockDatabase({ id: 'db-1', name: '生产库' }),
+      createMockDatabase({ id: 'db-2', name: '测试库' }),
+    ];
+    vi.mocked(api.databases.list).mockResolvedValue(databases);
+
+    await useDatabaseStore.getState().fetchDatabases();
+
+    const state = useDatabaseStore.getState();
+    expect(api.databases.list).toHaveBeenCalledTimes(1);
+    expect(state.databases).toEqual(databases);
+    expect(state.hasLoaded).toBe(true);
+    expect(state.error).toBeNull();
+    expect(state.loading).toBe(false);
+  });
+
+  it('已加载后重复 fetch 不应重复请求', async () => {
+    const databases = [createMockDatabase({ id: 'db-1', name: '生产库' })];
+    vi.mocked(api.databases.list).mockResolvedValue(databases);
+
+    await useDatabaseStore.getState().fetchDatabases();
+    await useDatabaseStore.getState().fetchDatabases();
+
+    expect(api.databases.list).toHaveBeenCalledTimes(1);
+  });
+
+  it('refreshDatabases 应强制刷新', async () => {
+    const first = [createMockDatabase({ id: 'db-1', name: '生产库' })];
+    const second = [createMockDatabase({ id: 'db-2', name: '新库' })];
+    vi.mocked(api.databases.list).mockResolvedValueOnce(first).mockResolvedValueOnce(second);
+
+    await useDatabaseStore.getState().fetchDatabases();
+    await useDatabaseStore.getState().refreshDatabases();
+
+    const state = useDatabaseStore.getState();
+    expect(api.databases.list).toHaveBeenCalledTimes(2);
+    expect(state.databases).toEqual(second);
+  });
+
+  it('加载失败时应写入错误并保持未加载状态', async () => {
+    vi.mocked(api.databases.list).mockRejectedValue(new Error('网络异常'));
+
+    await expect(useDatabaseStore.getState().fetchDatabases()).rejects.toThrow('网络异常');
+
+    const state = useDatabaseStore.getState();
+    expect(state.hasLoaded).toBe(false);
+    expect(state.loading).toBe(false);
+    expect(state.error).toBe('网络异常');
+  });
+
+  it('deleteDatabase 应调用删除并刷新列表', async () => {
+    const first = [
+      createMockDatabase({ id: 'db-1', name: '生产库' }),
+      createMockDatabase({ id: 'db-2', name: '测试库' }),
+    ];
+    const second = [createMockDatabase({ id: 'db-2', name: '测试库' })];
+    vi.mocked(api.databases.list).mockResolvedValueOnce(first).mockResolvedValueOnce(second);
+    vi.mocked(api.databases.delete).mockResolvedValue();
+
+    await useDatabaseStore.getState().fetchDatabases();
+    await useDatabaseStore.getState().deleteDatabase('db-1');
+
+    const state = useDatabaseStore.getState();
+    expect(api.databases.delete).toHaveBeenCalledWith('db-1');
+    expect(api.databases.list).toHaveBeenCalledTimes(2);
+    expect(state.databases).toEqual(second);
+  });
+
+  it('并发 fetchDatabases 应复用同一个进行中的请求', async () => {
+    const databases = [createMockDatabase({ id: 'db-1', name: '生产库' })];
+    type ListResult = Awaited<ReturnType<typeof api.databases.list>>;
+    let resolveList: ((value: ListResult) => void) | undefined;
+
+    vi.mocked(api.databases.list).mockImplementation(
+      () =>
+        new Promise<ListResult>((resolve) => {
+          resolveList = resolve;
+        }),
+    );
+
+    const first = useDatabaseStore.getState().fetchDatabases();
+    const second = useDatabaseStore.getState().fetchDatabases();
+
+    expect(api.databases.list).toHaveBeenCalledTimes(1);
+
+    if (!resolveList) {
+      throw new Error('resolveList 未初始化');
+    }
+
+    resolveList(databases);
+    await Promise.all([first, second]);
+
+    const state = useDatabaseStore.getState();
+    expect(state.databases).toEqual(databases);
+    expect(state.hasLoaded).toBe(true);
+  });
+
+  it('加载失败且异常不是 Error 时应使用默认错误文案', async () => {
+    vi.mocked(api.databases.list).mockRejectedValue('offline');
+
+    await expect(useDatabaseStore.getState().fetchDatabases()).rejects.toBe('offline');
+
+    const state = useDatabaseStore.getState();
+    expect(state.error).toBe('获取数据库列表失败');
+    expect(state.hasLoaded).toBe(false);
+    expect(state.loading).toBe(false);
+  });
+
+  it('createDatabase 成功后应追加到列表并标记为已加载', async () => {
+    const created = createMockDatabase({ id: 'db-3', name: '新建库' });
+    vi.mocked(api.databases.create).mockResolvedValue(created);
+
+    const result = await useDatabaseStore.getState().createDatabase({
+      name: '新建库',
+      type: 'tidb',
+      host: 'localhost',
+      port: '4000',
+      database: 'app',
+      username: 'root',
+      password: 'secret',
+    });
+
+    const state = useDatabaseStore.getState();
+    expect(result).toEqual(created);
+    expect(state.databases).toEqual([created]);
+    expect(state.hasLoaded).toBe(true);
+    expect(state.error).toBeNull();
+  });
+
+  it('createDatabase(type=sqlite) 应创建本地 SQLite 连接', async () => {
+    const fileHandle = {
+      name: 'local.db',
+      getFile: vi.fn(),
+      createWritable: vi.fn(),
+    } as unknown as FileSystemFileHandle;
+    const created = createMockDatabase({
+      id: 'local-sqlite:1',
+      name: '本地库',
+      type: 'sqlite',
+      host: '本地文件',
+      port: '',
+      database: 'local.db',
+      username: '',
+      keyPath: '',
+      scope: 'local',
+    });
+
+    mockCreateLocalSQLiteConnection.mockResolvedValue(created);
+
+    const result = await useDatabaseStore.getState().createDatabase({
+      name: '本地库',
+      type: 'sqlite',
+      database: 'local.db',
+      fileHandle,
+    });
+
+    expect(result).toEqual(created);
+    expect(mockCreateLocalSQLiteConnection).toHaveBeenCalledWith({
+      name: '本地库',
+      handle: fileHandle,
+      localPath: undefined,
+    });
+    expect(api.databases.create).not.toHaveBeenCalled();
+  });
+
+  it('createDatabase(type=sqlite) 未授权时应创建失败且不写入列表', async () => {
+    const fileHandle = {
+      name: 'local.db',
+      getFile: vi.fn(),
+      createWritable: vi.fn(),
+    } as unknown as FileSystemFileHandle;
+    mockCreateLocalSQLiteConnection.mockRejectedValue(new Error('未获得本地 SQLite 文件读写权限，连接未保存'));
+
+    await expect(
+      useDatabaseStore.getState().createDatabase({
+        name: '本地库',
+        type: 'sqlite',
+        database: 'local.db',
+        fileHandle,
+      }),
+    ).rejects.toThrow('未获得本地 SQLite 文件读写权限，连接未保存');
+
+    expect(useDatabaseStore.getState().databases).toEqual([]);
+    expect(api.databases.create).not.toHaveBeenCalled();
+  });
+
+  it('createDatabase(type=sqlite) 仅填写 localPath 时应创建本地连接', async () => {
+    const created = createMockDatabase({
+      id: 'local-sqlite:2',
+      name: '路径模式',
+      type: 'sqlite',
+      host: '本地文件',
+      port: '',
+      database: 'dev.sqlite',
+      username: '',
+      keyPath: '',
+      scope: 'local',
+      localPath: '/Users/demo/dev.sqlite',
+    });
+    mockCreateLocalSQLiteConnection.mockResolvedValue(created);
+
+    const result = await useDatabaseStore.getState().createDatabase({
+      name: '路径模式',
+      type: 'sqlite',
+      database: 'dev.sqlite',
+      localPath: '/Users/demo/dev.sqlite',
+    });
+
+    expect(result).toEqual(created);
+    expect(mockCreateLocalSQLiteConnection).toHaveBeenCalledWith({
+      name: '路径模式',
+      handle: undefined,
+      localPath: '/Users/demo/dev.sqlite',
+    });
+    expect(api.databases.create).not.toHaveBeenCalled();
+  });
+
+  it('deleteDatabase(本地连接) 应删除本地连接而不调用远端 API', async () => {
+    const localDatabase = createMockDatabase({
+      id: 'local-sqlite:1',
+      name: '本地库',
+      type: 'sqlite',
+      host: '本地文件',
+      port: '',
+      database: 'local.db',
+      username: '',
+      keyPath: '',
+      scope: 'local',
+    });
+
+    useDatabaseStore.setState({
+      databases: [localDatabase],
+      hasLoaded: true,
+      loading: false,
+      error: null,
+    });
+
+    await useDatabaseStore.getState().deleteDatabase('local-sqlite:1');
+
+    expect(mockDeleteLocalSQLiteConnection).toHaveBeenCalledWith('local-sqlite:1');
+    expect(api.databases.delete).not.toHaveBeenCalled();
+    expect(useDatabaseStore.getState().databases).toEqual([]);
+  });
+});

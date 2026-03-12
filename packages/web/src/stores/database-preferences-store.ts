@@ -12,6 +12,7 @@ export interface TablePreference {
   sortField: string | null;
   sortOrder: SortOrder;
   filters: Record<string, string>;
+  pinnedColumns: string[];
 }
 
 export interface DatabasePreference {
@@ -30,6 +31,7 @@ export interface DatabasePreferencesState {
   setPageSize: (databaseId: string, table: string, pageSize: number) => void;
   setSort: (databaseId: string, table: string, field: string) => void;
   setFilter: (databaseId: string, table: string, field: string, value: string) => void;
+  toggleColumnPin: (databaseId: string, table: string, field: string) => void;
 }
 
 const defaultTablePreference: TablePreference = {
@@ -38,6 +40,7 @@ const defaultTablePreference: TablePreference = {
   sortField: null,
   sortOrder: DEFAULT_SORT_ORDER,
   filters: {},
+  pinnedColumns: [],
 };
 
 const defaultDatabasePreference: DatabasePreference = {
@@ -201,6 +204,32 @@ export const useDatabasePreferencesStore = create<DatabasePreferencesState>()(
                 tablePreferences: {
                   ...db.tablePreferences,
                   [table]: { ...pref, filters: nextFilters, page: DEFAULT_PAGE },
+                },
+              },
+            },
+          };
+        });
+      },
+
+      toggleColumnPin: (databaseId, table, field) => {
+        set((state) => {
+          const db = state.databases[databaseId];
+          if (!db) return state;
+
+          const pref = db.tablePreferences[table] || { ...defaultTablePreference };
+          const pinnedColumns = pref.pinnedColumns || [];
+          const isPinned = pinnedColumns.includes(field);
+
+          const nextPinnedColumns = isPinned ? pinnedColumns.filter((col) => col !== field) : [...pinnedColumns, field];
+
+          return {
+            databases: {
+              ...state.databases,
+              [databaseId]: {
+                ...db,
+                tablePreferences: {
+                  ...db.tablePreferences,
+                  [table]: { ...pref, pinnedColumns: nextPinnedColumns },
                 },
               },
             },

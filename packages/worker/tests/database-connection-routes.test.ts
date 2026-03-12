@@ -1,0 +1,273 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { createDatabaseRouteTestClient, createMockDatabaseConnectionRow } from './database-route-test-utils';
+
+vi.mock('@/services/hsm', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/services/hsm')>();
+  return {
+    ...actual,
+    createHsmClient: vi.fn(() => ({
+      encrypt: vi.fn().mockResolvedValue(undefined),
+      decrypt: vi.fn().mockResolvedValue('decrypted-password'),
+      delete: vi.fn().mockResolvedValue(undefined),
+    })),
+  };
+});
+
+vi.mock('@tidbcloud/serverless', () => ({
+  connect: vi.fn(() => ({
+    execute: vi.fn((sql: string) => {
+      if (sql.includes('SHOW TABLES')) {
+        return Promise.resolve([{ Tables_in_test_db: 'users' }]);
+      }
+
+      if (sql.toUpperCase().includes('SELECT 1')) {
+        return Promise.resolve([{ id: 1 }]);
+      }
+      return Promise.resolve([]);
+    }),
+  })),
+}));
+
+describe('database connection routes', () => {
+  let client: ReturnType<typeof createDatabaseRouteTestClient>;
+
+  beforeEach(() => {
+    client = createDatabaseRouteTestClient();
+    client.setConnectionRow(null);
+  });
+
+  it('POST /databases 成功创建数据库连接', async () => {
+    const res = await client.request('/databases', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: '测试数据库',
+        type: 'tidb',
+        host: 'localhost',
+        port: '3306',
+        database: 'test_db',
+        username: 'root',
+        password: 'secret',
+      }),
+    });
+
+    expect(res.status).toBe(201);
+    const json = (await res.json()) as {
+      success: boolean;
+      data?: { name: string; type: string; id: string; keyPath: string; password?: string };
+    };
+
+    expect(json.success).toBe(true);
+    expect(json.data).toMatchObject({
+      name: '测试数据库',
+      type: 'tidb',
+      host: 'localhost',
+    });
+    expect(json.data?.id).toBeDefined();
+    expect(json.data?.keyPath).toContain('vibedb/databases');
+    expect(json.data?.password).toBeUndefined();
+  });
+
+  it('POST /databases 缺少必填字段时返回 400', async () => {
+    const res = await client.request('/databases', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: '测试数据库' }),
+    });
+
+    expect(res.status).toBe(400);
+    const json = (await res.json()) as { success: boolean; error?: string };
+    expect(json.success).toBe(false);
+    expect(json.error).toBe('缺少必填字段');
+  });
+
+  it('POST /databases 必填字段为空白字符时返回 400', async () => {
+    const res = await client.request('/databases', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: '   ',
+        type: 'tidb',
+        host: 'localhost',
+        port: '3306',
+        database: 'test_db',
+        username: 'root',
+        password: 'secret',
+      }),
+    });
+
+    expect(res.status).toBe(400);
+    const json = (await res.json()) as { success: boolean; error?: string };
+    expect(json.success).toBe(false);
+    expect(json.error).toBe('缺少必填字段');
+  });
+
+  it('POST /databases 不传端口时使用默认值 3306', async () => {
+    const res = await client.request('/databases', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: '无端口指定',
+        type: 'tidb',
+        host: 'localhost',
+        database: 'test_db',
+        username: 'root',
+        password: 'secret',
+      }),
+    });
+
+    const json = (await res.json()) as { data?: { port: string } };
+    expect(json.data?.port).toBe('3306');
+  });
+
+  it('POST /databases 端口为空白字符时使用默认值 3306', async () => {
+    const res = await client.request('/databases', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: '空白端口',
+        type: 'tidb',
+        host: 'localhost',
+        port: '   ',
+        database: 'test_db',
+        username: 'root',
+        password: 'secret',
+      }),
+    });
+
+    expect(res.status).toBe(201);
+    const json = (await res.json()) as { success: boolean; data?: { port: string } };
+    expect(json.success).toBe(true);
+    expect(json.data?.port).toBe('3306');
+  });
+
+  it('GET /databases 返回数据库列表', async () => {
+    const res = await client.request('/databases');
+
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as { success: boolean; data?: unknown[] };
+    expect(json.success).toBe(true);
+    expect(Array.isArray(json.data)).toBe(true);
+  });
+
+  it('GET /databases/:id 不存在时返回 404', async () => {
+    const res = await client.request('/databases/non-existent-id');
+
+    expect(res.status).toBe(404);
+    const json = (await res.json()) as { success: boolean; error?: string };
+    expect(json.success).toBe(false);
+    expect(json.error).toBe('数据库连接不存在');
+  });
+
+  it('DELETE /databases/:id 不存在时返回 404', async () => {
+    const res = await client.request('/databases/non-existent-id', {
+      method: 'DELETE',
+    });
+
+    expect(res.status).toBe(404);
+    const json = (await res.json()) as { success: boolean };
+    expect(json.success).toBe(false);
+  });
+
+  it('GET /databases/:id/tables 成功返回表列表', async () => {
+    client.setConnectionRow(createMockDatabaseConnectionRow());
+
+    const res = await client.request('/databases/test-id/tables');
+
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as { success: boolean; data?: string[] };
+    expect(json.success).toBe(true);
+    expect(json.data).toEqual(['users']);
+  });
+
+  it('POST /databases/:id/query 成功执行 SQL 并返回 rows/columns', async () => {
+    client.setConnectionRow(createMockDatabaseConnectionRow());
+
+    const res = await client.request('/databases/test-id/query', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sql: 'SELECT 1 as id' }),
+    });
+
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as {
+      success: boolean;
+      data?: { rows: Array<{ id: number }>; columns: Array<{ Field: string; Type: string }> };
+      error?: string;
+    };
+    expect(json.success).toBe(true);
+    expect(json.error).toBeUndefined();
+    expect(json.data?.rows).toEqual([{ id: 1 }]);
+    expect(json.data?.columns).toEqual([{ Field: 'id', Type: 'number' }]);
+  });
+
+  it('POST /databases/:id/query 不允许执行非只读 SQL', async () => {
+    client.setConnectionRow(createMockDatabaseConnectionRow());
+
+    const res = await client.request('/databases/test-id/query', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sql: 'DELETE FROM users' }),
+    });
+
+    expect(res.status).toBe(400);
+    const json = (await res.json()) as { success: boolean; error?: string };
+    expect(json.success).toBe(false);
+    expect(json.error).toContain('只允许');
+  });
+
+  it('GET /databases/:id/schema 成功返回 schema context', async () => {
+    client.setConnectionRow(createMockDatabaseConnectionRow());
+
+    const res = await client.request('/databases/test-id/schema');
+
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as {
+      success: boolean;
+      data?: { schema: string; updatedAt: number; expiresAt: number; cached: boolean };
+      error?: string;
+    };
+
+    expect(json.success).toBe(true);
+    expect(json.error).toBeUndefined();
+    expect(typeof json.data?.schema).toBe('string');
+    expect(json.data?.schema).toContain('表: users');
+    expect(typeof json.data?.updatedAt).toBe('number');
+    expect(typeof json.data?.expiresAt).toBe('number');
+    expect(json.data?.expiresAt).toBeGreaterThan(json.data!.updatedAt);
+    expect(typeof json.data?.cached).toBe('boolean');
+  });
+
+  it('POST /databases/:id/schema/refresh 成功刷新 schema context', async () => {
+    client.setConnectionRow(createMockDatabaseConnectionRow());
+
+    const res = await client.request('/databases/test-id/schema/refresh', {
+      method: 'POST',
+    });
+
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as {
+      success: boolean;
+      data?: { schema: string; updatedAt: number; expiresAt: number; cached: boolean };
+      error?: string;
+    };
+
+    expect(json.success).toBe(true);
+    expect(json.error).toBeUndefined();
+    expect(typeof json.data?.schema).toBe('string');
+    expect(json.data?.schema).toContain('表: users');
+    expect(typeof json.data?.updatedAt).toBe('number');
+    expect(typeof json.data?.expiresAt).toBe('number');
+    expect(json.data?.expiresAt).toBeGreaterThan(json.data!.updatedAt);
+    expect(typeof json.data?.cached).toBe('boolean');
+  });
+
+  it('GET /databases/:id/schema 不存在时返回 404', async () => {
+    const res = await client.request('/databases/non-existent-id/schema');
+
+    expect(res.status).toBe(404);
+    const json = (await res.json()) as { success: boolean; error?: string };
+    expect(json.success).toBe(false);
+    expect(json.error).toBe('数据库连接不存在');
+  });
+});

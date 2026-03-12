@@ -1,108 +1,76 @@
 # 开发笔记
 
-## 路由维护原则
+只记录长期有效、反复踩坑或容易被忘掉的约定。
 
-- `worker` 路由优先保持“薄路由”：
-  - 参数解析
+## 路由与服务
+
+- `worker` 和 `sidecar` 都用 Hono，路由层保持薄：
+  - 解析参数
   - 调用 service
   - 返回响应
-- 重复流程（连接加载、HSM 解密、查询参数解析）统一提取到共享模块。
+- 重复流程优先提到共享模块，不要在路由里复制：
+  - 请求校验
+  - 数据库连接加载
+  - 查询参数解析
+  - 错误响应
 
-## 数据库扩展约定
+## Web API 代理
 
-- 新增数据库类型时，先实现 `IDatabaseDriver`。
-- 驱动层保持统一输出：
-  - `getTables(): string[]`
-  - `getTableSchema(): TableColumn[]`
-  - `getTableData(): TableQueryResult`
-- 避免在路由层写数据库方言判断。
+- `packages/web/src/app/api/v1/[...path]/route.ts` 是同域代理入口。
+- 生产环境默认通过同域 `/api/v1/*` 转发到 Worker。
+- 本地未显式配置时，默认转发到 `http://localhost:8787`。
+- 代理失败时必须返回明确 `Response`，不要让 Next 落到“无响应”错误。
 
-## Schema 上下文与缓存
+## Query 页面状态
 
-- AI 生成 SQL 时，Worker 会根据 `databaseId` 自动读取目标数据库的表结构（`getTables` + `getTableSchema`），并注入到 LLM 的上下文中。
-- Schema 会缓存到 D1 表 `database_schema_cache`：
-  - `schema_text`：用于 AI 的文本化结构
-  - `updated_at` / `expires_at`：epoch ms
-  - 默认 TTL：7 天（`SCHEMA_CACHE_TTL_MS`）
-- 删除数据库连接时会同步删除对应的 schema cache，避免脏数据。
-- 手动刷新接口：
-  - `GET /api/v1/databases/:id/schema`：读取（命中缓存则返回 `cached: true`）
-  - `POST /api/v1/databases/:id/schema/refresh`：强制刷新（`cached: false`）
+- Query 会话状态统一由 `query-store` 管理。
+- `session` URL 参数负责驱动“打开哪条历史会话”。
+- 当 URL 从 `?session=...` 切回 `/query` 时，页面必须清空当前会话内容，避免 URL 与 store 状态脱节。
+- 自动保存新会话时，不要依赖 URL 变化来维持状态。
 
-## Worker 环境变量类型
+## 本地 SQLite
 
-- Worker bindings 类型由 wrangler 自动生成：`packages/worker/worker-configuration.d.ts`。
-- 业务代码直接使用全局 `CloudflareBindings`，不要在 `packages/worker/src/types.ts` 手写 `Env`。
-- 当 `wrangler.jsonc` 的绑定变更后，运行 `pnpm --filter worker cf-typegen` 更新类型文件。
+- 本地连接元数据保存在浏览器侧，可能同时包含：
+  - `FileSystemFileHandle`
+  - `localPath`
+- 执行顺序：
+  1. 有 `localPath` 时优先走 sidecar
+  2. sidecar 不可用且仍有文件句柄时，回退到 FSA + `sql.js`
+- 本地文件路径不能提交到 Worker。
+- `prompt` 权限在 UI 上按“不可访问”处理，不显示中间态。
 
-## D1 元数据（Drizzle）
+## D1 与 Worker 类型
 
-- Drizzle 仅用于管理 Worker 自身的 D1 元数据表（连接/收藏/Schema cache/会话历史等），不用于外部数据库（MySQL/PostgreSQL/TiDB/D1 浏览等）查询。
-- Schema 定义统一放在：`packages/worker/src/db/schema.ts`
-- D1 迁移文件放在：`packages/worker/migrations`
-- 应用迁移：
-  - 本地：`pnpm --filter worker migrate:local`
-  - 远端：`pnpm --filter worker migrate:remote`
-- 线上若出现 `D1_ERROR: no such table: database_connections`，表示目标 D1 未完成初始化迁移；先执行对应环境的 migration，再排查业务逻辑。
+- Drizzle 只管理 Worker 自身的 D1 元数据表，不参与外部数据库查询。
+- Schema 定义放在 `packages/worker/src/db/schema.ts`。
+- Wrangler 绑定类型由自动生成文件维护，不手写业务 `Env` 类型。
+- 修改 `wrangler.jsonc` 绑定后，运行：
 
-## Web 状态与 API 约定
+```bash
+pnpm --filter worker cf-typegen
+```
 
-- 跨页面共享状态优先放入 `zustand` store。
-- API 参数序列化逻辑集中在 `lib` 工具函数，避免页面手工拼 query。
-- 表格相关通用处理（主键识别、单元格格式化）抽到独立工具模块。
-- 数据库连接表单支持从 Database URL 自动解析并回填（`mysql://` / `postgres://` / `postgresql://`）。
-- 解析 URL 时会识别 `sslmode` / `ssl` / `tls` 查询参数，并在表单显示提示；当前 worker 驱动默认启用 TLS（`rejectUnauthorized=false`）。
+## UI 与交互
 
-## 本地 SQLite（File System Access）约定
+- 业务组件只从 `@/components/ui/*` 引用基础组件。
+- 图标统一使用 `lucide-react` 的 `*Icon` 命名导出。
+- 成功反馈走 `showSuccessToast`，失败反馈走 `showErrorAlert`。
+- 避免 `window.alert` / `window.confirm`。
 
-- `sqlite` 连接在 Web 端视为“本地文件模式”，不把本地路径提交到 Worker。
-- 本地连接元数据（包含 `FileSystemFileHandle`）统一保存在 IndexedDB：
-  - 存储模块：`packages/web/src/lib/local-sqlite/connection-store.ts`
-  - 执行模块：`packages/web/src/lib/local-sqlite/sqlite-engine.ts`
-- Query 页面对本地连接走“SQL 直执行”模式，远端连接保持“AI 生成 SQL”模式。
-- 本地连接权限状态依赖浏览器 `queryPermission/requestPermission`，不可访问时前端应展示降级状态，不要假设权限恒为 granted。
-- 列表展示层不使用“待授权”中间态：`prompt` 按不可访问处理；新建本地连接时必须先拿到 `granted` 再写入持久化存储。
+## 代码组织
 
-## 本地 SQLite Sidecar 约定
+- 单文件尽量控制在 300 行附近，超过 400 行优先拆分。
+- 页面和大组件的复杂逻辑优先抽成 hook 或独立模块。
+- 复杂对象校验统一优先使用 `zod`。
 
-- sidecar 包位置：`packages/sidecar`，默认监听 `127.0.0.1:19666`。
-- Web 连接可额外保存 `localPath`（本机文件路径）；执行 SQL 时优先走 sidecar：
-  - sidecar API：`POST /api/v1/sqlite/query`（`{ path, sql }`）
-  - 健康检查：`GET /health`
-- sidecar 调用失败且连接存在 `FileSystemFileHandle` 时，自动回退浏览器 `sql.js` 执行链路。
-- 若仅配置 `localPath` 而未保存句柄，sidecar 不可用时应直接报错，不做静默降级。
-- 提交前先执行 `pnpm run format`，再执行测试并提交。
+## 测试与提交流程
 
-## Coss UI 组件用法约定
+- 测试统一放在 `packages/*/tests` 与根目录 `e2e`。
+- 修 bug 时，优先补回归测试，再改实现。
+- 提交前固定执行：
 
-- 业务代码只从 `@/components/ui/*` 引用组件，不直接引用 `@base-ui/react/*`（除非在 `components/ui` 封装内部）。
-- 图标：统一使用 `lucide-react` 的 `*Icon` 命名导出（例如 `SaveIcon` / `ChevronLeftIcon`），不使用 `as` 重命名，避免歧义。
-- 样式：当 `h-*` 与 `w-*` 相等时，统一写成 `size-*`（例如 `size-4`），减少重复。
-- 弹层类组件（`Dialog` / `AlertDialog` / `Menu` / `Select` 等）优先使用 `*Popup` / `*Content`：
-  - 不要在业务层手工再包一层 `Portal` / `Backdrop` / `Viewport`，避免重复渲染导致遮罩叠层、样式错乱。
-- 触发器类组件优先使用 `render` prop（Coss UI 风格），不要按 shadcn/Radix 的 `asChild` 写法套用。
-- `Dialog` 内的表单按钮建议放在 `DialogFooter`，并通过 `form={formId}` 绑定提交：
-  - 避免把 `DialogFooter` 整体包进 `<form>` 造成滚动区域与 padding 不一致。
-- 交互反馈约定：
-  - 成功：用 `Toast`（非打断式），统一走 `@/lib/client-feedback` 的 `showSuccessToast`。
-  - 失败：用全局错误弹窗（`AlertDialog`），统一走 `@/lib/client-feedback` 的 `showErrorAlert`，避免用户漏看。
-  - 避免使用 `window.confirm/alert`，保证交互风格一致且可测试。
-
-## Query 模块约定
-
-- Query 页面会话状态统一由 `query-store` 管理，页面避免重复维护本地副本。
-- Query 页面的组件测试应覆盖键盘提交、loading 禁用、SQL 卡片交互（复制/执行）等关键路径。
-
-## SQL 构建复用约定
-
-- `where-clause-builder` 作为 SQL 条件构建统一入口。
-- `?` 占位符类驱动与 PostgreSQL 驱动复用同一流程，新增方言优先扩展构建器而不是复制 driver 私有实现。
-
-## 维护性与质量约定
-
-- **代码长度**：单文件建议控制在 500 行以内。超出时应考虑按功能拆分。
-- **Hook 拆分**：页面或大组件的逻辑优先抽离为自定义 Hook（例如 `useXXXController`），保持视图层简洁。
-- **校验库**：复杂对象校验、路由请求校验统一使用 `zod`。
-- **架构一致性**：Sidecar 与 Worker 均采用 `Hono` 作为 Web 框架。
-- **错误处理**：统一使用 `@/lib/client-feedback` 提供的工具进行反馈。
-- 提交前务必执行 `pnpm run format`。
+```bash
+pnpm run format
+pnpm test
+pnpm test:e2e
+```

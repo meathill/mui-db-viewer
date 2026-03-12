@@ -3,8 +3,13 @@
  */
 
 import { test, expect } from '@playwright/test';
+import { createDefaultWorkerMockState, mockWorkerApi } from './mock-worker-api';
 
 test.describe('首页', () => {
+  test.beforeEach(async ({ page }) => {
+    await mockWorkerApi(page, createDefaultWorkerMockState());
+  });
+
   test('页面正确加载', async ({ page }) => {
     await page.goto('/');
 
@@ -16,15 +21,15 @@ test.describe('首页', () => {
     await page.goto('/');
 
     // 检查搜索框存在
-    const searchBox = page.locator('text=Magic Search').first();
-    await expect(searchBox).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Magic Search' })).toBeVisible();
+    await expect(page.getByPlaceholder('用自然语言描述你的查询，例如：查看上周的订单数据...')).toBeVisible();
   });
 
   test('显示统计卡片', async ({ page }) => {
     await page.goto('/');
 
     // 检查统计卡片
-    await expect(page.locator('text=数据库连接')).toBeVisible();
-    await expect(page.locator('text=今日查询')).toBeVisible();
+    await expect(page.getByText('已连接数据库')).toBeVisible();
+    await expect(page.getByText('今日查询')).toBeVisible();
   });
 });

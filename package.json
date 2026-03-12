@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "format": "biome format --write",
-    "test": "pnpm --filter worker test --run && pnpm --filter web test --run",
+    "test": "pnpm --filter worker test --run && pnpm --filter sidecar test --run && pnpm --filter web test --run",
     "test:e2e": "playwright test"
   },
   "keywords": [],

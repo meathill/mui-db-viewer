@@ -17,6 +17,7 @@ import { useTableDataOperations } from './hooks/use-table-data-operations';
 import { useTablePagination } from './hooks/use-table-pagination';
 import { useTableSelection } from './hooks/use-table-selection';
 import { useCsvOperations } from './hooks/use-csv-operations';
+import { useTableStructureController } from './hooks/use-table-structure-controller';
 
 export function useDatabaseDetailController(id: string) {
   const prefStore = useDatabasePreferencesStore();
@@ -38,9 +39,10 @@ export function useDatabaseDetailController(id: string) {
           sortField: null,
           sortOrder: DEFAULT_SORT_ORDER,
           filters: {},
+          pinnedColumns: [],
         };
 
-  const { page, pageSize, sortField, sortOrder, filters } = tablePref;
+  const { page, pageSize, sortField, sortOrder, filters, pinnedColumns = [] } = tablePref;
 
   const strategy = useMemo(() => resolveDatabaseDetailStrategy(id), [id]);
 
@@ -85,6 +87,18 @@ export function useDatabaseDetailController(id: string) {
       filters,
     });
   }, [id, selectedTable, page, pageSize, sortField, sortOrder, filters, detailStore.fetchTableData]);
+
+  const structureController = useTableStructureController({
+    databaseId: id,
+    selectedTable,
+    strategy,
+    refreshTables: detailStore.fetchTables,
+    selectTable: (tableName: string) => {
+      prefStore.selectTable(id, tableName);
+      clearSelection();
+      editStore.clearEdits();
+    },
+  });
 
   const {
     isInsertOpen,
@@ -177,6 +191,14 @@ export function useDatabaseDetailController(id: string) {
     sortField,
     sortOrder,
     filters,
+    pinnedColumns,
+    viewMode: structureController.viewMode,
+    structureEditorContext: structureController.editorContext,
+    tableStructure: structureController.tableStructure,
+    loadingStructureEditorContext: structureController.loadingEditorContext,
+    loadingTableStructure: structureController.loadingTableStructure,
+    savingStructure: structureController.savingStructure,
+    structureError: structureController.structureError,
     error: detailStore.error,
     databaseName: database?.name || null,
     loadingDatabase: loadingDbs && databases.length === 0,
@@ -194,7 +216,15 @@ export function useDatabaseDetailController(id: string) {
     emptyTablesHint,
     setIsInsertOpen,
     stopEditing: editStore.stopEditing,
+    handleSetViewMode: structureController.setViewMode,
     handleSort,
+    handleToggleColumnPin: (field: string) => {
+      if (!selectedTable) {
+        return;
+      }
+
+      prefStore.toggleColumnPin(id, selectedTable, field);
+    },
     handleFilterChange,
     getRowId,
     handleSelectAll,
@@ -228,7 +258,13 @@ export function useDatabaseDetailController(id: string) {
     handlePreviousPage,
     handleNextPage,
     clearDeleteError: () => setDeleteError(null),
+    clearStructureError: structureController.clearStructureError,
     handleRefresh: doFetchTableData,
+    handleRefreshTableStructure: structureController.fetchTableStructure,
+    handleCreateTable: structureController.handleCreateTable,
+    handleUpdateColumn: structureController.handleUpdateColumn,
+    handleCreateIndex: structureController.handleCreateIndex,
+    handleUpdateIndex: structureController.handleUpdateIndex,
     isExportingCsv,
     isImportingCsv,
     handleExportCsv,

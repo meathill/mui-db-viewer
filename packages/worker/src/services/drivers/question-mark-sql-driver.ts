@@ -1,4 +1,14 @@
-import type { RowUpdate, TableColumn, TableQueryFilters, TableQueryOptions } from '../../types';
+import type {
+  CreateTableRequest,
+  RowUpdate,
+  StructureEditorContext,
+  TableColumn,
+  TableQueryFilters,
+  TableQueryOptions,
+  TableStructure,
+  TableStructureColumnInput,
+  TableStructureIndexInput,
+} from '../../types';
 import type { IDatabaseDriver } from './interface';
 import { findPrimaryKeyField } from './helpers';
 import { buildQuestionMarkWhereClause } from './where-clause-builder';
@@ -35,6 +45,12 @@ function parseTotalCount(rows: QueryRows): number {
 export abstract class QuestionMarkSqlDriver implements IDatabaseDriver {
   abstract connect(): Promise<void>;
   abstract disconnect(): Promise<void>;
+  abstract getStructureEditorContext(): Promise<StructureEditorContext>;
+  abstract getTableStructure(tableName: string): Promise<TableStructure>;
+  abstract createTable(input: CreateTableRequest): Promise<void>;
+  abstract updateColumn(tableName: string, columnName: string, input: TableStructureColumnInput): Promise<void>;
+  abstract createIndex(tableName: string, input: TableStructureIndexInput): Promise<void>;
+  abstract updateIndex(tableName: string, indexName: string, input: TableStructureIndexInput): Promise<void>;
 
   protected abstract executeQuery(query: string, params?: unknown[]): Promise<QueryRows>;
 

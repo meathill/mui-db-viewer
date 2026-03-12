@@ -1,8 +1,8 @@
 import { connect, Connection } from '@tidbcloud/serverless';
 import type { DatabaseConnection } from '../../types';
-import { QuestionMarkSqlDriver } from './question-mark-sql-driver';
+import { MySqlCompatibleDriver } from './mysql-compatible-driver';
 
-export class TiDBDriver extends QuestionMarkSqlDriver {
+export class TiDBDriver extends MySqlCompatibleDriver {
   private connection: Connection | null = null;
   private config: DatabaseConnection;
   private password?: string;

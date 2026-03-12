@@ -1,6 +1,6 @@
 import Database from 'better-sqlite3';
 import type { TableColumn } from '../../types';
-import { QuestionMarkSqlDriver } from './question-mark-sql-driver';
+import { SqliteLikeDriver } from './sqlite-like-driver';
 
 interface PragmaTableInfoRow {
   name: string;
@@ -10,7 +10,7 @@ interface PragmaTableInfoRow {
   notnull: number;
 }
 
-export class SQLiteDriver extends QuestionMarkSqlDriver {
+export class SQLiteDriver extends SqliteLikeDriver {
   private db: Database.Database | null = null;
 
   constructor(private filePath: string) {
@@ -48,6 +48,19 @@ export class SQLiteDriver extends QuestionMarkSqlDriver {
       Default: row.dflt_value,
       Null: row.notnull ? 'NO' : 'YES',
     }));
+  }
+
+  protected async executeWriteStatements(statements: string[]): Promise<void> {
+    await this.connect();
+    const script = statements
+      .map((statement) => statement.trim())
+      .filter(Boolean)
+      .join(';\n');
+    if (!script) {
+      return;
+    }
+
+    this.db!.exec(`${script};`);
   }
 
   protected async executeQuery(query: string, params?: unknown[]): Promise<Array<Record<string, unknown>>> {

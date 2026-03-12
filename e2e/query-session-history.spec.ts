@@ -185,9 +185,9 @@ test.describe('查询历史（Query Sessions）', () => {
     await expect(page.getByText('SELECT COUNT(*) AS total_orders FROM orders;')).toBeVisible();
 
     // 点击“新建查询”应清空会话并回到 /query
-    await page.locator('aside').getByRole('button', { name: '新建查询' }).click();
+    await page.getByRole('button', { name: '新建查询', exact: true }).click();
     await expect(page).toHaveURL(/\/query$/);
-    await expect(page.getByText('开始 AI 查询')).toBeVisible();
+    await expect(page.getByRole('heading', { name: '开始 AI 查询' })).toBeVisible();
   });
 
   test('发送 AI 查询后会自动保存为历史会话', async ({ page }) => {
@@ -197,7 +197,7 @@ test.describe('查询历史（Query Sessions）', () => {
     await page.goto('/query');
 
     // 选择数据库，解锁输入框
-    await page.getByRole('button', { name: '选择数据库' }).click();
+    await page.getByRole('combobox').click();
     await page.getByText('测试数据库', { exact: true }).click();
 
     const textarea = page.getByPlaceholder('描述你的查询需求...');

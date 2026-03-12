@@ -1,11 +1,15 @@
 import { request } from './api-request';
 import { buildTableDataSearchParams, type TableQueryParams } from './table-query';
 import type {
+  CreateTableRequest,
   CreateDatabaseRequest,
   DatabaseConnection,
   DatabaseSchemaContext,
   RowUpdate,
+  StructureEditorContext,
   TableDataResult,
+  TableStructure,
+  TableStructureIndexInput,
 } from './api-types';
 
 export const databases = {
@@ -74,6 +78,58 @@ export const databases = {
       throw new Error(result.error || '获取表数据失败');
     }
     return result.data;
+  },
+
+  async getStructureEditorContext(id: string): Promise<StructureEditorContext> {
+    const result = await request<StructureEditorContext>('GET', `/api/v1/databases/${id}/editor-context`);
+    if (!result.success || !result.data) {
+      throw new Error(result.error || '获取结构编辑上下文失败');
+    }
+    return result.data;
+  },
+
+  async getTableStructure(id: string, tableName: string): Promise<TableStructure> {
+    const result = await request<TableStructure>('GET', `/api/v1/databases/${id}/tables/${tableName}/structure`);
+    if (!result.success || !result.data) {
+      throw new Error(result.error || '获取表结构失败');
+    }
+    return result.data;
+  },
+
+  async createTable(id: string, data: CreateTableRequest): Promise<{ tableName: string }> {
+    const result = await request<{ tableName: string }>('POST', `/api/v1/databases/${id}/tables`, data);
+    if (!result.success || !result.data) {
+      throw new Error(result.error || '创建数据表失败');
+    }
+    return result.data;
+  },
+
+  async updateColumn(
+    id: string,
+    tableName: string,
+    columnName: string,
+    column: CreateTableRequest['columns'][number],
+  ): Promise<void> {
+    const result = await request('PUT', `/api/v1/databases/${id}/tables/${tableName}/columns/${columnName}`, {
+      column,
+    });
+    if (!result.success) {
+      throw new Error(result.error || '更新列失败');
+    }
+  },
+
+  async createIndex(id: string, tableName: string, index: TableStructureIndexInput): Promise<void> {
+    const result = await request('POST', `/api/v1/databases/${id}/tables/${tableName}/indexes`, { index });
+    if (!result.success) {
+      throw new Error(result.error || '创建索引失败');
+    }
+  },
+
+  async updateIndex(id: string, tableName: string, indexName: string, index: TableStructureIndexInput): Promise<void> {
+    const result = await request('PUT', `/api/v1/databases/${id}/tables/${tableName}/indexes/${indexName}`, { index });
+    if (!result.success) {
+      throw new Error(result.error || '更新索引失败');
+    }
   },
 
   async deleteRows(id: string, tableName: string, ids: Array<string | number>): Promise<void> {

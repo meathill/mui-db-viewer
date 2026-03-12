@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useShallow } from 'zustand/react/shallow';
 import { AppSidebar } from '@/components/app-sidebar';
@@ -28,6 +28,7 @@ export default function QueryPageClient() {
     sendQuery,
     executeSql,
     openSession,
+    newQuery,
   } = useQueryStore(
     useShallow((state) => ({
       messages: state.messages,
@@ -41,6 +42,7 @@ export default function QueryPageClient() {
       sendQuery: state.sendQuery,
       executeSql: state.executeSql,
       openSession: state.openSession,
+      newQuery: state.newQuery,
     })),
   );
   const databases = useDatabaseStore((state) => state.databases);
@@ -51,6 +53,7 @@ export default function QueryPageClient() {
   const searchParams = useSearchParams();
   const sessionIdFromUrl = searchParams.get('session');
   const databaseIdFromUrl = searchParams.get('databaseId');
+  const previousSessionIdRef = useRef<string | null>(sessionIdFromUrl);
   const selectedDatabase = databases.find((database) => database.id === selectedDatabaseId);
   const isLocalDatabase = selectedDatabase?.scope === 'local';
 
@@ -59,6 +62,15 @@ export default function QueryPageClient() {
       console.error('Failed to fetch databases:', fetchError);
     });
   }, [fetchDatabases]);
+
+  useEffect(() => {
+    const previousSessionId = previousSessionIdRef.current;
+    previousSessionIdRef.current = sessionIdFromUrl;
+
+    if (previousSessionId && !sessionIdFromUrl) {
+      newQuery();
+    }
+  }, [sessionIdFromUrl, newQuery]);
 
   useEffect(() => {
     if (!sessionIdFromUrl) {

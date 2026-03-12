@@ -1,6 +1,20 @@
 import type { Page, Route, Request } from '@playwright/test';
+import {
+  createDefaultStructureState,
+  createMockIndex,
+  createMockTable,
+  getMockTableData,
+  getMockTableStructure,
+  getStructureEditorContext,
+  getStructureErrorMessage,
+  listMockTables,
+  updateMockColumn,
+  updateMockIndex,
+  type MockDatabaseStructureState,
+} from './mock-worker-structure';
 
 const WORKER_ORIGIN = 'http://localhost:8787';
+const WEB_ORIGINS = new Set(['http://localhost:3015', 'http://127.0.0.1:3015']);
 
 type ApiSuccess<T> = { success: true; data: T };
 type ApiFailure = { success: false; error: string };
@@ -57,6 +71,7 @@ export interface WorkerMockState {
   sessions: MockQuerySession[];
   messagesBySessionId: Record<string, MockQuerySessionMessage[]>;
   nextSessionId: number;
+  structure: MockDatabaseStructureState;
 }
 
 function corsHeaders(): Record<string, string> {
@@ -139,6 +154,18 @@ function parseBodyJson(request: Request): unknown {
   }
 }
 
+function decodePathSegment(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+function findDatabase(state: WorkerMockState, id: string): MockDatabaseConnection | null {
+  return state.databases.find((database) => database.id === id) ?? null;
+}
+
 function findSession(state: WorkerMockState, id: string): MockQuerySession | null {
   return state.sessions.find((session) => session.id === id) ?? null;
 }
@@ -183,9 +210,14 @@ function createSession(state: WorkerMockState, payload: unknown): MockQuerySessi
 }
 
 export async function mockWorkerApi(page: Page, state: WorkerMockState) {
-  await page.route(`${WORKER_ORIGIN}/**`, async (route) => {
+  await page.route('**/api/v1/**', async (route) => {
     const request = route.request();
     const url = new URL(request.url());
+
+    if (url.origin !== WORKER_ORIGIN && !WEB_ORIGINS.has(url.origin)) {
+      await route.fallback();
+      return;
+    }
 
     if (request.method() === 'OPTIONS') {
       await route.fulfill({
@@ -199,6 +231,147 @@ export async function mockWorkerApi(page: Page, state: WorkerMockState) {
     // Databases
     if (request.method() === 'GET' && url.pathname === '/api/v1/databases') {
       await fulfillJson(route, ok(state.databases));
+      return;
+    }
+
+    const matchDatabase = url.pathname.match(/^\/api\/v1\/databases\/([^/]+)$/);
+    if (matchDatabase && request.method() === 'GET') {
+      const databaseId = decodePathSegment(matchDatabase[1]);
+      const database = findDatabase(state, databaseId);
+
+      if (!database) {
+        await fulfillJson(route, fail('Not Found'), 404);
+        return;
+      }
+
+      await fulfillJson(route, ok(database));
+      return;
+    }
+
+    const matchTableList = url.pathname.match(/^\/api\/v1\/databases\/([^/]+)\/tables$/);
+    if (matchTableList) {
+      const databaseId = decodePathSegment(matchTableList[1]);
+      if (!findDatabase(state, databaseId)) {
+        await fulfillJson(route, fail('Not Found'), 404);
+        return;
+      }
+
+      if (request.method() === 'GET') {
+        await fulfillJson(route, ok(listMockTables(state.structure)));
+        return;
+      }
+
+      if (request.method() === 'POST') {
+        try {
+          const payload = parseBodyJson(request);
+          const result = createMockTable(state.structure, payload);
+          await fulfillJson(route, ok(result));
+        } catch (error) {
+          await fulfillJson(route, fail(getStructureErrorMessage(error, '创建数据表失败')), 400);
+        }
+        return;
+      }
+    }
+
+    const matchEditorContext = url.pathname.match(/^\/api\/v1\/databases\/([^/]+)\/editor-context$/);
+    if (matchEditorContext && request.method() === 'GET') {
+      const databaseId = decodePathSegment(matchEditorContext[1]);
+      if (!findDatabase(state, databaseId)) {
+        await fulfillJson(route, fail('Not Found'), 404);
+        return;
+      }
+
+      await fulfillJson(route, ok(getStructureEditorContext(state.structure)));
+      return;
+    }
+
+    const matchTableStructure = url.pathname.match(/^\/api\/v1\/databases\/([^/]+)\/tables\/([^/]+)\/structure$/);
+    if (matchTableStructure && request.method() === 'GET') {
+      const databaseId = decodePathSegment(matchTableStructure[1]);
+      const tableName = decodePathSegment(matchTableStructure[2]);
+      if (!findDatabase(state, databaseId)) {
+        await fulfillJson(route, fail('Not Found'), 404);
+        return;
+      }
+
+      try {
+        await fulfillJson(route, ok(getMockTableStructure(state.structure, tableName)));
+      } catch (error) {
+        await fulfillJson(route, fail(getStructureErrorMessage(error, '获取表结构失败')), 404);
+      }
+      return;
+    }
+
+    const matchTableData = url.pathname.match(/^\/api\/v1\/databases\/([^/]+)\/tables\/([^/]+)\/data$/);
+    if (matchTableData && request.method() === 'GET') {
+      const databaseId = decodePathSegment(matchTableData[1]);
+      const tableName = decodePathSegment(matchTableData[2]);
+      if (!findDatabase(state, databaseId)) {
+        await fulfillJson(route, fail('Not Found'), 404);
+        return;
+      }
+
+      try {
+        await fulfillJson(route, ok(getMockTableData(state.structure, tableName)));
+      } catch (error) {
+        await fulfillJson(route, fail(getStructureErrorMessage(error, '获取表数据失败')), 404);
+      }
+      return;
+    }
+
+    const matchColumnUpdate = url.pathname.match(/^\/api\/v1\/databases\/([^/]+)\/tables\/([^/]+)\/columns\/([^/]+)$/);
+    if (matchColumnUpdate && request.method() === 'PUT') {
+      const databaseId = decodePathSegment(matchColumnUpdate[1]);
+      const tableName = decodePathSegment(matchColumnUpdate[2]);
+      const columnName = decodePathSegment(matchColumnUpdate[3]);
+      if (!findDatabase(state, databaseId)) {
+        await fulfillJson(route, fail('Not Found'), 404);
+        return;
+      }
+
+      try {
+        updateMockColumn(state.structure, tableName, columnName, parseBodyJson(request));
+        await fulfillJson(route, { success: true });
+      } catch (error) {
+        await fulfillJson(route, fail(getStructureErrorMessage(error, '更新列失败')), 400);
+      }
+      return;
+    }
+
+    const matchCreateIndex = url.pathname.match(/^\/api\/v1\/databases\/([^/]+)\/tables\/([^/]+)\/indexes$/);
+    if (matchCreateIndex && request.method() === 'POST') {
+      const databaseId = decodePathSegment(matchCreateIndex[1]);
+      const tableName = decodePathSegment(matchCreateIndex[2]);
+      if (!findDatabase(state, databaseId)) {
+        await fulfillJson(route, fail('Not Found'), 404);
+        return;
+      }
+
+      try {
+        createMockIndex(state.structure, tableName, parseBodyJson(request));
+        await fulfillJson(route, { success: true });
+      } catch (error) {
+        await fulfillJson(route, fail(getStructureErrorMessage(error, '创建索引失败')), 400);
+      }
+      return;
+    }
+
+    const matchUpdateIndex = url.pathname.match(/^\/api\/v1\/databases\/([^/]+)\/tables\/([^/]+)\/indexes\/([^/]+)$/);
+    if (matchUpdateIndex && request.method() === 'PUT') {
+      const databaseId = decodePathSegment(matchUpdateIndex[1]);
+      const tableName = decodePathSegment(matchUpdateIndex[2]);
+      const indexName = decodePathSegment(matchUpdateIndex[3]);
+      if (!findDatabase(state, databaseId)) {
+        await fulfillJson(route, fail('Not Found'), 404);
+        return;
+      }
+
+      try {
+        updateMockIndex(state.structure, tableName, indexName, parseBodyJson(request));
+        await fulfillJson(route, { success: true });
+      } catch (error) {
+        await fulfillJson(route, fail(getStructureErrorMessage(error, '更新索引失败')), 400);
+      }
       return;
     }
 
@@ -318,5 +491,6 @@ export function createDefaultWorkerMockState(): WorkerMockState {
     sessions: [],
     messagesBySessionId: {},
     nextSessionId: 1,
+    structure: createDefaultStructureState(),
   };
 }

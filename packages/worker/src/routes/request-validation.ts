@@ -1,5 +1,14 @@
 import { z } from 'zod';
-import { DATABASE_TYPES, type CreateDatabaseRequest, type RowUpdate } from '../types';
+import {
+  DATABASE_TYPES,
+  type CreateDatabaseRequest,
+  type CreateTableRequest,
+  type RowUpdate,
+  type TableStructureColumnInput,
+  type TableStructureIndexInput,
+  type UpdateTableColumnRequest,
+  type UpsertTableIndexRequest,
+} from '../types';
 
 interface ValidationSuccess<T> {
   success: true;
@@ -97,6 +106,46 @@ const generateSqlRequestSchema = z.object({
 
 const validateSqlRequestSchema = z.object({
   sql: z.string().trim().min(1),
+});
+
+const tableStructureColumnSchema = z.object({
+  name: nonEmptyStringSchema,
+  type: nonEmptyStringSchema,
+  nullable: z.boolean(),
+  defaultExpression: z
+    .string()
+    .optional()
+    .nullable()
+    .transform((value) => {
+      if (typeof value !== 'string') {
+        return null;
+      }
+
+      const trimmed = value.trim();
+      return trimmed ? trimmed : null;
+    }),
+  primaryKey: z.boolean().optional().default(false),
+  autoIncrement: z.boolean().optional().default(false),
+});
+
+const tableStructureIndexSchema = z.object({
+  name: nonEmptyStringSchema,
+  columns: z.array(nonEmptyStringSchema).nonempty(),
+  unique: z.boolean().optional().default(false),
+});
+
+const createTableRequestSchema = z.object({
+  tableName: nonEmptyStringSchema,
+  columns: z.array(tableStructureColumnSchema).nonempty(),
+  indexes: z.array(tableStructureIndexSchema).optional().default([]),
+});
+
+const updateTableColumnRequestSchema = z.object({
+  column: tableStructureColumnSchema,
+});
+
+const upsertTableIndexRequestSchema = z.object({
+  index: tableStructureIndexSchema,
 });
 
 const createSavedQuerySchema = z.object({
@@ -265,4 +314,39 @@ export function parseValidateSqlRequest(payload: unknown): ValidationResult<{ sq
   }
 
   return { success: true, data: result.data };
+}
+
+export function parseCreateTableRequest(payload: unknown): ValidationResult<CreateTableRequest> {
+  const result = createTableRequestSchema.safeParse(payload);
+  if (!result.success) {
+    return { success: false, error: '缺少有效的表结构定义' };
+  }
+
+  return { success: true, data: result.data };
+}
+
+export function parseUpdateTableColumnRequest(payload: unknown): ValidationResult<UpdateTableColumnRequest> {
+  const result = updateTableColumnRequestSchema.safeParse(payload);
+  if (!result.success) {
+    return { success: false, error: '缺少有效的列定义' };
+  }
+
+  return { success: true, data: result.data };
+}
+
+export function parseUpsertTableIndexRequest(payload: unknown): ValidationResult<UpsertTableIndexRequest> {
+  const result = upsertTableIndexRequestSchema.safeParse(payload);
+  if (!result.success) {
+    return { success: false, error: '缺少有效的索引定义' };
+  }
+
+  return { success: true, data: result.data };
+}
+
+export function isTableStructureColumnInput(value: unknown): value is TableStructureColumnInput {
+  return tableStructureColumnSchema.safeParse(value).success;
+}
+
+export function isTableStructureIndexInput(value: unknown): value is TableStructureIndexInput {
+  return tableStructureIndexSchema.safeParse(value).success;
 }

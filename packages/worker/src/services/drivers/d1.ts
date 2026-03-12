@@ -1,6 +1,6 @@
 import type { D1Database } from '@cloudflare/workers-types';
 import type { TableColumn } from '../../types';
-import { QuestionMarkSqlDriver } from './question-mark-sql-driver';
+import { SqliteLikeDriver } from './sqlite-like-driver';
 
 interface PragmaTableInfoRow {
   name: string;
@@ -10,7 +10,7 @@ interface PragmaTableInfoRow {
   notnull: number;
 }
 
-export class D1Driver extends QuestionMarkSqlDriver {
+export class D1Driver extends SqliteLikeDriver {
   constructor(private db: D1Database) {
     super();
   }
@@ -39,6 +39,17 @@ export class D1Driver extends QuestionMarkSqlDriver {
       Default: row.dflt_value,
       Null: row.notnull ? 'NO' : 'YES',
     }));
+  }
+
+  protected async executeWriteStatements(statements: string[]): Promise<void> {
+    for (const statement of statements) {
+      const trimmed = statement.trim();
+      if (!trimmed) {
+        continue;
+      }
+
+      await this.db.prepare(trimmed).run();
+    }
   }
 
   protected async executeQuery(query: string, params?: unknown[]): Promise<Array<Record<string, unknown>>> {

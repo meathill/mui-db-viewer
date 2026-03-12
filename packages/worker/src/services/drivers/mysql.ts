@@ -1,8 +1,8 @@
 import mysql from 'mysql2/promise';
 import type { DatabaseConnection } from '../../types';
-import { QuestionMarkSqlDriver } from './question-mark-sql-driver';
+import { MySqlCompatibleDriver } from './mysql-compatible-driver';
 
-export class MySQLDriver extends QuestionMarkSqlDriver {
+export class MySQLDriver extends MySqlCompatibleDriver {
   private connection: mysql.Connection | null = null;
   private config: DatabaseConnection;
   private password?: string;
