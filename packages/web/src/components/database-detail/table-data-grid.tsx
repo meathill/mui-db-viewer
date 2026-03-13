@@ -10,6 +10,9 @@ import type { SortOrder } from '@/lib/table-query';
 import { cn } from '@/lib/utils';
 import { usePinnedColumnLayout } from './hooks/use-pinned-column-layout';
 
+const SELECTION_COLUMN_CLASS_NAME =
+  'sticky left-0 w-[50px] min-w-[50px] bg-card shadow-[1px_0_0_0_var(--color-border)]';
+
 interface TableDataGridProps {
   tableData: TableDataResult | null;
   loading: boolean;
@@ -59,7 +62,7 @@ export function TableDataGrid({
     const isPinned = isPinnedColumn(field);
     return cn(
       'whitespace-nowrap',
-      isPinned && 'sticky z-30 bg-card',
+      isPinned && 'sticky z-40 bg-card',
       isPinned && field === lastPinnedField && 'shadow-[1px_0_0_0_var(--color-border)]',
     );
   }
@@ -70,7 +73,7 @@ export function TableDataGrid({
     return cn(
       'whitespace-nowrap max-w-[300px]',
       edited && 'bg-amber-100 dark:bg-amber-900/30',
-      isPinned && 'sticky z-20',
+      isPinned && 'sticky z-30 group-hover:z-40',
       isPinned && !edited && 'bg-card group-hover:bg-muted/72',
       isPinned && edited && 'group-hover:bg-amber-100 dark:group-hover:bg-amber-900/30',
       isPinned && field === lastPinnedField && 'shadow-[1px_0_0_0_var(--color-border)]',
@@ -86,7 +89,7 @@ export function TableDataGrid({
           <TableRow>
             <TableHead
               data-selection-column
-              className="sticky left-0 z-40 w-[50px] min-w-[50px] bg-card shadow-[1px_0_0_0_var(--color-border)]">
+              className={cn(SELECTION_COLUMN_CLASS_NAME, 'z-50')}>
               <Checkbox
                 checked={
                   (tableData && tableData.rows.length > 0 && selectedRows.size === tableData.rows.length) || undefined
@@ -142,7 +145,7 @@ export function TableDataGrid({
               <TableRow
                 key={rowIndex}
                 className="group">
-                <TableCell className="sticky left-0 z-30 w-[50px] min-w-[50px] bg-card group-hover:bg-muted/72 shadow-[1px_0_0_0_var(--color-border)]">
+                <TableCell className={cn(SELECTION_COLUMN_CLASS_NAME, 'z-40 group-hover:z-50 group-hover:bg-muted/72')}>
                   <Skeleton className="size-4" />
                 </TableCell>
                 {orderedColumns.length > 0
@@ -150,7 +153,8 @@ export function TableDataGrid({
                       <TableCell
                         key={column.Field}
                         className={cn(
-                          isPinnedColumn(column.Field) && 'sticky z-20 bg-card group-hover:bg-muted/72',
+                          isPinnedColumn(column.Field) &&
+                            'sticky z-30 bg-card group-hover:z-40 group-hover:bg-muted/72',
                           isPinnedColumn(column.Field) &&
                             column.Field === lastPinnedField &&
                             'shadow-[1px_0_0_0_var(--color-border)]',
@@ -181,7 +185,8 @@ export function TableDataGrid({
                 <TableRow
                   key={String(rowId)}
                   className="group">
-                  <TableCell className="sticky left-0 z-30 w-[50px] min-w-[50px] bg-card group-hover:bg-muted/72 shadow-[1px_0_0_0_var(--color-border)]">
+                  <TableCell
+                    className={cn(SELECTION_COLUMN_CLASS_NAME, 'z-40 group-hover:z-50 group-hover:bg-muted/72')}>
                     <Checkbox
                       checked={selectedRows.has(rowId)}
                       onCheckedChange={(checked) => onSelectRow(rowId, checked)}

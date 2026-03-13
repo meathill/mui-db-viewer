@@ -71,11 +71,14 @@ describe('TableDataGrid', () => {
     const headers = screen.getAllByRole('columnheader');
     expect(headers[1].textContent).toContain('email');
     expect(headers[1].className.includes('sticky')).toBe(true);
+    expect(headers[1].className.includes('z-40')).toBe(true);
     expect(headers[2].textContent).toContain('id');
     expect(headers[2].className.includes('sticky')).toBe(false);
 
     const cells = screen.getAllByRole('cell');
     expect(cells[1].textContent).toContain('alice@example.com');
+    expect(cells[1].className.includes('sticky')).toBe(true);
+    expect(cells[1].className.includes('z-30')).toBe(true);
     expect(screen.getByRole('button', { name: '取消固定列 email' }).getAttribute('aria-pressed')).toBe('true');
   });
 });

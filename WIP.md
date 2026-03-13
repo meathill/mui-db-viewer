@@ -7,6 +7,10 @@
 
 ## 近期
 
+- table viewer fixed 列悬浮层级修复
+  - 排查 pinned / sticky 列在 hover 场景下被普通数据单元格遮挡的问题
+  - 统一选择列、固定列表头、固定列数据单元格的层级规则
+  - 补充回归测试，覆盖固定列的 sticky 与层级样式
 - 工程维护与质量补强
   - 清理 README / TESTING / DEV_NOTE，确保只保留高价值、可执行信息
   - 统一测试目录到 `packages/*/tests`，避免测试文件散落在 `src` 内
