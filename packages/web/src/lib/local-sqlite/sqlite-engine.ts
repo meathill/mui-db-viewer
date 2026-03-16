@@ -6,6 +6,7 @@ import { executeSidecarSQLiteQuery } from './sidecar-client';
 
 const SQL_JS_WASM_URL = 'https://cdn.jsdelivr.net/npm/sql.js@1.13.0/dist/sql-wasm.wasm';
 const READ_ONLY_SQL_KEYWORDS = new Set(['SELECT', 'WITH', 'PRAGMA', 'EXPLAIN']);
+type SqlJsBindValue = number | string | Uint8Array | null;
 
 let sqlJsPromise: Promise<SqlJsStatic> | null = null;
 
@@ -165,6 +166,16 @@ function assertSingleStatementWithParams(sql: string, params: SqlParameterValue[
   }
 }
 
+function normalizeSqlJsParams(params: SqlParameterValue[]): SqlJsBindValue[] {
+  return params.map((value) => {
+    if (typeof value === 'boolean') {
+      return value ? 1 : 0;
+    }
+
+    return value;
+  });
+}
+
 export async function validateLocalSQLiteHandle(handle: FileSystemFileHandle): Promise<void> {
   const permission = await ensureLocalSQLiteHandlePermission(handle, true);
   if (permission !== 'granted') {
@@ -216,7 +227,8 @@ export async function executeLocalSQLiteQuery(
 
   const database = await openSqliteFromHandle(handle);
   try {
-    const rawResults = params.length > 0 ? database.exec(sql, params) : database.exec(sql);
+    const sqlJsParams = params.length > 0 ? normalizeSqlJsParams(params) : undefined;
+    const rawResults = database.exec(sql, sqlJsParams);
     const results = normalizeExecResults(rawResults);
     const lastResult = pickLastResult(results);
 

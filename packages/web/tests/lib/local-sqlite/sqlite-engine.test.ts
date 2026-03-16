@@ -176,4 +176,19 @@ describe('local-sqlite sqlite-engine', () => {
       'sidecar 执行失败，且缺少浏览器文件句柄可回退：ECONNREFUSED',
     );
   });
+
+  it('浏览器 fallback 执行时应将布尔参数归一化为 0/1', async () => {
+    const { handle } = createFileHandle();
+    hoistedMocks.getRecordMock.mockResolvedValue({
+      id: 'local-sqlite:1',
+      handle,
+    });
+    hoistedMocks.executeSidecarQueryMock.mockRejectedValue(new Error('sidecar 未配置'));
+    hoistedMocks.ensurePermissionMock.mockResolvedValue('granted');
+    hoistedMocks.execMock.mockReturnValue([]);
+
+    await executeLocalSQLiteQuery('local-sqlite:1', 'SELECT * FROM users WHERE enabled = ?', [false]);
+
+    expect(hoistedMocks.execMock).toHaveBeenCalledWith('SELECT * FROM users WHERE enabled = ?', [0]);
+  });
 });
