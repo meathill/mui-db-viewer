@@ -20,10 +20,10 @@ export function createSidecarApp() {
   });
 
   app.post('/api/v1/sqlite/query', zValidator('json', sqliteQuerySchema), async (c) => {
-    const { path, sql } = c.req.valid('json');
+    const { path, sql, params } = c.req.valid('json');
 
     try {
-      const result = executeSqliteQuery(path, sql);
+      const result = executeSqliteQuery(path, sql, params);
       return c.json(result);
     } catch (error) {
       const message = error instanceof Error ? error.message : '未知错误';

@@ -4,6 +4,7 @@ import {
   type CreateDatabaseRequest,
   type CreateTableRequest,
   type RowUpdate,
+  type SqlExecutionRequest,
   type TableStructureColumnInput,
   type TableStructureIndexInput,
   type UpdateTableColumnRequest,
@@ -25,6 +26,7 @@ export type ValidationResult<T> = ValidationSuccess<T> | ValidationFailure;
 const nonEmptyStringSchema = z.string().trim().min(1);
 const databaseTypeSchema = z.enum(DATABASE_TYPES);
 const rowIdSchema = z.union([z.string(), z.number()]);
+const sqlParameterSchema = z.union([z.string(), z.number(), z.boolean(), z.null()]);
 const plainObjectSchema = z.object({}).catchall(z.unknown());
 
 const baseCreateDatabaseSchema = z.object({
@@ -102,6 +104,11 @@ const generateSqlRequestSchema = z.object({
   apiKey: z.string().optional(),
   model: z.string().optional(),
   baseUrl: z.string().optional(),
+});
+
+const executeSqlRequestSchema = z.object({
+  sql: z.string().trim().min(1),
+  params: z.array(sqlParameterSchema).optional().default([]),
 });
 
 const validateSqlRequestSchema = z.object({
@@ -305,6 +312,15 @@ export function parseGenerateSqlRequest(payload: unknown): ValidationResult<{
     success: true,
     data: result.data,
   };
+}
+
+export function parseExecuteSqlRequest(payload: unknown): ValidationResult<SqlExecutionRequest> {
+  const result = executeSqlRequestSchema.safeParse(payload);
+  if (!result.success) {
+    return { success: false, error: '缺少 SQL' };
+  }
+
+  return { success: true, data: result.data };
 }
 
 export function parseValidateSqlRequest(payload: unknown): ValidationResult<{ sql: string }> {

@@ -36,6 +36,7 @@ export default function SavedQueriesPage() {
   const [deleting, setDeleting] = useState(false);
   const router = useRouter();
   const setInput = useQueryStore((state) => state.setInput);
+  const setInputMode = useQueryStore((state) => state.setInputMode);
   const setSelectedDatabaseId = useQueryStore((state) => state.setSelectedDatabaseId);
   const databases = useDatabaseStore((state) => state.databases);
   const fetchDatabases = useDatabaseStore((state) => state.fetchDatabases);
@@ -89,6 +90,7 @@ export default function SavedQueriesPage() {
 
   function handleRun(query: SavedQuery) {
     setSelectedDatabaseId(query.databaseId);
+    setInputMode('sql');
     setInput(query.sql);
     router.push('/query');
   }

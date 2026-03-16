@@ -19,13 +19,17 @@ export default function QueryPageClient() {
   const {
     messages,
     input,
+    inputMode,
     selectedDatabaseId,
     loading,
+    loadingMessage,
     sessionLoading,
     currentSessionId,
     setInput,
+    setInputMode,
     setSelectedDatabaseId,
     sendQuery,
+    runSqlInput,
     executeSql,
     openSession,
     newQuery,
@@ -33,13 +37,17 @@ export default function QueryPageClient() {
     useShallow((state) => ({
       messages: state.messages,
       input: state.input,
+      inputMode: state.inputMode,
       selectedDatabaseId: state.selectedDatabaseId,
       loading: state.loading,
+      loadingMessage: state.loadingMessage,
       sessionLoading: state.sessionLoading,
       currentSessionId: state.currentSessionId,
       setInput: state.setInput,
+      setInputMode: state.setInputMode,
       setSelectedDatabaseId: state.setSelectedDatabaseId,
       sendQuery: state.sendQuery,
+      runSqlInput: state.runSqlInput,
       executeSql: state.executeSql,
       openSession: state.openSession,
       newQuery: state.newQuery,
@@ -96,8 +104,8 @@ export default function QueryPageClient() {
     setSelectedDatabaseId(databaseIdFromUrl);
   }, [databaseIdFromUrl, sessionIdFromUrl, selectedDatabaseId, setSelectedDatabaseId]);
 
-  function handleExecuteSql(messageId: string, sql: string) {
-    void executeSql(messageId, sql);
+  function handleExecuteSql(messageId: string, sql: string, params: Array<string | number | boolean | null> = []) {
+    void executeSql(messageId, sql, params);
   }
 
   function handleCopySql(sql: string) {
@@ -148,6 +156,7 @@ export default function QueryPageClient() {
             <QueryMessageList
               messages={messages}
               loading={loading}
+              loadingMessage={loadingMessage}
               sessionLoading={sessionLoading}
               onCopySql={handleCopySql}
               onSaveSql={handleSaveSql}
@@ -163,19 +172,26 @@ export default function QueryPageClient() {
 
             <QueryInputForm
               input={input}
+              mode={isLocalDatabase ? 'sql' : inputMode}
+              canUsePromptMode={!isLocalDatabase}
               placeholder={
                 !selectedDatabaseId
                   ? '请先选择数据库'
                   : isLocalDatabase
                     ? '输入 SQL 并回车执行（本地 SQLite 模式）'
-                    : sessionLoading
-                      ? '加载会话中...'
-                      : '描述你的查询需求...'
+                    : inputMode === 'sql'
+                      ? '输入 SQL，可使用 ?、:name、@name、$name 作为参数'
+                      : sessionLoading
+                        ? '加载会话中...'
+                        : '描述你的查询需求...'
               }
               disabled={!selectedDatabaseId || loading || sessionLoading}
               loading={loading}
+              loadingMessage={loadingMessage}
               onInputChange={setInput}
-              onSubmit={() => void sendQuery()}
+              onModeChange={setInputMode}
+              onPromptSubmit={() => void sendQuery()}
+              onSqlSubmit={(request) => void runSqlInput(request)}
             />
           </div>
         </div>

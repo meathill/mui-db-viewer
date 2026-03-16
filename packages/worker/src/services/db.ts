@@ -1,5 +1,6 @@
 import type {
   CreateTableRequest,
+  DatabaseFieldValue,
   DatabaseConnection,
   RowUpdate,
   TableQueryOptions,
@@ -82,7 +83,7 @@ export class DatabaseService {
     return this.driver.updateRows(tableName, rows);
   }
 
-  async query(sql: string) {
-    return this.driver.query(sql);
+  async query(sql: string, params?: DatabaseFieldValue[]) {
+    return this.driver.query(sql, params);
   }
 }

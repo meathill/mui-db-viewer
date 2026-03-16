@@ -16,7 +16,7 @@ import {
   loadTableData,
   type TableDataResponse,
 } from './database-query-handlers';
-import { parseCreateDatabaseRequest, parseValidateSqlRequest } from './request-validation';
+import { parseCreateDatabaseRequest, parseExecuteSqlRequest } from './request-validation';
 
 export { loadTableData };
 export type { TableDataResponse };
@@ -26,7 +26,7 @@ export const databaseConnectionRoutes = new Hono<{ Bindings: CloudflareBindings 
 databaseConnectionRoutes.post(
   '/:id/query',
   validator('json', (body, c) => {
-    const result = parseValidateSqlRequest(body);
+    const result = parseExecuteSqlRequest(body);
     if (!result.success) {
       return c.json<ApiResponse>({ success: false, error: result.error }, 400);
     }

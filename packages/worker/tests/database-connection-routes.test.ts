@@ -1,6 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createDatabaseRouteTestClient, createMockDatabaseConnectionRow } from './database-route-test-utils';
 
+const { mockTiDbExecute } = vi.hoisted(() => ({
+  mockTiDbExecute: vi.fn((sql: string) => {
+    if (sql.includes('SHOW TABLES')) {
+      return Promise.resolve([{ Tables_in_test_db: 'users' }]);
+    }
+
+    if (sql.toUpperCase().includes('SELECT 1')) {
+      return Promise.resolve([{ id: 1 }]);
+    }
+
+    return Promise.resolve([]);
+  }),
+}));
+
 vi.mock('@/services/hsm', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/services/hsm')>();
   return {
@@ -15,16 +29,7 @@ vi.mock('@/services/hsm', async (importOriginal) => {
 
 vi.mock('@tidbcloud/serverless', () => ({
   connect: vi.fn(() => ({
-    execute: vi.fn((sql: string) => {
-      if (sql.includes('SHOW TABLES')) {
-        return Promise.resolve([{ Tables_in_test_db: 'users' }]);
-      }
-
-      if (sql.toUpperCase().includes('SELECT 1')) {
-        return Promise.resolve([{ id: 1 }]);
-      }
-      return Promise.resolve([]);
-    }),
+    execute: mockTiDbExecute,
   })),
 }));
 
@@ -214,6 +219,41 @@ describe('database connection routes', () => {
     const json = (await res.json()) as { success: boolean; error?: string };
     expect(json.success).toBe(false);
     expect(json.error).toContain('只允许');
+  });
+
+  it('POST /databases/:id/query 支持位置参数', async () => {
+    client.setConnectionRow(createMockDatabaseConnectionRow());
+
+    const res = await client.request('/databases/test-id/query', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sql: 'SELECT 1 as id WHERE ? = 1', params: [1] }),
+    });
+
+    const json = (await res.json()) as {
+      success: boolean;
+      data?: { rows: Array<{ id: number }> };
+    };
+
+    expect(res.status).toBe(200);
+    expect(json.success).toBe(true);
+    expect(json.data?.rows).toEqual([{ id: 1 }]);
+    expect(mockTiDbExecute).toHaveBeenCalledWith(expect.stringContaining('SELECT 1 as id WHERE ? = 1'), [1]);
+  });
+
+  it('POST /databases/:id/query 参数数量不匹配时返回 400', async () => {
+    client.setConnectionRow(createMockDatabaseConnectionRow());
+
+    const res = await client.request('/databases/test-id/query', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sql: 'SELECT ? as id' }),
+    });
+
+    const json = (await res.json()) as { success: boolean; error?: string };
+    expect(res.status).toBe(400);
+    expect(json.success).toBe(false);
+    expect(json.error).toContain('SQL 参数数量不匹配');
   });
 
   it('GET /databases/:id/schema 成功返回 schema context', async () => {

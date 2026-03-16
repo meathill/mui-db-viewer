@@ -3,7 +3,7 @@ import { createQueryStoreChatSlice, initialQueryStoreChatState } from './query-s
 import { createQueryStoreSessionsSlice, initialQueryStoreSessionsState } from './query-store-slice-sessions';
 import type { QueryStore } from './query-store-types';
 
-export type { QueryMessage, QueryMessageRole, QueryStore } from './query-store-types';
+export type { QueryInputMode, QueryMessage, QueryMessageRole, QueryStore } from './query-store-types';
 
 export const useQueryStore = create<QueryStore>((set, get, store) => ({
   ...createQueryStoreSessionsSlice(set, get, store),

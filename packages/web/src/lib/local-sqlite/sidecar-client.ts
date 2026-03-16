@@ -1,4 +1,4 @@
-import type { TableColumn, TableDataResult, TableRow } from '../api-types';
+import type { SqlParameterValue, TableColumn, TableDataResult, TableRow } from '../api-types';
 
 const DEFAULT_SIDECAR_URL = 'http://127.0.0.1:19666';
 
@@ -116,16 +116,29 @@ export async function validateSidecarSQLitePath(localPath: string): Promise<void
   await executeSidecarSQLiteQuery(path, "SELECT name FROM sqlite_master WHERE type='table' LIMIT 1;");
 }
 
-export async function executeSidecarSQLiteQuery(localPath: string, sql: string): Promise<TableDataResult> {
+export async function executeSidecarSQLiteQuery(
+  localPath: string,
+  sql: string,
+  params: SqlParameterValue[] = [],
+): Promise<TableDataResult> {
   const path = localPath.trim();
   if (!path) {
     throw new Error('本地 SQLite 路径为空');
   }
 
-  const payload = await postToSidecar<SidecarQueryPayload>('/api/v1/sqlite/query', {
-    path,
-    sql,
-  });
+  const payload = await postToSidecar<SidecarQueryPayload>(
+    '/api/v1/sqlite/query',
+    params.length > 0
+      ? {
+          path,
+          sql,
+          params,
+        }
+      : {
+          path,
+          sql,
+        },
+  );
 
   return normalizeSidecarTableResult(payload);
 }

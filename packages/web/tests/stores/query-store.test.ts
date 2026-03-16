@@ -172,4 +172,45 @@ describe('query-store', () => {
       content: '生成失败：未知错误',
     });
   });
+
+  it('runSqlInput 应执行参数化 SQL，并保留用户输入的原始占位符', async () => {
+    vi.mocked(api.query.execute).mockResolvedValue({
+      rows: [{ id: 42 }],
+      total: 1,
+      columns: [{ Field: 'id', Type: 'int' }],
+    });
+    vi.mocked(api.querySessions.create).mockResolvedValue({
+      id: 's-1',
+      databaseId: 'db-1',
+      title: 'SELECT * FROM users WHERE id = :id',
+      preview: 'SELECT * FROM users WHERE id = :id',
+      createdAt: '2026-02-14T00:00:00.000Z',
+      updatedAt: '2026-02-14T00:00:00.000Z',
+    });
+    vi.mocked(api.querySessions.list).mockResolvedValue({
+      sessions: [],
+      nextCursor: null,
+      hasMore: false,
+    });
+
+    useQueryStore.getState().setSelectedDatabaseId('db-1');
+    useQueryStore.getState().setInput('SELECT * FROM users WHERE id = :id');
+
+    await useQueryStore.getState().runSqlInput({
+      sql: 'SELECT * FROM users WHERE id = ?',
+      params: [42],
+    });
+
+    const state = useQueryStore.getState();
+    expect(api.query.execute).toHaveBeenCalledWith('db-1', 'SELECT * FROM users WHERE id = ?', [42]);
+    expect(state.messages[0]).toMatchObject({
+      role: 'user',
+      content: 'SELECT * FROM users WHERE id = :id',
+    });
+    expect(state.messages[1]).toMatchObject({
+      role: 'assistant',
+      sql: 'SELECT * FROM users WHERE id = :id',
+      result: [{ id: 42 }],
+    });
+  });
 });

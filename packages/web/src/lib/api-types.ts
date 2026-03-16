@@ -51,6 +51,13 @@ export interface TableColumn {
   Extra?: string;
 }
 
+export type SqlParameterValue = string | number | boolean | null;
+
+export interface SqlExecutionRequest {
+  sql: string;
+  params?: SqlParameterValue[];
+}
+
 export type SqlDialect = 'mysql' | 'postgres' | 'sqlite';
 
 export interface TableStructureColumn {

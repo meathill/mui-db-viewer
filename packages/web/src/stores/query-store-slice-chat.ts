@@ -12,26 +12,39 @@ export type QueryStoreChatSlice = Pick<
   | 'currentSessionId'
   | 'messages'
   | 'input'
+  | 'inputMode'
   | 'selectedDatabaseId'
   | 'loading'
+  | 'loadingMessage'
   | 'sessionLoading'
   | 'setInput'
+  | 'setInputMode'
   | 'setSelectedDatabaseId'
   | 'newQuery'
   | 'openSession'
   | 'sendQuery'
+  | 'runSqlInput'
   | 'executeSql'
 >;
 
 export const initialQueryStoreChatState: Pick<
   QueryStore,
-  'currentSessionId' | 'messages' | 'input' | 'selectedDatabaseId' | 'loading' | 'sessionLoading'
+  | 'currentSessionId'
+  | 'messages'
+  | 'input'
+  | 'inputMode'
+  | 'selectedDatabaseId'
+  | 'loading'
+  | 'loadingMessage'
+  | 'sessionLoading'
 > = {
   currentSessionId: null,
   messages: [],
   input: '',
+  inputMode: 'prompt',
   selectedDatabaseId: '',
   loading: false,
+  loadingMessage: '',
   sessionLoading: false,
 };
 
@@ -51,16 +64,26 @@ export const createQueryStoreChatSlice: StateCreator<QueryStore, [], [], QuerySt
     set({ input: value });
   },
 
+  setInputMode(mode) {
+    set({ inputMode: mode });
+  },
+
   setSelectedDatabaseId(databaseId) {
-    set({ selectedDatabaseId: databaseId });
+    set({
+      selectedDatabaseId: databaseId,
+      inputMode: isLocalDatabase(databaseId) ? 'sql' : get().inputMode,
+    });
   },
 
   newQuery() {
+    const selectedDatabaseId = get().selectedDatabaseId;
     set({
       currentSessionId: null,
       messages: [],
       input: '',
+      inputMode: isLocalDatabase(selectedDatabaseId) ? 'sql' : 'prompt',
       loading: false,
+      loadingMessage: '',
       sessionLoading: false,
     });
   },
@@ -89,6 +112,7 @@ export const createQueryStoreChatSlice: StateCreator<QueryStore, [], [], QuerySt
       set({
         currentSessionId: detail.session.id,
         selectedDatabaseId: detail.session.databaseId,
+        inputMode: isLocalDatabase(detail.session.databaseId) ? 'sql' : 'prompt',
         messages: nextMessages,
         input: '',
       });
@@ -127,6 +151,7 @@ export const createQueryStoreChatSlice: StateCreator<QueryStore, [], [], QuerySt
       messages: [...state.messages, userMessage],
       input: '',
       loading: true,
+      loadingMessage: 'AI 正在思考...',
     }));
 
     if (isLocalDatabase(selectedDatabaseId)) {
@@ -159,7 +184,7 @@ export const createQueryStoreChatSlice: StateCreator<QueryStore, [], [], QuerySt
         }));
         showErrorAlert(message, '执行 SQL 失败');
       } finally {
-        set({ loading: false });
+        set({ loading: false, loadingMessage: '' });
       }
       return;
     }
@@ -192,7 +217,7 @@ export const createQueryStoreChatSlice: StateCreator<QueryStore, [], [], QuerySt
       }));
       showErrorAlert(message, '生成失败');
     } finally {
-      set({ loading: false });
+      set({ loading: false, loadingMessage: '' });
     }
 
     // 自动保存（不阻塞 UI；失败不打断聊天流程）
@@ -218,16 +243,105 @@ export const createQueryStoreChatSlice: StateCreator<QueryStore, [], [], QuerySt
     }
   },
 
-  async executeSql(messageId, sql) {
-    const { selectedDatabaseId } = get();
-    if (!selectedDatabaseId) return;
+  async runSqlInput(request) {
+    const { input, selectedDatabaseId, loading, currentSessionId } = get();
+    const displaySql = input.trim();
+    const sql = (request?.sql ?? displaySql).trim();
+    const params = request?.params ?? [];
 
-    set({ loading: true });
+    if (!sql || !selectedDatabaseId || loading) {
+      return;
+    }
+
+    const userMessage: QueryMessage = {
+      id: createMessageId(),
+      role: 'user',
+      content: displaySql || sql,
+    };
+
+    set((state) => ({
+      messages: [...state.messages, userMessage],
+      input: '',
+      loading: true,
+      loadingMessage: 'SQL 执行中...',
+    }));
+
+    let assistantMessage: QueryMessage;
 
     try {
       const result = isLocalDatabase(selectedDatabaseId)
-        ? await executeLocalSQLiteQuery(selectedDatabaseId, sql)
-        : await api.query.execute(selectedDatabaseId, sql);
+        ? params.length > 0
+          ? await executeLocalSQLiteQuery(selectedDatabaseId, sql, params)
+          : await executeLocalSQLiteQuery(selectedDatabaseId, sql)
+        : params.length > 0
+          ? await api.query.execute(selectedDatabaseId, sql, params)
+          : await api.query.execute(selectedDatabaseId, sql);
+
+      assistantMessage = {
+        id: createMessageId(),
+        role: 'assistant',
+        content: result.columns.length > 0 ? `SQL 执行完成，返回 ${result.total} 行。` : 'SQL 执行完成。',
+        sql: displaySql || sql,
+        result: result.rows,
+      };
+
+      set((state) => ({
+        messages: [...state.messages, assistantMessage],
+      }));
+    } catch (error) {
+      const message = getErrorMessage(error);
+      assistantMessage = {
+        id: createMessageId(),
+        role: 'assistant',
+        content: `执行失败：${message}`,
+        sql: displaySql || sql,
+        error: message,
+      };
+
+      set((state) => ({
+        messages: [...state.messages, assistantMessage],
+      }));
+      showErrorAlert(message, '执行 SQL 失败');
+    } finally {
+      set({ loading: false, loadingMessage: '' });
+    }
+
+    try {
+      if (!currentSessionId) {
+        const session = await api.querySessions.create({
+          databaseId: selectedDatabaseId,
+          title: createSessionTitle(displaySql || sql),
+          messages: [toApiMessage(userMessage), toApiMessage(assistantMessage)],
+        });
+
+        set({ currentSessionId: session.id });
+      } else {
+        await api.querySessions.appendMessages(currentSessionId, [
+          toApiMessage(userMessage),
+          toApiMessage(assistantMessage),
+        ]);
+      }
+
+      void get().refreshSessions();
+    } catch (error) {
+      console.error('自动保存 SQL 执行记录失败:', error);
+    }
+  },
+
+  async executeSql(messageId, sql, params = []) {
+    const { selectedDatabaseId } = get();
+    if (!selectedDatabaseId) return;
+
+    set({ loading: true, loadingMessage: 'SQL 执行中...' });
+
+    try {
+      const result = isLocalDatabase(selectedDatabaseId)
+        ? params.length > 0
+          ? await executeLocalSQLiteQuery(selectedDatabaseId, sql, params)
+          : await executeLocalSQLiteQuery(selectedDatabaseId, sql)
+        : params.length > 0
+          ? await api.query.execute(selectedDatabaseId, sql, params)
+          : await api.query.execute(selectedDatabaseId, sql);
 
       set((state) => ({
         messages: state.messages.map((msg) =>
@@ -241,7 +355,7 @@ export const createQueryStoreChatSlice: StateCreator<QueryStore, [], [], QuerySt
       }));
       showErrorAlert(message, '执行 SQL 失败');
     } finally {
-      set({ loading: false });
+      set({ loading: false, loadingMessage: '' });
     }
   },
 });

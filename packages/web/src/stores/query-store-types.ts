@@ -1,6 +1,13 @@
-import type { QuerySession, QuerySessionCursor, QuerySessionMessageRole } from '@/lib/api';
+import type {
+  QuerySession,
+  QuerySessionCursor,
+  QuerySessionMessageRole,
+  SqlExecutionRequest,
+  SqlParameterValue,
+} from '@/lib/api';
 
 export type QueryMessageRole = QuerySessionMessageRole;
+export type QueryInputMode = 'prompt' | 'sql';
 
 export interface QueryMessage {
   id: string;
@@ -16,8 +23,10 @@ export interface QueryStoreState {
   currentSessionId: string | null;
   messages: QueryMessage[];
   input: string;
+  inputMode: QueryInputMode;
   selectedDatabaseId: string;
   loading: boolean;
+  loadingMessage: string;
   sessionLoading: boolean;
 
   sessions: QuerySession[];
@@ -31,6 +40,7 @@ export interface QueryStoreState {
 
 export interface QueryStoreActions {
   setInput: (value: string) => void;
+  setInputMode: (mode: QueryInputMode) => void;
   setSelectedDatabaseId: (databaseId: string) => void;
 
   newQuery: () => void;
@@ -44,7 +54,8 @@ export interface QueryStoreActions {
   deleteSession: (sessionId: string) => Promise<void>;
 
   sendQuery: () => Promise<void>;
-  executeSql: (messageId: string, sql: string) => Promise<void>;
+  runSqlInput: (request?: SqlExecutionRequest) => Promise<void>;
+  executeSql: (messageId: string, sql: string, params?: SqlParameterValue[]) => Promise<void>;
   reset: () => void;
 }
 

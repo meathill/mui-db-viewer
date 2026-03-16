@@ -1,6 +1,7 @@
 import { Client } from 'pg';
 import type {
   CreateTableRequest,
+  DatabaseFieldValue,
   DatabaseConnection,
   RowUpdate,
   TableColumn,
@@ -26,6 +27,7 @@ import {
   normalizeDefaultExpression,
 } from './structure-shared';
 import { findPrimaryKeyField } from './helpers';
+import { replaceQuestionMarkPlaceholders } from '../sql-parameter-utils';
 import { buildPostgresWhereClause } from './where-clause-builder';
 
 function toColumnInput(column: TableStructureColumn): TableStructureColumnInput {
@@ -75,9 +77,13 @@ export class PostgresDriver implements IDatabaseDriver {
     }
   }
 
-  async query(sql: string): Promise<Array<Record<string, unknown>>> {
+  async query(sql: string, params: DatabaseFieldValue[] = []): Promise<Array<Record<string, unknown>>> {
     await this.connect();
-    const res = await this.client!.query(sql);
+    const { sql: preparedSql, count } = replaceQuestionMarkPlaceholders(sql);
+    if (count !== params.length) {
+      throw new Error(`SQL 参数数量不匹配：期望 ${count} 个，收到 ${params.length} 个`);
+    }
+    const res = await this.client!.query(preparedSql, params);
     return res.rows as Array<Record<string, unknown>>;
   }
 

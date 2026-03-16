@@ -1,6 +1,6 @@
 import { useSettingsStore } from '@/stores/settings-store';
 import { request } from './api-request';
-import type { TableDataResult } from './api-types';
+import type { SqlParameterValue, TableDataResult } from './api-types';
 
 export const query = {
   async generate(databaseId: string, prompt: string): Promise<{ sql: string; explanation?: string; warning?: string }> {
@@ -54,9 +54,10 @@ export const query = {
     return result.data;
   },
 
-  async execute(databaseId: string, sql: string): Promise<TableDataResult> {
+  async execute(databaseId: string, sql: string, params: SqlParameterValue[] = []): Promise<TableDataResult> {
+    const payload = params.length > 0 ? { sql, params } : { sql };
     const result = await request<TableDataResult>('POST', `/api/v1/databases/${databaseId}/query`, {
-      sql,
+      ...payload,
     });
     if (!result.success || !result.data) {
       throw new Error(result.error || '执行 SQL 失败');

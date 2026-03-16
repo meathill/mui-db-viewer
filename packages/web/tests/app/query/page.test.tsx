@@ -367,6 +367,43 @@ describe('QueryPage', () => {
     expect(screen.getByText('100')).toBeDefined();
   });
 
+  it('带命名参数的 SQL 应展示参数表单并在执行时归一化', async () => {
+    vi.mocked(api.databases.list).mockResolvedValue(mockDbs);
+    vi.mocked(api.query.execute).mockResolvedValue({
+      rows: [{ id: 42, total: 1 }],
+      total: 1,
+      columns: [
+        { Field: 'id', Type: 'int' },
+        { Field: 'total', Type: 'int' },
+      ],
+    });
+
+    useQueryStore.setState({
+      messages: [
+        {
+          id: 'a-1',
+          role: 'assistant',
+          content: '请填写参数后执行',
+          sql: 'SELECT * FROM orders WHERE id = :id',
+        },
+      ],
+      input: '',
+      selectedDatabaseId: '1',
+      loading: false,
+    });
+
+    render(<QueryPage />);
+
+    await screen.findByText('SQL 参数');
+    fireEvent.change(screen.getAllByRole('combobox')[0], { target: { value: 'number' } });
+    fireEvent.change(screen.getByPlaceholderText('输入数字'), { target: { value: '42' } });
+    fireEvent.click(screen.getByText('执行 SQL'));
+
+    await waitFor(() => {
+      expect(api.query.execute).toHaveBeenCalledWith('1', 'SELECT * FROM orders WHERE id = ?', [42]);
+    });
+  });
+
   it('点击刷新 Schema 按钮应调用 refreshSchema 并展示反馈', async () => {
     vi.mocked(api.databases.list).mockResolvedValue(mockDbs);
     vi.mocked(api.databases.refreshSchema).mockResolvedValue({

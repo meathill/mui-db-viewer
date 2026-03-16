@@ -1,7 +1,8 @@
 import type { Context } from 'hono';
 import { getDatabaseSchemaContext } from '../services/schema-context';
+import { countQuestionMarkPlaceholders } from '../services/sql-parameter-utils';
 import { validateAndSanitizeSql } from '../services/sql-guard';
-import type { ApiResponse, DatabaseConnection, TableColumn, TableRow } from '../types';
+import type { ApiResponse, DatabaseConnection, SqlExecutionRequest, TableColumn, TableRow } from '../types';
 import {
   findConnectionById,
   getErrorMessage,
@@ -38,9 +39,9 @@ export async function loadTableData(
   });
 }
 
-export async function handleExecuteSql(c: WorkerContext, body: { sql: string }) {
+export async function handleExecuteSql(c: WorkerContext, body: SqlExecutionRequest) {
   const id = c.req.param('id');
-  const { sql } = body;
+  const { sql, params = [] } = body;
   const connection = await findConnectionById(c.env, id);
 
   if (!connection) {
@@ -66,10 +67,20 @@ export async function handleExecuteSql(c: WorkerContext, body: { sql: string }) 
     }
 
     const safeSql = guardResult.sql;
+    const parameterCount = countQuestionMarkPlaceholders(safeSql);
+    if (parameterCount !== params.length) {
+      return c.json<ApiResponse>(
+        {
+          success: false,
+          error: `SQL 参数数量不匹配：期望 ${parameterCount} 个，收到 ${params.length} 个`,
+        },
+        400,
+      );
+    }
 
     const result = await withDatabaseService(c.env, connection, async (dbService) => {
       // 当前驱动层仅返回 rows；columns 先在路由层做简单推断，后续可再补充元信息能力。
-      return dbService.query(safeSql);
+      return dbService.query(safeSql, params);
     });
 
     const rows = result as TableRow[];

@@ -21,6 +21,11 @@ export type DatabaseType = (typeof DATABASE_TYPES)[number];
 
 export type DatabaseFieldValue = string | number | boolean | null;
 
+export interface SqlExecutionRequest {
+  sql: string;
+  params?: DatabaseFieldValue[];
+}
+
 export interface TableColumn {
   Field: string;
   Type: string;

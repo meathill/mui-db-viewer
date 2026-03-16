@@ -1,6 +1,7 @@
 import initSqlJs, { type Database as SqlDatabase, type QueryExecResult, type SqlJsStatic } from 'sql.js';
-import type { TableColumn, TableDataResult, TableRow } from '../api-types';
+import type { SqlParameterValue, TableColumn, TableDataResult, TableRow } from '../api-types';
 import { ensureLocalSQLiteHandlePermission, getLocalSQLiteConnectionRecord } from './connection-store';
+import { splitSqlStatements } from '../sql-parameter-utils';
 import { executeSidecarSQLiteQuery } from './sidecar-client';
 
 const SQL_JS_WASM_URL = 'https://cdn.jsdelivr.net/npm/sql.js@1.13.0/dist/sql-wasm.wasm';
@@ -154,6 +155,16 @@ function getErrorText(error: unknown, fallback: string): string {
   return fallback;
 }
 
+function assertSingleStatementWithParams(sql: string, params: SqlParameterValue[]): void {
+  if (params.length === 0) {
+    return;
+  }
+
+  if (splitSqlStatements(sql).length !== 1) {
+    throw new Error('带参数执行暂不支持多语句，请拆分后再执行');
+  }
+}
+
 export async function validateLocalSQLiteHandle(handle: FileSystemFileHandle): Promise<void> {
   const permission = await ensureLocalSQLiteHandlePermission(handle, true);
   if (permission !== 'granted') {
@@ -168,7 +179,11 @@ export async function validateLocalSQLiteHandle(handle: FileSystemFileHandle): P
   }
 }
 
-export async function executeLocalSQLiteQuery(connectionId: string, sql: string): Promise<TableDataResult> {
+export async function executeLocalSQLiteQuery(
+  connectionId: string,
+  sql: string,
+  params: SqlParameterValue[] = [],
+): Promise<TableDataResult> {
   const record = await getLocalSQLiteConnectionRecord(connectionId);
   if (!record) {
     throw new Error('本地 SQLite 连接不存在，请重新选择文件');
@@ -177,7 +192,9 @@ export async function executeLocalSQLiteQuery(connectionId: string, sql: string)
   const localPath = record.localPath?.trim();
   if (localPath) {
     try {
-      return await executeSidecarSQLiteQuery(localPath, sql);
+      return params.length > 0
+        ? await executeSidecarSQLiteQuery(localPath, sql, params)
+        : await executeSidecarSQLiteQuery(localPath, sql);
     } catch (sidecarError) {
       if (!record.handle) {
         throw new Error(`sidecar 执行失败，且缺少浏览器文件句柄可回退：${getErrorText(sidecarError, '未知错误')}`);
@@ -195,9 +212,11 @@ export async function executeLocalSQLiteQuery(connectionId: string, sql: string)
     throw new Error('未获得本地 SQLite 文件读写权限');
   }
 
+  assertSingleStatementWithParams(sql, params);
+
   const database = await openSqliteFromHandle(handle);
   try {
-    const rawResults = database.exec(sql);
+    const rawResults = params.length > 0 ? database.exec(sql, params) : database.exec(sql);
     const results = normalizeExecResults(rawResults);
     const lastResult = pickLastResult(results);
 

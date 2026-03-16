@@ -78,6 +78,30 @@ describe('sidecar app', () => {
     expect(json.columns.map((column) => column.Field)).toEqual(['id', 'name']);
   });
 
+  it('POST /api/v1/sqlite/query 应支持参数化查询', async () => {
+    const app = createSidecarApp();
+    const dbPath = createTempDatabase();
+
+    const response = await app.request('/api/v1/sqlite/query', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        path: dbPath,
+        sql: 'SELECT name FROM users WHERE id = ?',
+        params: [1],
+      }),
+    });
+
+    const json = (await response.json()) as {
+      rows: Array<{ name: string }>;
+      total: number;
+    };
+
+    expect(response.status).toBe(200);
+    expect(json.rows).toEqual([{ name: 'Alice' }]);
+    expect(json.total).toBe(1);
+  });
+
   it('POST /api/v1/sqlite/query 文件不存在时返回 400', async () => {
     const app = createSidecarApp();
 

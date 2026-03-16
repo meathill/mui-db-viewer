@@ -97,4 +97,13 @@ describe('sqlite-executor', () => {
   it('executeSqliteQuery 文件不存在时抛错', () => {
     expect(() => executeSqliteQuery('/tmp/not-found.sqlite', 'SELECT 1')).toThrow('SQLite 文件不存在');
   });
+
+  it('executeSqliteQuery 应支持参数化查询', () => {
+    const dbPath = createTempDatabase();
+
+    const result = executeSqliteQuery(dbPath, 'SELECT name FROM users WHERE id = ?', [1]);
+
+    expect(result.rows).toEqual([{ name: 'Alice' }]);
+    expect(result.total).toBe(1);
+  });
 });

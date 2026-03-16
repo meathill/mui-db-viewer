@@ -1,5 +1,6 @@
 import type {
   CreateTableRequest,
+  DatabaseFieldValue,
   RowUpdate,
   StructureEditorContext,
   TableColumn,
@@ -13,7 +14,7 @@ import type {
 export interface IDatabaseDriver {
   connect(): Promise<void>;
   disconnect(): Promise<void>;
-  query(sql: string): Promise<Array<Record<string, unknown>>>;
+  query(sql: string, params?: DatabaseFieldValue[]): Promise<Array<Record<string, unknown>>>;
   getTables(): Promise<string[]>;
   getTableSchema(tableName: string): Promise<TableColumn[]>;
   getStructureEditorContext(): Promise<StructureEditorContext>;

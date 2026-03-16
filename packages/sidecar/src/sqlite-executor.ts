@@ -3,10 +3,12 @@ import { DatabaseSync } from 'node:sqlite';
 import { z } from 'zod';
 
 const READ_QUERY_KEYWORDS = new Set(['SELECT', 'WITH', 'PRAGMA', 'EXPLAIN']);
+const sqlParameterSchema = z.union([z.string(), z.number(), z.boolean(), z.null()]);
 
 export const sqliteQuerySchema = z.object({
   path: z.string().min(1, '缺少有效的 SQLite 文件路径'),
   sql: z.string().min(1, '缺少有效的 SQL'),
+  params: z.array(sqlParameterSchema).optional().default([]),
 });
 
 interface SqliteColumnMeta {
@@ -126,12 +128,20 @@ export function splitSqlStatements(sql: string): string[] {
   return statements;
 }
 
-export function executeSqliteQuery(path: string, sql: string) {
+function assertSingleStatementWithParams(sql: string, params: Array<string | number | boolean | null>): string[] {
+  const statements = splitSqlStatements(sql);
+  if (params.length > 0 && statements.length !== 1) {
+    throw new Error('带参数执行暂不支持多语句，请拆分后再执行');
+  }
+  return statements;
+}
+
+export function executeSqliteQuery(path: string, sql: string, params: Array<string | number | boolean | null> = []) {
   if (!existsSync(path)) {
     throw new Error(`SQLite 文件不存在: ${path}`);
   }
 
-  const statements = splitSqlStatements(sql);
+  const statements = assertSingleStatementWithParams(sql, params);
   const db = new DatabaseSync(path);
   let rows: Record<string, unknown>[] = [];
   let columns: SqliteColumnMeta[] = [];
@@ -147,14 +157,15 @@ export function executeSqliteQuery(path: string, sql: string) {
 
     for (const statement of statements) {
       const preparedStatement = db.prepare(statement);
+      const statementParams = params.length > 0 ? params : [];
 
       if (shouldReturnRows(statement)) {
-        rows = preparedStatement.all().map((row) => toPlainRow(row as Record<string, unknown>));
+        rows = preparedStatement.all(...statementParams).map((row) => toPlainRow(row as Record<string, unknown>));
         columns = preparedStatement.columns().map((item) => item as SqliteColumnMeta);
         continue;
       }
 
-      preparedStatement.run();
+      preparedStatement.run(...statementParams);
     }
 
     return {

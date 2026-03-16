@@ -1,5 +1,6 @@
 import type {
   CreateTableRequest,
+  DatabaseFieldValue,
   RowUpdate,
   StructureEditorContext,
   TableColumn,
@@ -54,9 +55,9 @@ export abstract class QuestionMarkSqlDriver implements IDatabaseDriver {
 
   protected abstract executeQuery(query: string, params?: unknown[]): Promise<QueryRows>;
 
-  async query(sql: string): Promise<QueryRows> {
+  async query(sql: string, params: DatabaseFieldValue[] = []): Promise<QueryRows> {
     await this.connect();
-    const rows = await this.executeQuery(sql);
+    const rows = await this.executeQuery(sql, params);
     return Array.isArray(rows) ? rows : [];
   }
 
