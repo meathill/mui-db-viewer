@@ -36,6 +36,7 @@ describe('database-preferences-store', () => {
       sortField: null,
       sortOrder: DEFAULT_SORT_ORDER,
       filters: {},
+      filterDraft: null,
       pinnedColumns: [],
     });
 
@@ -111,6 +112,67 @@ describe('database-preferences-store', () => {
     store.setFilter('db-1', 'users', '_search', ''); // empty string unsets it
     const state2 = useDatabasePreferencesStore.getState();
     expect(state2.databases['db-1'].tablePreferences['users'].filters).toEqual({});
+  });
+
+  it('setFilterDraft 应按表保留未应用草稿，切换和关闭后不丢失', () => {
+    const store = useDatabasePreferencesStore.getState();
+    store.selectTable('db-1', 'users');
+    store.selectTable('db-1', 'orders');
+
+    store.setFilterDraft('db-1', 'users', {
+      conditions: [
+        {
+          connector: 'AND',
+          field: 'application_id',
+          operator: '=',
+          value: '30001',
+        },
+      ],
+      legacyTextValue: '',
+      sourceWarning: null,
+    });
+
+    store.setFilterDraft('db-1', 'orders', {
+      conditions: [
+        {
+          connector: 'AND',
+          field: 'status',
+          operator: '=',
+          value: 'active',
+        },
+      ],
+      legacyTextValue: '',
+      sourceWarning: null,
+    });
+
+    store.closeTable('db-1', 'users');
+    store.selectTable('db-1', 'users');
+
+    const state = useDatabasePreferencesStore.getState();
+    expect(state.databases['db-1'].tablePreferences['users'].filterDraft).toEqual({
+      conditions: [
+        {
+          connector: 'AND',
+          field: 'application_id',
+          operator: '=',
+          value: '30001',
+        },
+      ],
+      legacyTextValue: '',
+      sourceWarning: null,
+    });
+    expect(state.databases['db-1'].tablePreferences['orders'].filterDraft).toEqual({
+      conditions: [
+        {
+          connector: 'AND',
+          field: 'status',
+          operator: '=',
+          value: 'active',
+        },
+      ],
+      legacyTextValue: '',
+      sourceWarning: null,
+    });
   });
 
   it('toggleColumnPin 应在 pinnedColumns 中添加或移除字段', () => {

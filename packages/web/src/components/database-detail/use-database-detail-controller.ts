@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { resolveDatabaseDetailStrategy } from '@/lib/database-detail/strategy';
 import { isLocalSQLiteConnectionId } from '@/lib/local-sqlite/connection-store';
+import type { PersistedTableFilterDraft } from '@/lib/table-filter-builder';
 import { useDatabaseDetailStore } from '@/stores/database-detail-store';
 import {
   useDatabasePreferencesStore,
@@ -39,10 +40,11 @@ export function useDatabaseDetailController(id: string) {
           sortField: null,
           sortOrder: DEFAULT_SORT_ORDER,
           filters: {},
+          filterDraft: null,
           pinnedColumns: [],
         };
 
-  const { page, pageSize, sortField, sortOrder, filters, pinnedColumns = [] } = tablePref;
+  const { page, pageSize, sortField, sortOrder, filters, filterDraft, pinnedColumns = [] } = tablePref;
 
   const strategy = useMemo(() => resolveDatabaseDetailStrategy(id), [id]);
 
@@ -131,6 +133,17 @@ export function useDatabaseDetailController(id: string) {
     setFilter: (f, v) => selectedTable && prefStore.setFilter(id, selectedTable, f, v),
   });
 
+  const handleFilterDraftChange = useCallback(
+    (draft: PersistedTableFilterDraft | null) => {
+      if (!selectedTable) {
+        return;
+      }
+
+      prefStore.setFilterDraft(id, selectedTable, draft);
+    },
+    [id, prefStore, selectedTable],
+  );
+
   const { isExportingCsv, isImportingCsv, handleExportCsv, handleImportCsv } = useCsvOperations({
     id,
     selectedTable,
@@ -191,6 +204,7 @@ export function useDatabaseDetailController(id: string) {
     sortField,
     sortOrder,
     filters,
+    filterDraft,
     pinnedColumns,
     viewMode: structureController.viewMode,
     structureEditorContext: structureController.editorContext,
@@ -226,6 +240,7 @@ export function useDatabaseDetailController(id: string) {
       prefStore.toggleColumnPin(id, selectedTable, field);
     },
     handleFilterChange,
+    handleFilterDraftChange,
     getRowId,
     handleSelectAll,
     handleSelectRow,

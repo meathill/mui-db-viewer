@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import type { PersistedTableFilterDraft } from '@/lib/table-filter-builder';
 import type { SortOrder } from '@/lib/table-query';
 
 export const DEFAULT_PAGE = 1;
@@ -12,6 +13,7 @@ export interface TablePreference {
   sortField: string | null;
   sortOrder: SortOrder;
   filters: Record<string, string>;
+  filterDraft: PersistedTableFilterDraft | null;
   pinnedColumns: string[];
 }
 
@@ -31,6 +33,7 @@ export interface DatabasePreferencesState {
   setPageSize: (databaseId: string, table: string, pageSize: number) => void;
   setSort: (databaseId: string, table: string, field: string) => void;
   setFilter: (databaseId: string, table: string, field: string, value: string) => void;
+  setFilterDraft: (databaseId: string, table: string, draft: PersistedTableFilterDraft | null) => void;
   toggleColumnPin: (databaseId: string, table: string, field: string) => void;
 }
 
@@ -40,6 +43,7 @@ const defaultTablePreference: TablePreference = {
   sortField: null,
   sortOrder: DEFAULT_SORT_ORDER,
   filters: {},
+  filterDraft: null,
   pinnedColumns: [],
 };
 
@@ -204,6 +208,28 @@ export const useDatabasePreferencesStore = create<DatabasePreferencesState>()(
                 tablePreferences: {
                   ...db.tablePreferences,
                   [table]: { ...pref, filters: nextFilters, page: DEFAULT_PAGE },
+                },
+              },
+            },
+          };
+        });
+      },
+
+      setFilterDraft: (databaseId, table, draft) => {
+        set((state) => {
+          const db = state.databases[databaseId];
+          if (!db) return state;
+
+          const pref = db.tablePreferences[table] || { ...defaultTablePreference };
+
+          return {
+            databases: {
+              ...state.databases,
+              [databaseId]: {
+                ...db,
+                tablePreferences: {
+                  ...db.tablePreferences,
+                  [table]: { ...pref, filterDraft: draft },
                 },
               },
             },

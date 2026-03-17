@@ -129,6 +129,40 @@ describe('local-sqlite table-ops', () => {
     );
   });
 
+  it('getLocalSQLiteTableData 应支持表达式筛选', async () => {
+    vi.mocked(executeLocalSQLiteQuery)
+      .mockResolvedValueOnce({
+        rows: [
+          { name: 'application_id', type: 'INTEGER', notnull: 1, pk: 1, dflt_value: null },
+          { name: 'status', type: 'TEXT', notnull: 0, pk: 0, dflt_value: null },
+        ],
+        total: 2,
+        columns: [],
+      })
+      .mockResolvedValueOnce({
+        rows: [{ total: 1 }],
+        total: 1,
+        columns: [],
+      })
+      .mockResolvedValueOnce({
+        rows: [{ application_id: 30001, status: 'active' }],
+        total: 1,
+        columns: [],
+      });
+
+    await getLocalSQLiteTableData('local-sqlite:1', 'users', {
+      filters: {
+        _search: "application_id=30001&&status='active'",
+      },
+    });
+
+    expect(executeLocalSQLiteQuery).toHaveBeenNthCalledWith(
+      2,
+      'local-sqlite:1',
+      expect.stringContaining(`WHERE ("application_id" = 30001 AND "status" = 'active')`),
+    );
+  });
+
   it('deleteLocalSQLiteRows 无主键时应报错', async () => {
     vi.mocked(executeLocalSQLiteQuery).mockResolvedValue({
       rows: [{ name: 'name', type: 'TEXT', notnull: 0, pk: 0, dflt_value: null }],

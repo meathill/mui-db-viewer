@@ -39,6 +39,7 @@ export default function DatabaseDetailPage({ params }: PageProps) {
     sortField,
     sortOrder,
     filters,
+    filterDraft,
     pinnedColumns,
     viewMode,
     structureEditorContext,
@@ -65,6 +66,7 @@ export default function DatabaseDetailPage({ params }: PageProps) {
     handleSort,
     handleToggleColumnPin,
     handleFilterChange,
+    handleFilterDraftChange,
     getRowId,
     handleSelectAll,
     handleSelectRow,
@@ -175,6 +177,7 @@ export default function DatabaseDetailPage({ params }: PageProps) {
           <>
             <TableToolbar
               selectedTable={selectedTable}
+              columns={tableData?.columns ?? []}
               hasPendingEdits={hasPendingEdits}
               pendingEditCount={pendingEditCount}
               updateLoading={updateLoading}
@@ -182,12 +185,14 @@ export default function DatabaseDetailPage({ params }: PageProps) {
               selectedRowsCount={selectedRows.size}
               deleteError={deleteError}
               searchValue={filters._search || ''}
+              searchDraftValue={filterDraft}
               totalRows={tableData?.total || 0}
               onUpdate={handleUpdate}
               onDeleteSelected={handleDeleteSelected}
               onClearDeleteError={clearDeleteError}
               onOpenInsert={() => setIsInsertOpen(true)}
               onSearchChange={(value) => handleFilterChange('_search', value)}
+              onSearchDraftChange={handleFilterDraftChange}
               onRefresh={handleRefresh}
               onExportCsv={handleExportCsv}
               onImportCsv={handleImportCsv}

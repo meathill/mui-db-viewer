@@ -1,4 +1,5 @@
 import type { TableColumn, TableRow, TableDataResult } from '../api-types';
+import { parseSearchExpression, type ParsedExpression } from '../table-filter';
 
 export const DEFAULT_TABLE_PAGE = 1;
 export const DEFAULT_TABLE_PAGE_SIZE = 20;
@@ -58,17 +59,59 @@ export function findPrimaryKeyColumn(columns: TableColumn[]): TableColumn | unde
   return columns.find((column) => column.Key === 'PRI');
 }
 
+function expressionToSqliteClause(expression: ParsedExpression, validColumns: Set<string>): string | null {
+  const sqlParts: string[] = [];
+
+  for (let index = 0; index < expression.conditions.length; index += 1) {
+    const condition = expression.conditions[index];
+
+    if (!validColumns.has(condition.field)) {
+      return null;
+    }
+
+    if (condition.operator === 'IN' || condition.operator === 'NOT IN') {
+      if (!Array.isArray(condition.value) || condition.value.length === 0) {
+        return null;
+      }
+
+      const sqlValues = condition.value.map((value) => toSqlLiteral(value)).join(', ');
+      sqlParts.push(`${quoteIdentifier(condition.field)} ${condition.operator} (${sqlValues})`);
+    } else {
+      sqlParts.push(`${quoteIdentifier(condition.field)} ${condition.operator} ${toSqlLiteral(condition.value)}`);
+    }
+
+    if (index < expression.connectors.length) {
+      sqlParts.push(expression.connectors[index]);
+    }
+  }
+
+  return sqlParts.length > 0 ? `(${sqlParts.join(' ')})` : null;
+}
+
 export function buildWhereClause(columns: TableColumn[], filters: Record<string, string> = {}): string {
   const clauses: string[] = [];
-  const searchKeyword = filters._search?.trim();
+  const searchInput = filters._search?.trim();
 
-  if (searchKeyword) {
-    const searchPattern = toSqlLiteral(`%${searchKeyword}%`);
-    const searchableClauses = columns.map(
-      (column) => `CAST(${quoteIdentifier(column.Field)} AS TEXT) LIKE ${searchPattern}`,
-    );
-    if (searchableClauses.length > 0) {
-      clauses.push(`(${searchableClauses.join(' OR ')})`);
+  if (searchInput) {
+    const parsedSearch = parseSearchExpression(searchInput);
+
+    if (parsedSearch.isExpression && parsedSearch.expression) {
+      const expressionClause = expressionToSqliteClause(
+        parsedSearch.expression,
+        new Set(columns.map((column) => column.Field)),
+      );
+
+      if (expressionClause) {
+        clauses.push(expressionClause);
+      }
+    } else if (parsedSearch.rawText) {
+      const searchPattern = toSqlLiteral(`%${parsedSearch.rawText}%`);
+      const searchableClauses = columns.map(
+        (column) => `CAST(${quoteIdentifier(column.Field)} AS TEXT) LIKE ${searchPattern}`,
+      );
+      if (searchableClauses.length > 0) {
+        clauses.push(`(${searchableClauses.join(' OR ')})`);
+      }
     }
   }
 
