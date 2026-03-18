@@ -1,5 +1,5 @@
 import { Trash2Icon } from 'lucide-react';
-import { useDeferredValue, useMemo } from 'react';
+import { FormEvent, KeyboardEvent, useDeferredValue, useMemo } from 'react';
 import {
   Autocomplete,
   AutocompleteCollection,
@@ -150,6 +150,7 @@ export function TableFilterConditionEditorPanel({
   const editorError = getTableFilterConditionEditorError(condition, columns);
   const hasStartedEditing = condition.field.trim() !== '' || condition.value.trim() !== '';
   const valuePlaceholder = getTableFilterValuePlaceholder(condition, columns);
+  const canSave = !loading && editorError === null;
 
   function updateCondition(patch: Partial<TableFilterConditionDraft>) {
     onConditionChange({
@@ -167,8 +168,28 @@ export function TableFilterConditionEditorPanel({
     });
   }
 
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!canSave) {
+      return;
+    }
+
+    onSave();
+  }
+
+  function handleValueInputKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.key !== 'Enter' || event.nativeEvent.isComposing || !canSave) {
+      return;
+    }
+
+    event.preventDefault();
+    onSave();
+  }
+
   return (
-    <div className="space-y-4">
+    <form
+      className="space-y-4"
+      onSubmit={handleSubmit}>
       <div className="space-y-1">
         <PopoverTitle>{index === null ? '添加筛选条件' : '编辑筛选条件'}</PopoverTitle>
         <p className="text-muted-foreground text-sm">字段、运算符和值分开编辑，避免手写表达式出错。</p>
@@ -263,6 +284,7 @@ export function TableFilterConditionEditorPanel({
           aria-label="筛选值"
           disabled={loading}
           onChange={(event) => updateCondition({ value: event.target.value })}
+          onKeyDown={handleValueInputKeyDown}
           placeholder={valuePlaceholder}
           size="sm"
           value={condition.value}
@@ -303,14 +325,13 @@ export function TableFilterConditionEditorPanel({
             取消
           </Button>
           <Button
-            disabled={loading || editorError !== null}
-            onClick={onSave}
+            disabled={!canSave}
             size="xs"
-            type="button">
+            type="submit">
             保存条件
           </Button>
         </div>
       </div>
-    </div>
+    </form>
   );
 }

@@ -18,7 +18,7 @@ function createRows() {
 }
 
 test.describe('表格筛选编辑器', () => {
-  test('支持 Supabase 风格的结构化筛选并阻止半成品条件保存', async ({ page }) => {
+  test('支持紧凑的一行筛选条，并在编辑后自动应用条件', async ({ page }) => {
     const columns = createTableColumns();
     const rows = createRows();
     const searchRequests: string[] = [];
@@ -214,6 +214,7 @@ test.describe('表格筛选编辑器', () => {
     await page.getByRole('button', { name: 'orders' }).click();
 
     await expect.poll(() => searchRequests.length).toBe(1);
+    await expect(page.getByText('当前未筛选')).toHaveCount(0);
     await expect(page.getByRole('button', { name: '添加筛选条件' })).toBeVisible();
 
     await page.getByRole('button', { name: '添加筛选条件' }).click();
@@ -225,16 +226,15 @@ test.describe('表格筛选编辑器', () => {
     await page.getByRole('button', { name: '保存条件' }).click();
 
     await expect(page.getByRole('button', { name: '编辑筛选条件 application_id = 30001' })).toBeVisible();
-    await expect(page.getByText('待应用的新条件')).toBeVisible();
-    await expect.poll(() => searchRequests.length).toBe(1);
+    await expect.poll(() => searchRequests.at(-1)).toBe('application_id = 30001');
+    await expect(page.getByText('总计').locator('..').getByText('2', { exact: true })).toBeVisible();
 
     await page.getByRole('tab', { name: '结构' }).click();
     await expect(page.getByRole('heading', { name: 'orders 的结构' })).toBeVisible();
 
     await page.getByRole('tab', { name: '数据' }).click();
     await expect(page.getByRole('button', { name: '编辑筛选条件 application_id = 30001' })).toBeVisible();
-    await expect(page.getByText('待应用的新条件')).toBeVisible();
-    await expect.poll(() => searchRequests.length).toBe(1);
+    await expect.poll(() => searchRequests.length).toBe(2);
 
     await page.getByRole('button', { name: '添加筛选条件' }).click();
     await page.getByRole('combobox', { name: '筛选列' }).fill('status');
@@ -242,19 +242,19 @@ test.describe('表格筛选编辑器', () => {
 
     await expect(page.getByRole('button', { name: '保存条件' })).toBeDisabled();
     await expect(page.getByText('请输入筛选值')).toBeVisible();
-    await expect.poll(() => searchRequests.length).toBe(1);
+    await expect.poll(() => searchRequests.length).toBe(2);
 
     await page.getByRole('textbox', { name: '筛选值' }).fill('active');
-    await page.getByRole('button', { name: '保存条件' }).click();
+    await page.getByRole('textbox', { name: '筛选值' }).press('Enter');
 
     await expect(page.getByRole('button', { name: '编辑筛选条件 status = active' })).toBeVisible();
-    await expect(page.getByText("将按 2 条条件筛选：application_id = 30001 && status = 'active'")).toBeVisible();
-    await expect(page.getByRole('button', { name: '应用筛选' })).toBeEnabled();
-
-    await page.getByRole('button', { name: '应用筛选' }).click();
-
     await expect.poll(() => searchRequests.at(-1)).toBe("application_id = 30001 && status = 'active'");
     await expect(page.getByText('总计').locator('..').getByText('1', { exact: true })).toBeVisible();
-    await expect(page.getByText('筛选条件已生效')).toBeVisible();
+
+    await page.getByRole('button', { name: '删除筛选条件 status = active' }).click();
+
+    await expect(page.getByRole('button', { name: '编辑筛选条件 status = active' })).toHaveCount(0);
+    await expect.poll(() => searchRequests.at(-1)).toBe('application_id = 30001');
+    await expect(page.getByText('总计').locator('..').getByText('2', { exact: true })).toBeVisible();
   });
 });

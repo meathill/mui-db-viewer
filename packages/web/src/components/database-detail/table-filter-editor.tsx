@@ -62,6 +62,20 @@ function buildComparableDraftKey(draft: TableFilterDraft): string {
   return JSON.stringify(getComparableTableFilterDraft(draft));
 }
 
+function buildDraftWithConditions(
+  draft: TableFilterDraft,
+  nextConditions: TableFilterConditionDraft[],
+): TableFilterDraft {
+  const hasActiveConditions = nextConditions.some((condition) => !isBlankCondition(condition));
+
+  return {
+    ...draft,
+    conditions: normalizeConditions(nextConditions),
+    legacyTextValue: hasActiveConditions ? '' : draft.legacyTextValue,
+    sourceWarning: hasActiveConditions ? null : draft.sourceWarning,
+  };
+}
+
 export function TableFilterEditor({
   value,
   draftValue = null,
@@ -122,18 +136,30 @@ export function TableFilterEditor({
     isDirty,
     draftValidation.normalizedValue,
   );
+  const shouldShowStatus =
+    !draftValidation.isValid || (draft.sourceWarning !== null && draftValidation.activeConditionCount === 0);
 
   function handleDraftChange(nextDraft: TableFilterDraft) {
     onDraftChange(serializeTableFilterDraft(nextDraft));
   }
 
-  function replaceDraftConditions(nextConditions: TableFilterConditionDraft[]) {
-    handleDraftChange({
-      ...draft,
-      conditions: normalizeConditions(nextConditions),
-      legacyTextValue: nextConditions.some((condition) => !isBlankCondition(condition)) ? '' : draft.legacyTextValue,
-      sourceWarning: nextConditions.some((condition) => !isBlankCondition(condition)) ? null : draft.sourceWarning,
-    });
+  function applyDraftChange(nextDraft: TableFilterDraft) {
+    const nextValidation = validateTableFilterDraft(nextDraft, columns);
+    handleDraftChange(nextDraft);
+
+    if (nextValidation.isValid) {
+      onApply(nextValidation.normalizedValue);
+    }
+  }
+
+  function replaceDraftConditions(nextConditions: TableFilterConditionDraft[], autoApply = false) {
+    const nextDraft = buildDraftWithConditions(draft, nextConditions);
+    if (autoApply) {
+      applyDraftChange(nextDraft);
+      return;
+    }
+
+    handleDraftChange(nextDraft);
   }
 
   function handleToggleConnector(index: number) {
@@ -146,6 +172,7 @@ export function TableFilterEditor({
             }
           : condition,
       ),
+      true,
     );
   }
 
@@ -157,7 +184,7 @@ export function TableFilterEditor({
 
     setEditorState({
       index: null,
-      condition: createEmptyTableFilterCondition(activeConditions.length === 0 ? 'AND' : 'AND'),
+      condition: createEmptyTableFilterCondition(),
     });
   }
 
@@ -187,17 +214,21 @@ export function TableFilterEditor({
     };
 
     if (editorState.index === null) {
-      replaceDraftConditions([...activeConditions, nextCondition]);
+      replaceDraftConditions([...activeConditions, nextCondition], true);
     } else {
       replaceDraftConditions(
         draft.conditions.map((condition, index) => (index === editorState.index ? nextCondition : condition)),
+        true,
       );
     }
     setEditorState(null);
   }
 
   function handleDeleteCondition(index: number) {
-    replaceDraftConditions(draft.conditions.filter((_, conditionIndex) => conditionIndex !== index));
+    replaceDraftConditions(
+      draft.conditions.filter((_, conditionIndex) => conditionIndex !== index),
+      true,
+    );
     setEditorState(null);
   }
 
@@ -222,22 +253,23 @@ export function TableFilterEditor({
   }
 
   return (
-    <section className="space-y-3 rounded-2xl border border-border/70 bg-muted/10 p-3 sm:p-4">
-      <div className="rounded-2xl border border-border/70 bg-background/95 px-3 py-2.5 shadow-sm">
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex size-8 items-center justify-center rounded-full bg-muted/60 text-muted-foreground">
-            <SearchIcon className="size-4" />
-          </div>
+    <section className="space-y-2">
+      <div className="flex items-center gap-2 rounded-2xl border border-border/70 bg-background/95 px-3 py-2 shadow-sm">
+        <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted/50 text-muted-foreground">
+          <SearchIcon className="size-4" />
+        </div>
 
+        <div className="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto whitespace-nowrap pb-1 sm:pb-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {activeConditions.map((condition, index) => {
             const isRowInvalid = draftValidation.rowErrors[index] !== '';
             const isPopoverOpen = editorState?.index === index;
+            const conditionLabel = buildTableFilterConditionLabel(condition);
 
             return (
               <Fragment key={condition.id}>
                 {index > 0 && (
                   <button
-                    className="inline-flex h-8 items-center rounded-full border border-border/70 px-3 font-medium text-muted-foreground text-xs transition-colors hover:border-border hover:bg-muted/50 hover:text-foreground"
+                    className="inline-flex h-7 shrink-0 items-center rounded-full border border-border/70 px-2.5 font-medium text-muted-foreground text-xs transition-colors hover:border-border hover:bg-muted/50 hover:text-foreground"
                     disabled={loading}
                     onClick={() => handleToggleConnector(index)}
                     type="button">
@@ -245,43 +277,64 @@ export function TableFilterEditor({
                   </button>
                 )}
 
-                <Popover
-                  open={isPopoverOpen}
-                  onOpenChange={(open) => handleOpenEditEditor(index, open)}>
-                  <PopoverTrigger
-                    aria-label={`编辑筛选条件 ${buildTableFilterConditionLabel(condition)}`}
+                <div
+                  className={cn(
+                    'inline-flex h-9 max-w-full shrink-0 items-center rounded-xl border pr-1 transition-colors',
+                    isRowInvalid
+                      ? 'border-destructive/60 bg-destructive/5 text-destructive'
+                      : 'border-border/70 bg-background text-foreground',
+                  )}>
+                  <Popover
+                    open={isPopoverOpen}
+                    onOpenChange={(open) => handleOpenEditEditor(index, open)}>
+                    <PopoverTrigger
+                      aria-label={`编辑筛选条件 ${conditionLabel}`}
+                      className="flex max-w-[18rem] min-w-0 items-center px-3 text-left text-sm transition-colors hover:bg-muted/40">
+                      <span className="truncate">{conditionLabel}</span>
+                    </PopoverTrigger>
+                    <PopoverPopup
+                      align="start"
+                      className="w-[min(30rem,calc(100vw-2rem))]">
+                      <TableFilterConditionEditorPanel
+                        columns={columns}
+                        condition={isPopoverOpen && editorState ? editorState.condition : condition}
+                        index={index}
+                        loading={loading}
+                        onCancel={() => setEditorState(null)}
+                        onConditionChange={(conditionDraft) =>
+                          setEditorState((current) =>
+                            current && current.index === index
+                              ? {
+                                  ...current,
+                                  condition: conditionDraft,
+                                }
+                              : current,
+                          )
+                        }
+                        onDelete={() => handleDeleteCondition(index)}
+                        onSave={handleSaveEditorCondition}
+                      />
+                    </PopoverPopup>
+                  </Popover>
+
+                  <button
+                    aria-label={`删除筛选条件 ${conditionLabel}`}
                     className={cn(
-                      'inline-flex h-10 max-w-full items-center rounded-xl border px-3 text-left text-sm transition-colors hover:border-border hover:bg-muted/40',
+                      'flex size-7 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors',
                       isRowInvalid
-                        ? 'border-destructive/60 bg-destructive/5 text-destructive'
-                        : 'border-border/70 bg-background text-foreground',
-                    )}>
-                    <span className="truncate">{buildTableFilterConditionLabel(condition)}</span>
-                  </PopoverTrigger>
-                  <PopoverPopup
-                    align="start"
-                    className="w-[min(30rem,calc(100vw-2rem))]">
-                    <TableFilterConditionEditorPanel
-                      columns={columns}
-                      condition={isPopoverOpen && editorState ? editorState.condition : condition}
-                      index={index}
-                      loading={loading}
-                      onCancel={() => setEditorState(null)}
-                      onConditionChange={(conditionDraft) =>
-                        setEditorState((current) =>
-                          current && current.index === index
-                            ? {
-                                ...current,
-                                condition: conditionDraft,
-                              }
-                            : current,
-                        )
-                      }
-                      onDelete={() => handleDeleteCondition(index)}
-                      onSave={handleSaveEditorCondition}
-                    />
-                  </PopoverPopup>
-                </Popover>
+                        ? 'hover:bg-destructive/10 hover:text-destructive'
+                        : 'hover:bg-muted/60 hover:text-foreground',
+                    )}
+                    disabled={loading}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      handleDeleteCondition(index);
+                    }}
+                    type="button">
+                    <XIcon className="size-3.5" />
+                  </button>
+                </div>
               </Fragment>
             );
           })}
@@ -292,13 +345,13 @@ export function TableFilterEditor({
             <PopoverTrigger
               aria-label="添加筛选条件"
               className={cn(
-                'inline-flex h-10 items-center gap-2 rounded-xl border border-dashed px-3 text-sm transition-colors hover:border-border hover:bg-muted/40',
+                'inline-flex h-9 shrink-0 items-center gap-2 rounded-xl border border-dashed px-3 text-sm transition-colors hover:border-border hover:bg-muted/40',
                 activeConditions.length === 0
                   ? 'border-border/70 text-muted-foreground'
                   : 'border-border/60 text-muted-foreground',
               )}>
               <PlusIcon className="size-4" />
-              {activeConditions.length === 0 ? '添加筛选...' : '添加更多条件...'}
+              添加条件
             </PopoverTrigger>
             <PopoverPopup
               align="start"
@@ -327,45 +380,47 @@ export function TableFilterEditor({
             </PopoverPopup>
           </Popover>
         </div>
-      </div>
 
-      <Alert variant={statusVariant}>
-        <AlertCircleIcon className="size-4" />
-        <AlertTitle>{statusTitle}</AlertTitle>
-        <AlertDescription>
-          <p>{statusDescription}</p>
-          {draft.sourceWarning && draftValidation.activeConditionCount === 0 && (
-            <p className="text-xs">旧值不会在当前界面继续编辑；你可以直接清空，或者新建结构化条件覆盖它。</p>
+        <div className="flex shrink-0 items-center gap-2">
+          {isDirty && (
+            <Button
+              disabled={loading}
+              onClick={handleReset}
+              size="xs"
+              variant="outline">
+              重置
+            </Button>
           )}
-        </AlertDescription>
-      </Alert>
-
-      <div className="flex flex-wrap items-center justify-end gap-2">
-        {isDirty && (
           <Button
-            disabled={loading}
-            onClick={handleReset}
+            disabled={loading || !canClear}
+            onClick={handleClear}
             size="xs"
             variant="outline">
-            重置草稿
+            清空
           </Button>
-        )}
-        <Button
-          disabled={loading || !canClear}
-          onClick={handleClear}
-          size="xs"
-          variant="outline">
-          <XIcon className="size-3.5" />
-          清空筛选
-        </Button>
-        <Button
-          disabled={loading || editorState !== null || !isDirty || !draftValidation.isValid}
-          onClick={handleApply}
-          size="sm">
-          <SearchIcon className="size-4" />
-          应用筛选
-        </Button>
+          <Button
+            disabled={loading || editorState !== null || !isDirty || !draftValidation.isValid}
+            onClick={handleApply}
+            size="xs">
+            应用
+          </Button>
+        </div>
       </div>
+
+      {shouldShowStatus && (
+        <Alert
+          className="px-3 py-2"
+          variant={statusVariant}>
+          <AlertCircleIcon className="size-4" />
+          <AlertTitle className="text-sm">{statusTitle}</AlertTitle>
+          <AlertDescription className="gap-1 text-xs">
+            <p>{statusDescription}</p>
+            {draft.sourceWarning && draftValidation.activeConditionCount === 0 && (
+              <p>旧值不会在当前界面继续编辑；你可以直接清空，或者新建结构化条件覆盖它。</p>
+            )}
+          </AlertDescription>
+        </Alert>
+      )}
     </section>
   );
 }

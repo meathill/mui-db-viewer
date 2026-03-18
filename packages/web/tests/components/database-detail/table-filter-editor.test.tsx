@@ -75,6 +75,81 @@ describe('TableFilterEditor', () => {
     );
 
     expect(screen.getByRole('button', { name: '编辑筛选条件 status = active' })).toBeTruthy();
-    expect(screen.getByText('待应用的新条件')).toBeTruthy();
+    expect((screen.getByRole('button', { name: '应用' }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('空状态时不应展示“当前未筛选”提示', () => {
+    render(
+      <TableFilterEditor
+        columns={columns}
+        value=""
+        onApply={vi.fn()}
+        onDraftChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByText('当前未筛选')).toBeNull();
+  });
+
+  it('编辑条件后应自动应用筛选', () => {
+    const onApply = vi.fn();
+
+    render(
+      <TableFilterEditor
+        columns={columns}
+        draftValue={{
+          conditions: [
+            {
+              connector: 'AND',
+              field: 'application_id',
+              operator: '=',
+              value: '30001',
+            },
+          ],
+          legacyTextValue: '',
+          sourceWarning: null,
+        }}
+        value=""
+        onApply={onApply}
+        onDraftChange={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: '编辑筛选条件 application_id = 30001' }));
+    fireEvent.change(screen.getByRole('textbox', { name: '筛选值' }), {
+      target: { value: '30002' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: '保存条件' }));
+
+    expect(onApply).toHaveBeenCalledWith('application_id = 30002');
+  });
+
+  it('点击条件上的删除按钮后应直接清空该条件并自动应用', () => {
+    const onApply = vi.fn();
+
+    render(
+      <TableFilterEditor
+        columns={columns}
+        draftValue={{
+          conditions: [
+            {
+              connector: 'AND',
+              field: 'status',
+              operator: '=',
+              value: 'active',
+            },
+          ],
+          legacyTextValue: '',
+          sourceWarning: null,
+        }}
+        value="status = 'active'"
+        onApply={onApply}
+        onDraftChange={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: '删除筛选条件 status = active' }));
+
+    expect(onApply).toHaveBeenCalledWith('');
   });
 });
