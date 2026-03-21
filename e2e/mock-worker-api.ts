@@ -1,6 +1,7 @@
 import type { Page, Route, Request } from '@playwright/test';
 import {
   createDefaultStructureState,
+  createMockColumn,
   createMockIndex,
   createMockTable,
   getMockTableData,
@@ -334,6 +335,24 @@ export async function mockWorkerApi(page: Page, state: WorkerMockState) {
         await fulfillJson(route, { success: true });
       } catch (error) {
         await fulfillJson(route, fail(getStructureErrorMessage(error, '更新列失败')), 400);
+      }
+      return;
+    }
+
+    const matchCreateColumn = url.pathname.match(/^\/api\/v1\/databases\/([^/]+)\/tables\/([^/]+)\/columns$/);
+    if (matchCreateColumn && request.method() === 'POST') {
+      const databaseId = decodePathSegment(matchCreateColumn[1]);
+      const tableName = decodePathSegment(matchCreateColumn[2]);
+      if (!findDatabase(state, databaseId)) {
+        await fulfillJson(route, fail('Not Found'), 404);
+        return;
+      }
+
+      try {
+        createMockColumn(state.structure, tableName, parseBodyJson(request));
+        await fulfillJson(route, { success: true });
+      } catch (error) {
+        await fulfillJson(route, fail(getStructureErrorMessage(error, '新增列失败')), 400);
       }
       return;
     }

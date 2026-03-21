@@ -79,6 +79,7 @@ function renderStructureView() {
   const onClearStructureError = vi.fn();
   const onRefreshTableStructure = vi.fn();
   const onCreateTable = vi.fn().mockResolvedValue({ tableName: 'audit_logs' });
+  const onCreateColumn = vi.fn().mockResolvedValue(undefined);
   const onUpdateColumn = vi.fn().mockResolvedValue(undefined);
   const onCreateIndex = vi.fn().mockResolvedValue(undefined);
   const onUpdateIndex = vi.fn().mockResolvedValue(undefined);
@@ -95,6 +96,7 @@ function renderStructureView() {
       onClearStructureError={onClearStructureError}
       onRefreshTableStructure={onRefreshTableStructure}
       onCreateTable={onCreateTable}
+      onCreateColumn={onCreateColumn}
       onUpdateColumn={onUpdateColumn}
       onCreateIndex={onCreateIndex}
       onUpdateIndex={onUpdateIndex}
@@ -105,6 +107,7 @@ function renderStructureView() {
     onClearStructureError,
     onRefreshTableStructure,
     onCreateTable,
+    onCreateColumn,
     onUpdateColumn,
     onCreateIndex,
     onUpdateIndex,
@@ -161,6 +164,25 @@ describe('StructureView', () => {
         type: 'TEXT',
         nullable: true,
         defaultExpression: "'guest'",
+        primaryKey: false,
+        autoIncrement: false,
+      });
+    });
+  });
+
+  it('应支持添加列', async () => {
+    const { onCreateColumn } = renderStructureView();
+
+    fireEvent.click(screen.getByRole('button', { name: '添加列' }));
+    fireEvent.change(screen.getByLabelText('列名'), { target: { value: 'email' } });
+    fireEvent.click(screen.getByRole('button', { name: '创建列' }));
+
+    await waitFor(() => {
+      expect(onCreateColumn).toHaveBeenCalledWith('users', {
+        name: 'email',
+        type: 'INTEGER',
+        nullable: true,
+        defaultExpression: null,
         primaryKey: false,
         autoIncrement: false,
       });

@@ -83,6 +83,68 @@ export function hasColumnChanges(currentColumn: TableStructureColumn, draft: Tab
   return getColumnChangeItems(currentColumn, draft).length > 0;
 }
 
+export function getCreateColumnInsight(dialect: SqlDialect, draft: TableStructureColumnInput): StructureEditorInsight {
+  const columnName = normalizeText(draft.name);
+  const columnType = normalizeText(draft.type);
+  const defaultExpression = normalizeOptionalText(draft.defaultExpression);
+  const requiresDefault = !draft.nullable && defaultExpression === null;
+  const hasUnsupportedSqliteConstraint =
+    dialect === 'sqlite' && (Boolean(draft.primaryKey) || Boolean(draft.autoIncrement));
+
+  if (!columnName || !columnType) {
+    return {
+      title: '先补全列名和类型',
+      description: '至少填写列名和列类型，才能生成有效的新增列语句。',
+      tone: 'info',
+      changes: [
+        `列名：${columnName || '未填写'}`,
+        `类型：${columnType || '未填写'}`,
+        `空值约束：${formatNullable(Boolean(draft.nullable))}`,
+        `默认值：${formatDefaultExpression(draft.defaultExpression)}`,
+      ],
+      hasChanges: false,
+    };
+  }
+
+  if (hasUnsupportedSqliteConstraint || requiresDefault) {
+    return {
+      title: '当前列定义需要先调整',
+      description:
+        dialect === 'sqlite'
+          ? 'SQLite 新增列会走 ADD COLUMN，暂不支持直接新增主键/自增列；新增 NOT NULL 列时也必须提供默认值。'
+          : '新增列前请确认现有数据能满足约束，必要时先放宽约束再补数据。',
+      tone: 'warning',
+      changes: [
+        `列名：${columnName}`,
+        `类型：${columnType}`,
+        `空值约束：${formatNullable(Boolean(draft.nullable))}`,
+        `默认值：${formatDefaultExpression(draft.defaultExpression)}`,
+        `主键：${draft.primaryKey ? '开启' : '关闭'}`,
+        `自增：${draft.autoIncrement ? '开启' : '关闭'}`,
+      ],
+      hasChanges: true,
+    };
+  }
+
+  return {
+    title: dialect === 'sqlite' ? '将执行 ADD COLUMN' : '将新增一列',
+    description:
+      dialect === 'sqlite'
+        ? 'SQLite 会直接追加新列，已有数据会按默认值或 NULL 填充。'
+        : '会执行 ALTER TABLE ... ADD COLUMN，请确认默认值和约束符合预期。',
+    tone: 'success',
+    changes: [
+      `列名：${columnName}`,
+      `类型：${columnType}`,
+      `空值约束：${formatNullable(Boolean(draft.nullable))}`,
+      `默认值：${formatDefaultExpression(draft.defaultExpression)}`,
+      `主键：${draft.primaryKey ? '开启' : '关闭'}`,
+      `自增：${draft.autoIncrement ? '开启' : '关闭'}`,
+    ],
+    hasChanges: true,
+  };
+}
+
 export function getColumnEditorInsight(
   dialect: SqlDialect,
   currentColumn: TableStructureColumn,

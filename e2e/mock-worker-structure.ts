@@ -408,6 +408,41 @@ export function updateMockColumn(
   state.rowsByTableName[tableName] = renameRowField(state.rowsByTableName[tableName] ?? [], columnName, nextColumnName);
 }
 
+export function createMockColumn(state: MockDatabaseStructureState, tableName: string, payload: unknown): void {
+  const table = requireTable(state, tableName);
+  const nextColumn = extractColumnUpdate(payload);
+
+  if (nextColumn.primaryKey) {
+    throw new Error('现有表新增列暂不支持直接设置为主键');
+  }
+
+  if (nextColumn.autoIncrement) {
+    throw new Error('现有表新增列暂不支持直接设置为自增');
+  }
+
+  if (!nextColumn.nullable && nextColumn.defaultExpression === null) {
+    throw new Error('新增 NOT NULL 列时必须提供默认值');
+  }
+
+  const nextColumns = normalizeColumns([...table.columns.map(toColumnInput), nextColumn]);
+  const secondaryIndexes = normalizeSecondaryIndexes(
+    table.indexes
+      .filter((index) => !index.primary)
+      .map((index) => ({
+        name: index.name,
+        columns: index.columns,
+        unique: index.unique,
+      })),
+    nextColumns.map((column) => column.name),
+  );
+
+  state.tablesByName[tableName] = buildStructure(tableName, nextColumns, buildIndexes(nextColumns, secondaryIndexes));
+  state.rowsByTableName[tableName] = (state.rowsByTableName[tableName] ?? []).map((row) => ({
+    ...row,
+    [nextColumn.name]: nextColumn.defaultExpression,
+  }));
+}
+
 export function createMockIndex(state: MockDatabaseStructureState, tableName: string, payload: unknown): void {
   const table = requireTable(state, tableName);
   const newIndex = extractIndexUpdate(payload);

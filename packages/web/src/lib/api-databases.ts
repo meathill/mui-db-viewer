@@ -9,6 +9,7 @@ import type {
   StructureEditorContext,
   TableDataResult,
   TableStructure,
+  TableStructureColumnInput,
   TableStructureIndexInput,
 } from './api-types';
 
@@ -102,6 +103,13 @@ export const databases = {
       throw new Error(result.error || '创建数据表失败');
     }
     return result.data;
+  },
+
+  async createColumn(id: string, tableName: string, column: TableStructureColumnInput): Promise<void> {
+    const result = await request('POST', `/api/v1/databases/${id}/tables/${tableName}/columns`, { column });
+    if (!result.success) {
+      throw new Error(result.error || '新增列失败');
+    }
   },
 
   async updateColumn(

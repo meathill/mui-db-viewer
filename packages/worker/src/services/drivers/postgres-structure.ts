@@ -31,6 +31,18 @@ function buildPostgresColumnDefinition(column: TableStructureColumnInput): strin
   return parts.join(' ');
 }
 
+export function buildPostgresAddColumnStatement(tableName: string, column: TableStructureColumnInput): string {
+  if (column.primaryKey) {
+    throw new Error('当前版本暂不支持在现有 PostgreSQL 表中新增主键列');
+  }
+
+  if (column.autoIncrement) {
+    throw new Error('当前版本暂不支持在现有 PostgreSQL 表中新增自增列');
+  }
+
+  return `ALTER TABLE ${quotePostgresIdentifier(tableName)} ADD COLUMN ${buildPostgresColumnDefinition(column)}`;
+}
+
 export function buildPostgresCreateTableStatement(input: CreateTableRequest): string {
   assertValidCreateTableInput(input);
 

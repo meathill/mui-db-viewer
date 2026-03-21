@@ -21,6 +21,7 @@ export interface IDatabaseDriver {
   getTableStructure(tableName: string): Promise<TableStructure>;
   getTableData(tableName: string, options?: TableQueryOptions): Promise<TableQueryResult>;
   createTable(input: CreateTableRequest): Promise<void>;
+  createColumn(tableName: string, input: TableStructureColumnInput): Promise<void>;
   updateColumn(tableName: string, columnName: string, input: TableStructureColumnInput): Promise<void>;
   createIndex(tableName: string, input: TableStructureIndexInput): Promise<void>;
   updateIndex(tableName: string, indexName: string, input: TableStructureIndexInput): Promise<void>;

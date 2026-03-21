@@ -152,6 +152,41 @@ describe('database structure routes', () => {
     expect(json.error).toBeTruthy();
   });
 
+  it('POST /columns 应调用新增列接口', async () => {
+    vi.mocked(findConnectionById).mockResolvedValue(createConnection());
+    vi.mocked(deleteSchemaCache).mockResolvedValue(undefined);
+
+    const createColumn = vi.fn().mockResolvedValue(undefined);
+    vi.mocked(withDatabaseService).mockImplementation(async (_env, _connection, execute) =>
+      execute({
+        createColumn,
+      } as never),
+    );
+
+    const res = await createApp().request(
+      '/databases/db-1/tables/users/columns',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          column: { name: 'email', type: 'TEXT', nullable: true, defaultExpression: null },
+        }),
+      },
+      createEnv(),
+    );
+
+    expect(res.status).toBe(200);
+    expect(createColumn).toHaveBeenCalledWith('users', {
+      name: 'email',
+      type: 'TEXT',
+      nullable: true,
+      defaultExpression: null,
+      primaryKey: false,
+      autoIncrement: false,
+    });
+    expect(deleteSchemaCache).toHaveBeenCalledWith(createEnv(), 'db-1');
+  });
+
   it('POST /indexes 与 PUT /indexes/:indexName 应调用索引写接口', async () => {
     vi.mocked(findConnectionById).mockResolvedValue(createConnection());
     vi.mocked(deleteSchemaCache).mockResolvedValue(undefined);

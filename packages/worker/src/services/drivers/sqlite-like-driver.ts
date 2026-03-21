@@ -206,6 +206,46 @@ function buildSqliteCreateTableStatement(input: CreateTableRequest): string {
   return `CREATE TABLE ${quoteIdentifier(input.tableName.trim())} (\n  ${definitions.join(',\n  ')}\n)`;
 }
 
+function buildSqliteAddColumnStatement(tableName: string, column: TableStructureColumnInput): string {
+  const normalizedColumn: TableStructureColumnInput = {
+    name: normalizeDefinitionName(column.name, '列名'),
+    type: normalizeDefinitionName(column.type, '列类型'),
+    nullable: column.nullable,
+    defaultExpression: normalizeDefaultExpression(column.defaultExpression),
+    primaryKey: Boolean(column.primaryKey),
+    autoIncrement: Boolean(column.autoIncrement),
+  };
+
+  if (normalizedColumn.primaryKey) {
+    throw new Error('当前版本暂不支持为现有 SQLite 表新增主键列');
+  }
+
+  if (normalizedColumn.autoIncrement) {
+    throw new Error('当前版本暂不支持为现有 SQLite 表新增自增列');
+  }
+
+  const defaultExpression = toSqlDefaultExpression(normalizedColumn.defaultExpression);
+  if (!normalizedColumn.nullable && (defaultExpression === null || defaultExpression === 'NULL')) {
+    throw new Error('SQLite 新增 NOT NULL 列时必须提供非 NULL 默认值');
+  }
+
+  if (
+    defaultExpression &&
+    ['CURRENT_TIMESTAMP', 'CURRENT_DATE', 'CURRENT_TIME'].includes(defaultExpression.toUpperCase())
+  ) {
+    throw new Error('SQLite 新增列暂不支持使用当前时间类默认值');
+  }
+
+  if (
+    defaultExpression &&
+    (/^[A-Za-z_][\w$]*\s*\([^)]*\)$/.test(defaultExpression) || /^\(.+\)$/.test(defaultExpression))
+  ) {
+    throw new Error('SQLite 新增列暂不支持使用表达式默认值');
+  }
+
+  return `ALTER TABLE ${quoteIdentifier(tableName)} ADD COLUMN ${buildSqliteColumnDefinition(normalizedColumn, false)}`;
+}
+
 function buildSqliteCreateIndexStatement(tableName: string, index: TableStructureIndexInput): string {
   const indexName = normalizeDefinitionName(index.name, '索引名');
   if (index.columns.length === 0) {
@@ -293,6 +333,11 @@ export abstract class SqliteLikeDriver extends QuestionMarkSqlDriver {
       statements.push(buildSqliteCreateIndexStatement(input.tableName, index));
     }
     await this.executeWriteStatements(statements);
+  }
+
+  async createColumn(tableName: string, input: TableStructureColumnInput): Promise<void> {
+    await this.connect();
+    await this.executeWriteStatements([buildSqliteAddColumnStatement(tableName, input)]);
   }
 
   async updateColumn(tableName: string, columnName: string, input: TableStructureColumnInput): Promise<void> {

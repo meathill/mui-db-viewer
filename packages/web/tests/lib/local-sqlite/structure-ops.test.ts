@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { executeLocalSQLiteQuery } from '@/lib/local-sqlite/sqlite-engine';
 import {
+  createLocalSQLiteColumn,
   createLocalSQLiteIndex,
   createLocalSQLiteTable,
   getLocalSQLiteStructureEditorContext,
@@ -114,6 +115,28 @@ describe('local-sqlite structure-ops', () => {
     expect(executeLocalSQLiteQuery).toHaveBeenCalledWith(
       'local-sqlite:1',
       expect.stringContaining('CREATE UNIQUE INDEX "idx_users_id" ON "users" ("id")'),
+    );
+  });
+
+  it('createLocalSQLiteColumn 应执行 ADD COLUMN SQL', async () => {
+    vi.mocked(executeLocalSQLiteQuery).mockResolvedValue({
+      rows: [],
+      total: 0,
+      columns: [],
+    });
+
+    await createLocalSQLiteColumn('local-sqlite:1', 'users', {
+      name: 'email',
+      type: 'TEXT',
+      nullable: true,
+      defaultExpression: null,
+      primaryKey: false,
+      autoIncrement: false,
+    });
+
+    expect(executeLocalSQLiteQuery).toHaveBeenCalledWith(
+      'local-sqlite:1',
+      'ALTER TABLE "users" ADD COLUMN "email" TEXT;',
     );
   });
 

@@ -29,6 +29,7 @@ interface StructureViewProps {
   onClearStructureError(): void;
   onRefreshTableStructure(): Promise<TableStructure | null> | void;
   onCreateTable(input: CreateTableRequest): Promise<unknown>;
+  onCreateColumn(tableName: string, column: TableStructureColumnInput): Promise<void>;
   onUpdateColumn(tableName: string, columnName: string, column: TableStructureColumnInput): Promise<void>;
   onCreateIndex(tableName: string, index: TableStructureIndexInput): Promise<void>;
   onUpdateIndex(tableName: string, indexName: string, index: TableStructureIndexInput): Promise<void>;
@@ -123,11 +124,13 @@ export function StructureView({
   onClearStructureError,
   onRefreshTableStructure,
   onCreateTable,
+  onCreateColumn,
   onUpdateColumn,
   onCreateIndex,
   onUpdateIndex,
 }: StructureViewProps) {
   const [createTableOpen, setCreateTableOpen] = useState(false);
+  const [createColumnOpen, setCreateColumnOpen] = useState(false);
   const [createIndexOpen, setCreateIndexOpen] = useState(false);
   const [editingColumn, setEditingColumn] = useState<TableStructureColumn | null>(null);
   const [editingIndex, setEditingIndex] = useState<TableStructureIndex | null>(null);
@@ -235,8 +238,20 @@ export function StructureView({
               <CardHeader>
                 <CardTitle>列</CardTitle>
                 <CardDescription>
-                  当前共有 {tableStructure.columns.length} 列，可逐列编辑类型、默认值和约束。
+                  当前共有 {tableStructure.columns.length} 列，可新增或逐列编辑类型、默认值和约束。
                 </CardDescription>
+                {editorContext.capabilities.canEditColumns && (
+                  <CardAction>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={savingStructure}
+                      onClick={() => setCreateColumnOpen(true)}>
+                      <PlusIcon className="size-4" />
+                      添加列
+                    </Button>
+                  </CardAction>
+                )}
               </CardHeader>
               <CardPanel className="space-y-3">
                 {tableStructure.columns.map((column) => (
@@ -367,6 +382,19 @@ export function StructureView({
 
       {editorContext && selectedTable && (
         <ColumnEditorSheet
+          mode="create"
+          open={createColumnOpen}
+          onOpenChange={setCreateColumnOpen}
+          tableName={selectedTable}
+          context={editorContext}
+          saving={savingStructure}
+          onSubmit={(column) => onCreateColumn(selectedTable, column)}
+        />
+      )}
+
+      {editorContext && selectedTable && (
+        <ColumnEditorSheet
+          mode="edit"
           open={editingColumn !== null}
           onOpenChange={(nextOpen) => {
             if (!nextOpen) {
@@ -377,7 +405,9 @@ export function StructureView({
           column={editingColumn}
           context={editorContext}
           saving={savingStructure}
-          onSubmit={(columnName, column) => onUpdateColumn(selectedTable, columnName, column)}
+          onSubmit={(column) =>
+            editingColumn ? onUpdateColumn(selectedTable, editingColumn.name, column) : Promise.resolve()
+          }
         />
       )}
 

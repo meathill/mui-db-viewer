@@ -134,6 +134,18 @@ export function buildCreateTablePreview(dialect: SqlDialect, input: CreateTableR
   return `${statements.join(';\n')};`;
 }
 
+export function buildCreateColumnPreview(
+  dialect: SqlDialect,
+  tableName: string,
+  input: TableStructureColumnInput,
+): string {
+  return `ALTER TABLE ${quoteIdentifier(dialect, tableName)} ADD COLUMN ${buildColumnDefinition(
+    dialect,
+    input,
+    Boolean(input.primaryKey),
+  )};`;
+}
+
 export function buildUpdateColumnPreview(
   dialect: SqlDialect,
   tableName: string,

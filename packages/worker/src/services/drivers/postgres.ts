@@ -15,6 +15,7 @@ import type {
 } from '../../types';
 import type { IDatabaseDriver } from './interface';
 import {
+  buildPostgresAddColumnStatement,
   buildPostgresCreateIndexStatement,
   buildPostgresCreateStatement,
   buildPostgresCreateTableStatement,
@@ -256,6 +257,11 @@ export class PostgresDriver implements IDatabaseDriver {
     for (const index of input.indexes || []) {
       await this.createIndex(input.tableName, index);
     }
+  }
+
+  async createColumn(tableName: string, input: TableStructureColumnInput) {
+    await this.connect();
+    await this.client!.query(buildPostgresAddColumnStatement(tableName, input));
   }
 
   async updateColumn(tableName: string, columnName: string, input: TableStructureColumnInput) {

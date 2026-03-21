@@ -59,6 +59,10 @@ export class DatabaseService {
     return this.driver.createTable(input);
   }
 
+  async createColumn(tableName: string, input: TableStructureColumnInput) {
+    return this.driver.createColumn(tableName, input);
+  }
+
   async updateColumn(tableName: string, columnName: string, input: TableStructureColumnInput) {
     return this.driver.updateColumn(tableName, columnName, input);
   }

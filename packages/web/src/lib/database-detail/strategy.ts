@@ -17,6 +17,7 @@ import {
   updateLocalSQLiteRows,
 } from '@/lib/local-sqlite/table-ops';
 import {
+  createLocalSQLiteColumn,
   createLocalSQLiteIndex,
   createLocalSQLiteTable,
   getLocalSQLiteStructureEditorContext,
@@ -32,6 +33,7 @@ export interface DatabaseDetailStrategy {
   getTableStructure(databaseId: string, tableName: string): Promise<TableStructure>;
   getTableData(databaseId: string, tableName: string, params: TableQueryParams): Promise<TableDataResult>;
   createTable(databaseId: string, input: CreateTableRequest): Promise<{ tableName: string }>;
+  createColumn(databaseId: string, tableName: string, column: TableStructureColumnInput): Promise<void>;
   updateColumn(
     databaseId: string,
     tableName: string,
@@ -60,6 +62,9 @@ const remoteDatabaseDetailStrategy: DatabaseDetailStrategy = {
   },
   createTable(databaseId, input) {
     return api.databases.createTable(databaseId, input);
+  },
+  createColumn(databaseId, tableName, column) {
+    return api.databases.createColumn(databaseId, tableName, column);
   },
   updateColumn(databaseId, tableName, columnName, column) {
     return api.databases.updateColumn(databaseId, tableName, columnName, column);
@@ -96,6 +101,9 @@ const localSqliteDetailStrategy: DatabaseDetailStrategy = {
   },
   createTable(databaseId, input) {
     return createLocalSQLiteTable(databaseId, input);
+  },
+  async createColumn(databaseId, tableName, column) {
+    await createLocalSQLiteColumn(databaseId, tableName, column);
   },
   async updateColumn(databaseId, tableName, columnName, column) {
     await updateLocalSQLiteColumn(databaseId, tableName, columnName, column);

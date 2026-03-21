@@ -88,6 +88,7 @@ export default function DatabaseDetailPage({ params }: PageProps) {
     handleRefresh,
     handleRefreshTableStructure,
     handleCreateTable,
+    handleCreateColumn,
     handleUpdateColumn,
     handleCreateIndex,
     handleUpdateIndex,
@@ -169,6 +170,7 @@ export default function DatabaseDetailPage({ params }: PageProps) {
             onClearStructureError={clearStructureError}
             onRefreshTableStructure={handleRefreshTableStructure}
             onCreateTable={handleCreateTable}
+            onCreateColumn={handleCreateColumn}
             onUpdateColumn={handleUpdateColumn}
             onCreateIndex={handleCreateIndex}
             onUpdateIndex={handleUpdateIndex}

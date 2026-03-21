@@ -106,6 +106,21 @@ describe('mysql-compatible-driver', () => {
     expect(driver.executedQueries[1]).toBe('CREATE UNIQUE INDEX `idx_users_id` ON `users` (`id`)');
   });
 
+  it('createColumn 应生成 ADD COLUMN SQL', async () => {
+    const driver = new TestMySqlCompatibleDriver();
+
+    await driver.createColumn('users', {
+      name: 'email',
+      type: 'TEXT',
+      nullable: true,
+      defaultExpression: null,
+      primaryKey: false,
+      autoIncrement: false,
+    });
+
+    expect(driver.executedQueries[0]).toBe('ALTER TABLE `users` ADD COLUMN `email` TEXT NULL');
+  });
+
   it('updateColumn 应生成 CHANGE COLUMN SQL', async () => {
     const driver = new TestMySqlCompatibleDriver();
     vi.spyOn(driver, 'getTableStructure').mockResolvedValue(createTableStructure());

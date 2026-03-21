@@ -118,6 +118,14 @@ export function useTableStructureController({
     [databaseId, fetchTableStructure, refreshTables, runStructureMutation, selectTable, strategy],
   );
 
+  const handleCreateColumn = useCallback(
+    async (tableName: string, column: TableStructureColumnInput) => {
+      await runStructureMutation(() => strategy.createColumn(databaseId, tableName, column));
+      await fetchTableStructure(tableName);
+    },
+    [databaseId, fetchTableStructure, runStructureMutation, strategy],
+  );
+
   const handleUpdateColumn = useCallback(
     async (tableName: string, columnName: string, column: TableStructureColumnInput) => {
       await runStructureMutation(() => strategy.updateColumn(databaseId, tableName, columnName, column));
@@ -153,6 +161,7 @@ export function useTableStructureController({
     setViewMode,
     fetchTableStructure,
     handleCreateTable,
+    handleCreateColumn,
     handleUpdateColumn,
     handleCreateIndex,
     handleUpdateIndex,

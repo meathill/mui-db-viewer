@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { TableStructureColumn, TableStructureIndex } from '@/lib/api';
 import {
   getColumnEditorInsight,
+  getCreateColumnInsight,
   getCreateIndexInsight,
   getEditIndexInsight,
   hasColumnChanges,
@@ -124,5 +125,20 @@ describe('structure-editor-insights', () => {
     expect(insight.tone).toBe('success');
     expect(insight.title).toContain('创建普通索引');
     expect(insight.changes).toContain('索引列：email');
+  });
+
+  it('应为新增列提供 SQLite 约束提示', () => {
+    const insight = getCreateColumnInsight('sqlite', {
+      name: 'created_at',
+      type: 'TEXT',
+      nullable: false,
+      defaultExpression: null,
+      primaryKey: false,
+      autoIncrement: false,
+    });
+
+    expect(insight.tone).toBe('warning');
+    expect(insight.title).toContain('需要先调整');
+    expect(insight.description).toContain('必须提供默认值');
   });
 });

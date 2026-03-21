@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildPostgresAddColumnStatement,
   buildPostgresCreateIndexStatement,
   buildPostgresCreateStatement,
   buildPostgresCreateTableStatement,
@@ -28,6 +29,19 @@ describe('postgres-structure', () => {
     });
 
     expect(sql).toBe('CREATE UNIQUE INDEX "idx_users_email" ON "users" ("email")');
+  });
+
+  it('buildPostgresAddColumnStatement 应生成新增列 SQL', () => {
+    const sql = buildPostgresAddColumnStatement('users', {
+      name: 'display_name',
+      type: 'text',
+      nullable: false,
+      defaultExpression: "'guest'",
+      primaryKey: false,
+      autoIncrement: false,
+    });
+
+    expect(sql).toBe(`ALTER TABLE "users" ADD COLUMN "display_name" text NOT NULL DEFAULT 'guest'`);
   });
 
   it('buildPostgresCreateStatement 应拼接建表和索引 SQL', () => {

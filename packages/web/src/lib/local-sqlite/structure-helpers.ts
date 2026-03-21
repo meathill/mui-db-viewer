@@ -207,6 +207,46 @@ function buildLocalSqliteColumnDefinition(column: TableStructureColumnInput, inl
   return parts.join(' ');
 }
 
+export function buildLocalSqliteAddColumnStatement(tableName: string, column: TableStructureColumnInput): string {
+  const normalizedColumn: TableStructureColumnInput = {
+    name: normalizeDefinitionName(column.name, '列名'),
+    type: normalizeDefinitionName(column.type, '列类型'),
+    nullable: column.nullable,
+    defaultExpression: normalizeDefaultExpression(column.defaultExpression),
+    primaryKey: Boolean(column.primaryKey),
+    autoIncrement: Boolean(column.autoIncrement),
+  };
+
+  if (normalizedColumn.primaryKey) {
+    throw new Error('SQLite 暂不支持为现有表新增主键列');
+  }
+
+  if (normalizedColumn.autoIncrement) {
+    throw new Error('SQLite 暂不支持为现有表新增自增列');
+  }
+
+  const defaultExpression = toSqlDefaultExpression(normalizedColumn.defaultExpression);
+  if (!normalizedColumn.nullable && (defaultExpression === null || defaultExpression === 'NULL')) {
+    throw new Error('SQLite 新增 NOT NULL 列时必须提供非 NULL 默认值');
+  }
+
+  if (
+    defaultExpression &&
+    ['CURRENT_TIMESTAMP', 'CURRENT_DATE', 'CURRENT_TIME'].includes(defaultExpression.toUpperCase())
+  ) {
+    throw new Error('SQLite 新增列暂不支持使用当前时间类默认值');
+  }
+
+  if (
+    defaultExpression &&
+    (/^[A-Za-z_][\w$]*\s*\([^)]*\)$/.test(defaultExpression) || /^\(.+\)$/.test(defaultExpression))
+  ) {
+    throw new Error('SQLite 新增列暂不支持使用表达式默认值');
+  }
+
+  return `ALTER TABLE ${quoteIdentifier(normalizeDefinitionName(tableName, '表名'))} ADD COLUMN ${buildLocalSqliteColumnDefinition(normalizedColumn, false)}`;
+}
+
 export function buildLocalSqliteCreateTableStatement(input: CreateTableRequest): string {
   const tableName = normalizeDefinitionName(input.tableName, '表名');
   if (input.columns.length === 0) {

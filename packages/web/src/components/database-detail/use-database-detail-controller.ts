@@ -277,6 +277,7 @@ export function useDatabaseDetailController(id: string) {
     handleRefresh: doFetchTableData,
     handleRefreshTableStructure: structureController.fetchTableStructure,
     handleCreateTable: structureController.handleCreateTable,
+    handleCreateColumn: structureController.handleCreateColumn,
     handleUpdateColumn: structureController.handleUpdateColumn,
     handleCreateIndex: structureController.handleCreateIndex,
     handleUpdateIndex: structureController.handleUpdateIndex,

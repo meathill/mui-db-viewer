@@ -15,20 +15,21 @@ import {
 } from '@/components/ui/sheet';
 import { Switch } from '@/components/ui/switch';
 import { StructureEditorFeedback } from './structure-editor-feedback';
-import { getColumnEditorInsight } from './structure-editor-insights';
+import { getColumnEditorInsight, getCreateColumnInsight } from './structure-editor-insights';
 import { AutocompleteTextField } from './structure-form-controls';
-import { createColumnDraftFromStructure, parseColumnDraft } from './structure-editor-utils';
-import { buildUpdateColumnPreview } from './structure-sql-preview';
+import { createColumnDraftFromStructure, createEmptyColumnDraft, parseColumnDraft } from './structure-editor-utils';
+import { buildCreateColumnPreview, buildUpdateColumnPreview } from './structure-sql-preview';
 import { SqlPreview } from './sql-preview';
 
 interface ColumnEditorSheetProps {
+  mode: 'create' | 'edit';
   open: boolean;
   onOpenChange(open: boolean): void;
   tableName: string;
-  column: TableStructureColumn | null;
+  column?: TableStructureColumn | null;
   context: StructureEditorContext;
   saving: boolean;
-  onSubmit(columnName: string, column: TableStructureColumnInput): Promise<void>;
+  onSubmit(column: TableStructureColumnInput): Promise<void>;
 }
 
 function getErrorMessage(error: unknown, fallback: string): string {
@@ -39,18 +40,8 @@ function getErrorMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
-function createEmptyDraft(context: StructureEditorContext): TableStructureColumnInput {
-  return {
-    name: '',
-    type: context.typeSuggestions[0] || 'TEXT',
-    nullable: true,
-    defaultExpression: null,
-    primaryKey: false,
-    autoIncrement: false,
-  };
-}
-
 export function ColumnEditorSheet({
+  mode,
   open,
   onOpenChange,
   tableName,
@@ -60,7 +51,7 @@ export function ColumnEditorSheet({
   onSubmit,
 }: ColumnEditorSheetProps) {
   const [draft, setDraft] = useState<TableStructureColumnInput>(() =>
-    column ? createColumnDraftFromStructure(column) : createEmptyDraft(context),
+    column ? createColumnDraftFromStructure(column) : createEmptyColumnDraft(context),
   );
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -69,24 +60,32 @@ export function ColumnEditorSheet({
       return;
     }
 
-    setDraft(column ? createColumnDraftFromStructure(column) : createEmptyDraft(context));
+    setDraft(column ? createColumnDraftFromStructure(column) : createEmptyColumnDraft(context));
     setSubmitError(null);
   }, [column, context, open]);
 
   const previewSql = useMemo(() => {
+    if (mode === 'create') {
+      return buildCreateColumnPreview(context.dialect, tableName, draft);
+    }
+
     if (!column) {
       return '';
     }
 
     return buildUpdateColumnPreview(context.dialect, tableName, column.name, draft);
-  }, [column, context.dialect, draft, tableName]);
+  }, [column, context.dialect, draft, mode, tableName]);
   const insight = useMemo(() => {
+    if (mode === 'create') {
+      return getCreateColumnInsight(context.dialect, draft);
+    }
+
     if (!column) {
       return null;
     }
 
     return getColumnEditorInsight(context.dialect, column, draft);
-  }, [column, context.dialect, draft]);
+  }, [column, context.dialect, draft, mode]);
 
   function updateDraft(nextPartial: Partial<TableStructureColumnInput>) {
     setDraft((current) => {
@@ -110,7 +109,7 @@ export function ColumnEditorSheet({
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!column) {
+    if (mode === 'edit' && !column) {
       return;
     }
 
@@ -118,23 +117,29 @@ export function ColumnEditorSheet({
 
     try {
       const parsed = parseColumnDraft(draft);
-      await onSubmit(column.name, parsed);
+      await onSubmit(parsed);
       onOpenChange(false);
     } catch (error) {
-      setSubmitError(getErrorMessage(error, '更新列失败'));
+      setSubmitError(getErrorMessage(error, mode === 'create' ? '新增列失败' : '更新列失败'));
     }
   }
 
-  if (!column) {
+  if (mode === 'edit' && !column) {
     return null;
   }
 
-  const canRenameColumn = context.capabilities.canRenameColumns;
+  const canRenameColumn = mode === 'create' ? true : context.capabilities.canRenameColumns;
   const canEditColumnType = context.capabilities.canEditColumnType;
   const canEditNullability = context.capabilities.canEditColumnNullability;
   const canEditDefault = context.capabilities.canEditColumnDefault;
-  const canEditPrimaryKey = context.capabilities.canEditColumnPrimaryKey;
-  const canEditAutoIncrement = context.capabilities.canEditColumnAutoIncrement && column.primaryKey;
+  const canEditPrimaryKey = mode === 'edit' ? context.capabilities.canEditColumnPrimaryKey : false;
+  const canEditAutoIncrement =
+    mode === 'edit' ? context.capabilities.canEditColumnAutoIncrement && Boolean(column?.primaryKey) : false;
+  const title = mode === 'create' ? '添加列' : '编辑列';
+  const description = mode === 'create' ? `${tableName} / 新列` : `${tableName} / ${column?.name}`;
+  const submitLabel = mode === 'create' ? '创建列' : '保存列定义';
+  const submitDisabled =
+    saving || !draft.name.trim() || !draft.type.trim() || (mode === 'edit' && !insight?.hasChanges);
 
   return (
     <Sheet
@@ -142,10 +147,8 @@ export function ColumnEditorSheet({
       onOpenChange={onOpenChange}>
       <SheetPopup side="right">
         <SheetHeader>
-          <SheetTitle>编辑列</SheetTitle>
-          <SheetDescription>
-            {tableName} / {column.name}
-          </SheetDescription>
+          <SheetTitle>{title}</SheetTitle>
+          <SheetDescription>{description}</SheetDescription>
         </SheetHeader>
 
         <form
@@ -208,7 +211,9 @@ export function ColumnEditorSheet({
               <label className="flex items-center justify-between gap-4">
                 <div className="space-y-1">
                   <p className="font-medium text-sm">主键</p>
-                  <p className="text-muted-foreground text-xs">现有列的主键属性通常不能直接修改。</p>
+                  <p className="text-muted-foreground text-xs">
+                    {mode === 'create' ? '现有表新增列暂不支持直接设置为主键。' : '现有列的主键属性通常不能直接修改。'}
+                  </p>
                 </div>
                 <Switch
                   checked={Boolean(draft.primaryKey)}
@@ -220,7 +225,11 @@ export function ColumnEditorSheet({
               <label className="flex items-center justify-between gap-4">
                 <div className="space-y-1">
                   <p className="font-medium text-sm">自增</p>
-                  <p className="text-muted-foreground text-xs">仅部分方言支持修改现有列的自增属性。</p>
+                  <p className="text-muted-foreground text-xs">
+                    {mode === 'create'
+                      ? '现有表新增列暂不支持直接设置为自增。'
+                      : '仅部分方言支持修改现有列的自增属性。'}
+                  </p>
                 </div>
                 <Switch
                   checked={Boolean(draft.autoIncrement)}
@@ -248,9 +257,9 @@ export function ColumnEditorSheet({
             <Button
               type="submit"
               form="column-editor-form"
-              disabled={saving || !insight?.hasChanges}>
+              disabled={submitDisabled}>
               {saving && <Loader2Icon className="size-4 animate-spin" />}
-              保存列定义
+              {submitLabel}
             </Button>
           </SheetFooter>
         </form>

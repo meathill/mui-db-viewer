@@ -11,6 +11,7 @@ import { executeLocalSQLiteQuery } from './sqlite-engine';
 import { quoteIdentifier, toNumberValue, toSqlLiteral } from './sql-utils';
 import {
   LOCAL_SQLITE_EDITOR_CONTEXT,
+  buildLocalSqliteAddColumnStatement,
   buildLocalPrimaryIndex,
   buildLocalSqliteCreateIndexStatement,
   buildLocalSqliteCreateTableStatement,
@@ -202,6 +203,14 @@ export async function createLocalSQLiteTable(
 
   await executeLocalSQLiteQuery(connectionId, joinSqlStatements(statements));
   return { tableName: input.tableName };
+}
+
+export async function createLocalSQLiteColumn(
+  connectionId: string,
+  tableName: string,
+  input: TableStructureColumnInput,
+): Promise<void> {
+  await executeLocalSQLiteQuery(connectionId, `${buildLocalSqliteAddColumnStatement(tableName, input)};`);
 }
 
 export async function updateLocalSQLiteColumn(

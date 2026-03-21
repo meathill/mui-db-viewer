@@ -89,6 +89,38 @@ databaseStructureRoutes.post(
   },
 );
 
+databaseStructureRoutes.post(
+  '/:id/tables/:tableName/columns',
+  validator('json', (body, c) => {
+    const result = parseUpdateTableColumnRequest(body);
+    if (!result.success) {
+      return c.json<ApiResponse>({ success: false, error: result.error }, 400);
+    }
+    return result.data;
+  }),
+  async (c) => {
+    const id = c.req.param('id');
+    const tableName = c.req.param('tableName');
+    const payload = c.req.valid('json') as UpdateTableColumnRequest;
+    const connection = await findConnectionById(c.env, id);
+
+    if (!connection) {
+      return c.json<ApiResponse>({ success: false, error: '数据库连接不存在' }, 404);
+    }
+
+    try {
+      await withDatabaseService(c.env, connection, async (dbService) =>
+        dbService.createColumn(tableName, payload.column),
+      );
+      await deleteSchemaCache(c.env, id);
+      return c.json<ApiResponse>({ success: true });
+    } catch (error) {
+      console.error('新增列失败:', error);
+      return c.json<ApiResponse>({ success: false, error: getErrorMessage(error, '新增列失败') }, 500);
+    }
+  },
+);
+
 databaseStructureRoutes.put(
   '/:id/tables/:tableName/columns/:columnName',
   validator('json', (body, c) => {

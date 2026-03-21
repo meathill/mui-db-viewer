@@ -95,6 +95,21 @@ describe('sqlite-like-driver', () => {
     ]);
   });
 
+  it('createColumn 应执行 ADD COLUMN 语句', async () => {
+    const driver = new TestSqliteLikeDriver();
+
+    await driver.createColumn('users', {
+      name: 'email',
+      type: 'TEXT',
+      nullable: true,
+      defaultExpression: null,
+      primaryKey: false,
+      autoIncrement: false,
+    });
+
+    expect(driver.writeStatements[0]).toEqual(['ALTER TABLE "users" ADD COLUMN "email" TEXT']);
+  });
+
   it('updateColumn 仅重命名时应执行 ALTER TABLE RENAME COLUMN', async () => {
     const driver = new TestSqliteLikeDriver();
     vi.spyOn(driver, 'getTableStructure').mockResolvedValue(createTableStructure());

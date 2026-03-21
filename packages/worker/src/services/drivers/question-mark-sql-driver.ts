@@ -49,6 +49,7 @@ export abstract class QuestionMarkSqlDriver implements IDatabaseDriver {
   abstract getStructureEditorContext(): Promise<StructureEditorContext>;
   abstract getTableStructure(tableName: string): Promise<TableStructure>;
   abstract createTable(input: CreateTableRequest): Promise<void>;
+  abstract createColumn(tableName: string, input: TableStructureColumnInput): Promise<void>;
   abstract updateColumn(tableName: string, columnName: string, input: TableStructureColumnInput): Promise<void>;
   abstract createIndex(tableName: string, input: TableStructureIndexInput): Promise<void>;
   abstract updateIndex(tableName: string, indexName: string, input: TableStructureIndexInput): Promise<void>;

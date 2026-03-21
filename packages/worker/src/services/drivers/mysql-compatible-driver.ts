@@ -202,6 +202,18 @@ function buildMySqlCreateTableStatement(input: CreateTableRequest): string {
   return `CREATE TABLE ${quoteIdentifier(input.tableName.trim())} (\n  ${definitions.join(',\n  ')}\n)`;
 }
 
+function buildMySqlAddColumnStatement(tableName: string, column: TableStructureColumnInput): string {
+  if (column.primaryKey) {
+    throw new Error('当前版本暂不支持在现有 MySQL/TiDB 表中新增主键列');
+  }
+
+  if (column.autoIncrement) {
+    throw new Error('当前版本暂不支持在现有 MySQL/TiDB 表中新增自增列');
+  }
+
+  return `ALTER TABLE ${quoteIdentifier(tableName)} ADD COLUMN ${buildMySqlColumnDefinition(column, false)}`;
+}
+
 export abstract class MySqlCompatibleDriver extends QuestionMarkSqlDriver {
   async getStructureEditorContext() {
     return createStructureEditorContext('mysql');
@@ -234,6 +246,11 @@ export abstract class MySqlCompatibleDriver extends QuestionMarkSqlDriver {
     for (const index of input.indexes || []) {
       await this.createIndex(input.tableName, index);
     }
+  }
+
+  async createColumn(tableName: string, input: TableStructureColumnInput): Promise<void> {
+    await this.connect();
+    await this.executeQuery(buildMySqlAddColumnStatement(tableName, input));
   }
 
   async updateColumn(tableName: string, columnName: string, input: TableStructureColumnInput): Promise<void> {

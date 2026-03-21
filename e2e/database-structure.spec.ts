@@ -85,6 +85,29 @@ test.describe('数据库结构编辑', () => {
     await expect(page.getByText('display_name', { exact: true }).first()).toBeVisible();
   });
 
+  test('支持为现有表添加列', async ({ page }) => {
+    const state = createDefaultWorkerMockState();
+    seedUsersTable(state);
+    await mockWorkerApi(page, state);
+
+    await page.goto('/databases/db_1');
+    await page.getByRole('button', { name: 'users' }).click();
+    await page.getByRole('tab', { name: '结构' }).click();
+
+    await expect(page.getByRole('heading', { name: 'users 的结构' })).toBeVisible();
+
+    await page.getByRole('button', { name: '添加列' }).click();
+    await expect(page.getByRole('heading', { name: '添加列' })).toBeVisible();
+
+    await page.getByLabel('列名').fill('age');
+    await page.getByRole('button', { name: '创建列' }).click();
+
+    await expect
+      .poll(() => state.structure.tablesByName.users?.columns.map((column) => column.name).join(','))
+      .toContain('age');
+    await expect(page.getByText('age', { exact: true }).first()).toBeVisible();
+  });
+
   test('支持创建并编辑索引', async ({ page }) => {
     const state = createDefaultWorkerMockState();
     seedUsersTable(state);
