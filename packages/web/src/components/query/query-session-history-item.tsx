@@ -20,7 +20,7 @@ export function QuerySessionHistoryItem({ session, active, onOpen, onRename, onD
         type="button"
         variant="ghost"
         className={cn(
-          'h-auto min-w-0 flex-1 flex-col items-start justify-start gap-0.5 px-3 py-2 text-left text-sm font-normal transition-colors',
+          'h-auto sm:h-auto min-w-0 flex-1 flex-col items-start justify-start gap-0.5 px-3 py-2 text-left text-sm font-normal transition-colors',
           active
             ? 'bg-transparent text-primary-foreground hover:bg-primary/90 data-[pressed]:bg-primary/90'
             : 'hover:bg-muted',

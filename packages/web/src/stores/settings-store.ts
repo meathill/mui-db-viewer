@@ -23,7 +23,7 @@ export const useSettingsStore = create<SettingsState>()(
       provider: 'openai',
       openaiApiKey: '',
       openaiModel: 'gpt-4o-mini',
-      openaiBaseUrl: 'https://api.openai.com/v1',
+      openaiBaseUrl: '',
       geminiApiKey: '',
       geminiModel: 'gemini-1.5-flash',
       replicateApiKey: '',
