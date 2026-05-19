@@ -279,6 +279,7 @@ export function useDatabaseDetailController(id: string) {
     handleCreateTable: structureController.handleCreateTable,
     handleCreateColumn: structureController.handleCreateColumn,
     handleUpdateColumn: structureController.handleUpdateColumn,
+    handleDeleteColumn: structureController.handleDeleteColumn,
     handleCreateIndex: structureController.handleCreateIndex,
     handleUpdateIndex: structureController.handleUpdateIndex,
     isExportingCsv,

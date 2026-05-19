@@ -275,6 +275,18 @@ export abstract class MySqlCompatibleDriver extends QuestionMarkSqlDriver {
     await this.executeQuery(statement);
   }
 
+  async deleteColumn(tableName: string, columnName: string): Promise<void> {
+    await this.connect();
+    const structure = await this.getTableStructure(tableName);
+    const column = findStructureColumn(structure, columnName);
+
+    if (column.primaryKey) {
+      throw new Error('不能删除主键列');
+    }
+
+    await this.executeQuery(`ALTER TABLE ${quoteIdentifier(tableName)} DROP COLUMN ${quoteIdentifier(columnName)}`);
+  }
+
   async createIndex(tableName: string, input: TableStructureIndexInput): Promise<void> {
     await this.connect();
     const statement = buildMySqlCreateIndexStatement(tableName, input);

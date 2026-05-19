@@ -90,6 +90,7 @@ export default function DatabaseDetailPage({ params }: PageProps) {
     handleCreateTable,
     handleCreateColumn,
     handleUpdateColumn,
+    handleDeleteColumn,
     handleCreateIndex,
     handleUpdateIndex,
     isExportingCsv,
@@ -172,6 +173,7 @@ export default function DatabaseDetailPage({ params }: PageProps) {
             onCreateTable={handleCreateTable}
             onCreateColumn={handleCreateColumn}
             onUpdateColumn={handleUpdateColumn}
+            onDeleteColumn={handleDeleteColumn}
             onCreateIndex={handleCreateIndex}
             onUpdateIndex={handleUpdateIndex}
           />

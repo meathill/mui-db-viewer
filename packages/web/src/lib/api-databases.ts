@@ -126,6 +126,13 @@ export const databases = {
     }
   },
 
+  async deleteColumn(id: string, tableName: string, columnName: string): Promise<void> {
+    const result = await request('DELETE', `/api/v1/databases/${id}/tables/${tableName}/columns/${columnName}`);
+    if (!result.success) {
+      throw new Error(result.error || '删除列失败');
+    }
+  },
+
   async createIndex(id: string, tableName: string, index: TableStructureIndexInput): Promise<void> {
     const result = await request('POST', `/api/v1/databases/${id}/tables/${tableName}/indexes`, { index });
     if (!result.success) {

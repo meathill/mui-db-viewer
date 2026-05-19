@@ -271,6 +271,40 @@ export async function updateLocalSQLiteColumn(
   );
 }
 
+export async function deleteLocalSQLiteColumn(
+  connectionId: string,
+  tableName: string,
+  columnName: string,
+): Promise<void> {
+  const structure = await getLocalSQLiteTableStructure(connectionId, tableName);
+  const target = structure.columns.find((column) => column.name === columnName);
+  if (!target) {
+    throw new Error(`列不存在：${columnName}`);
+  }
+
+  if (target.primaryKey) {
+    throw new Error('不能删除主键列');
+  }
+
+  if (structure.columns.length <= 1) {
+    throw new Error('不能删除表中唯一的列');
+  }
+
+  const nextColumns = structure.columns.filter((column) => column.name !== columnName).map(toColumnInput);
+  const nextIndexes = structure.indexes
+    .map((index) => ({
+      ...index,
+      columns: index.columns.filter((name) => name !== columnName),
+    }))
+    .filter((index) => index.columns.length > 0);
+  const sourceColumns = nextColumns.map((column) => column.name);
+
+  await executeLocalSQLiteQuery(
+    connectionId,
+    joinSqlStatements(buildSqliteRebuildStatements(tableName, nextColumns, nextIndexes, sourceColumns)),
+  );
+}
+
 export async function createLocalSQLiteIndex(
   connectionId: string,
   tableName: string,

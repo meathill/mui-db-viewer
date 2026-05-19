@@ -320,6 +320,20 @@ export class PostgresDriver implements IDatabaseDriver {
     }
   }
 
+  async deleteColumn(tableName: string, columnName: string): Promise<void> {
+    await this.connect();
+    const structure = await this.getTableStructure(tableName);
+    const column = findStructureColumn(structure, columnName);
+
+    if (column.primaryKey) {
+      throw new Error('不能删除主键列');
+    }
+
+    await this.client!.query(
+      `ALTER TABLE ${quotePostgresIdentifier(tableName)} DROP COLUMN ${quotePostgresIdentifier(columnName)}`,
+    );
+  }
+
   async createIndex(tableName: string, input: TableStructureIndexInput) {
     await this.connect();
     await this.client!.query(buildPostgresCreateIndexStatement(tableName, input));

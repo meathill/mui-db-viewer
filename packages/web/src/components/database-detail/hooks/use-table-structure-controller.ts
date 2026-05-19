@@ -150,6 +150,14 @@ export function useTableStructureController({
     [databaseId, fetchTableStructure, runStructureMutation, strategy],
   );
 
+  const handleDeleteColumn = useCallback(
+    async (tableName: string, columnName: string) => {
+      await runStructureMutation(() => strategy.deleteColumn(databaseId, tableName, columnName));
+      await fetchTableStructure(tableName);
+    },
+    [databaseId, fetchTableStructure, runStructureMutation, strategy],
+  );
+
   return {
     viewMode,
     editorContext,
@@ -163,6 +171,7 @@ export function useTableStructureController({
     handleCreateTable,
     handleCreateColumn,
     handleUpdateColumn,
+    handleDeleteColumn,
     handleCreateIndex,
     handleUpdateIndex,
     clearStructureError: () => setStructureError(null),

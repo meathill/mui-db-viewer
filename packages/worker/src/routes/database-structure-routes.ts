@@ -154,6 +154,26 @@ databaseStructureRoutes.put(
   },
 );
 
+databaseStructureRoutes.delete('/:id/tables/:tableName/columns/:columnName', async (c) => {
+  const id = c.req.param('id');
+  const tableName = c.req.param('tableName');
+  const columnName = c.req.param('columnName');
+  const connection = await findConnectionById(c.env, id);
+
+  if (!connection) {
+    return c.json<ApiResponse>({ success: false, error: '数据库连接不存在' }, 404);
+  }
+
+  try {
+    await withDatabaseService(c.env, connection, async (dbService) => dbService.deleteColumn(tableName, columnName));
+    await deleteSchemaCache(c.env, id);
+    return c.json<ApiResponse>({ success: true });
+  } catch (error) {
+    console.error('删除列失败:', error);
+    return c.json<ApiResponse>({ success: false, error: getErrorMessage(error, '删除列失败') }, 500);
+  }
+});
+
 databaseStructureRoutes.post(
   '/:id/tables/:tableName/indexes',
   validator('json', (body, c) => {

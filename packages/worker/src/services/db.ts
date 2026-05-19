@@ -67,6 +67,10 @@ export class DatabaseService {
     return this.driver.updateColumn(tableName, columnName, input);
   }
 
+  async deleteColumn(tableName: string, columnName: string) {
+    return this.driver.deleteColumn(tableName, columnName);
+  }
+
   async createIndex(tableName: string, input: TableStructureIndexInput) {
     return this.driver.createIndex(tableName, input);
   }

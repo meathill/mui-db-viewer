@@ -394,6 +394,32 @@ export abstract class SqliteLikeDriver extends QuestionMarkSqlDriver {
     await this.executeWriteStatements(statements);
   }
 
+  async deleteColumn(tableName: string, columnName: string): Promise<void> {
+    await this.connect();
+    const structure = await this.getTableStructure(tableName);
+    const column = findStructureColumn(structure, columnName);
+
+    if (column.primaryKey) {
+      throw new Error('不能删除主键列');
+    }
+
+    if (structure.columns.length <= 1) {
+      throw new Error('不能删除表中唯一的列');
+    }
+
+    const nextColumns = structure.columns.filter((c) => c.name !== columnName).map(toColumnInput);
+    const nextIndexes = structure.indexes
+      .map((index) => ({
+        ...index,
+        columns: index.columns.filter((name) => name !== columnName),
+      }))
+      .filter((index) => index.columns.length > 0);
+    const sourceColumns = nextColumns.map((c) => c.name);
+    const statements = buildSqliteRebuildStatements(tableName, nextColumns, nextIndexes, sourceColumns);
+
+    await this.executeWriteStatements(statements);
+  }
+
   async createIndex(tableName: string, input: TableStructureIndexInput): Promise<void> {
     await this.connect();
     await this.executeWriteStatements([buildSqliteCreateIndexStatement(tableName, input)]);

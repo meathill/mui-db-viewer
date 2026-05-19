@@ -23,6 +23,7 @@ export interface IDatabaseDriver {
   createTable(input: CreateTableRequest): Promise<void>;
   createColumn(tableName: string, input: TableStructureColumnInput): Promise<void>;
   updateColumn(tableName: string, columnName: string, input: TableStructureColumnInput): Promise<void>;
+  deleteColumn(tableName: string, columnName: string): Promise<void>;
   createIndex(tableName: string, input: TableStructureIndexInput): Promise<void>;
   updateIndex(tableName: string, indexName: string, input: TableStructureIndexInput): Promise<void>;
   deleteRows(tableName: string, ids: Array<string | number>): Promise<{ success: boolean; count: number }>;

@@ -241,3 +241,11 @@ export function buildUpdateIndexPreview(
 
   return `${[dropStatement, buildIndexStatement(dialect, tableName, index)].join(';\n')};`;
 }
+
+export function buildDropColumnPreview(dialect: SqlDialect, tableName: string, columnName: string): string {
+  if (dialect === 'sqlite') {
+    return `-- SQLite 会通过重建表来删除此列\nALTER TABLE ${quoteIdentifier(dialect, tableName)} DROP COLUMN ${quoteIdentifier(dialect, columnName)};`;
+  }
+
+  return `ALTER TABLE ${quoteIdentifier(dialect, tableName)} DROP COLUMN ${quoteIdentifier(dialect, columnName)};`;
+}

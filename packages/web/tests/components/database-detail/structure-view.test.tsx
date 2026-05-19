@@ -81,6 +81,7 @@ function renderStructureView() {
   const onCreateTable = vi.fn().mockResolvedValue({ tableName: 'audit_logs' });
   const onCreateColumn = vi.fn().mockResolvedValue(undefined);
   const onUpdateColumn = vi.fn().mockResolvedValue(undefined);
+  const onDeleteColumn = vi.fn().mockResolvedValue(undefined);
   const onCreateIndex = vi.fn().mockResolvedValue(undefined);
   const onUpdateIndex = vi.fn().mockResolvedValue(undefined);
 
@@ -98,6 +99,7 @@ function renderStructureView() {
       onCreateTable={onCreateTable}
       onCreateColumn={onCreateColumn}
       onUpdateColumn={onUpdateColumn}
+      onDeleteColumn={onDeleteColumn}
       onCreateIndex={onCreateIndex}
       onUpdateIndex={onUpdateIndex}
     />,
@@ -109,6 +111,7 @@ function renderStructureView() {
     onCreateTable,
     onCreateColumn,
     onUpdateColumn,
+    onDeleteColumn,
     onCreateIndex,
     onUpdateIndex,
   };

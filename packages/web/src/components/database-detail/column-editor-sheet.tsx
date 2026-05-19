@@ -1,6 +1,15 @@
-import { Loader2Icon } from 'lucide-react';
+import { Loader2Icon, Trash2Icon } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import type { StructureEditorContext, TableStructureColumn, TableStructureColumnInput } from '@/lib/api';
+import {
+  AlertDialog,
+  AlertDialogClose,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogPopup,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -18,7 +27,7 @@ import { StructureEditorFeedback } from './structure-editor-feedback';
 import { getColumnEditorInsight, getCreateColumnInsight } from './structure-editor-insights';
 import { AutocompleteTextField } from './structure-form-controls';
 import { createColumnDraftFromStructure, createEmptyColumnDraft, parseColumnDraft } from './structure-editor-utils';
-import { buildCreateColumnPreview, buildUpdateColumnPreview } from './structure-sql-preview';
+import { buildCreateColumnPreview, buildUpdateColumnPreview, buildDropColumnPreview } from './structure-sql-preview';
 import { SqlPreview } from './sql-preview';
 
 interface ColumnEditorSheetProps {
@@ -30,6 +39,7 @@ interface ColumnEditorSheetProps {
   context: StructureEditorContext;
   saving: boolean;
   onSubmit(column: TableStructureColumnInput): Promise<void>;
+  onDelete?(columnName: string): Promise<void>;
 }
 
 function getErrorMessage(error: unknown, fallback: string): string {
@@ -49,11 +59,14 @@ export function ColumnEditorSheet({
   context,
   saving,
   onSubmit,
+  onDelete,
 }: ColumnEditorSheetProps) {
   const [draft, setDraft] = useState<TableStructureColumnInput>(() =>
     column ? createColumnDraftFromStructure(column) : createEmptyColumnDraft(context),
   );
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (!open) {
@@ -124,6 +137,25 @@ export function ColumnEditorSheet({
     }
   }
 
+  async function handleDeleteConfirm() {
+    if (!column || !onDelete) {
+      return;
+    }
+
+    setDeleting(true);
+    setSubmitError(null);
+
+    try {
+      await onDelete(column.name);
+      setDeleteConfirmOpen(false);
+      onOpenChange(false);
+    } catch (error) {
+      setSubmitError(getErrorMessage(error, '删除列失败'));
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   if (mode === 'edit' && !column) {
     return null;
   }
@@ -135,11 +167,13 @@ export function ColumnEditorSheet({
   const canEditPrimaryKey = mode === 'edit' ? context.capabilities.canEditColumnPrimaryKey : false;
   const canEditAutoIncrement =
     mode === 'edit' ? context.capabilities.canEditColumnAutoIncrement && Boolean(column?.primaryKey) : false;
+  const canDeleteColumn = mode === 'edit' && onDelete && column && !column.primaryKey;
   const title = mode === 'create' ? '添加列' : '编辑列';
   const description = mode === 'create' ? `${tableName} / 新列` : `${tableName} / ${column?.name}`;
   const submitLabel = mode === 'create' ? '创建列' : '保存列定义';
   const submitDisabled =
-    saving || !draft.name.trim() || !draft.type.trim() || (mode === 'edit' && !insight?.hasChanges);
+    saving || deleting || !draft.name.trim() || !draft.type.trim() || (mode === 'edit' && !insight?.hasChanges);
+  const isProcessing = saving || deleting;
 
   return (
     <Sheet
@@ -162,7 +196,7 @@ export function ColumnEditorSheet({
                 id="column-editor-name"
                 value={draft.name}
                 onChange={(event) => updateDraft({ name: event.target.value })}
-                disabled={!canRenameColumn || saving}
+                disabled={!canRenameColumn || isProcessing}
               />
               {!canRenameColumn && <p className="text-muted-foreground text-xs">当前方言不支持直接重命名现有列。</p>}
             </div>
@@ -171,7 +205,7 @@ export function ColumnEditorSheet({
               <Label htmlFor="column-editor-type">列类型</Label>
               <AutocompleteTextField
                 ariaLabel="列类型"
-                disabled={!canEditColumnType || saving}
+                disabled={!canEditColumnType || isProcessing}
                 value={draft.type}
                 onValueChange={(value) => updateDraft({ type: value })}
                 quickActionLabel="常用类型"
@@ -185,7 +219,7 @@ export function ColumnEditorSheet({
               <Label htmlFor="column-editor-default">默认值</Label>
               <AutocompleteTextField
                 ariaLabel="列默认值"
-                disabled={!canEditDefault || saving}
+                disabled={!canEditDefault || isProcessing}
                 value={draft.defaultExpression || ''}
                 onValueChange={(value) => updateDraft({ defaultExpression: value })}
                 quickActionLabel="常用默认值"
@@ -204,7 +238,7 @@ export function ColumnEditorSheet({
                 <Switch
                   checked={draft.nullable}
                   onCheckedChange={(checked) => updateDraft({ nullable: checked })}
-                  disabled={!canEditNullability || draft.primaryKey || saving}
+                  disabled={!canEditNullability || draft.primaryKey || isProcessing}
                 />
               </label>
 
@@ -218,7 +252,7 @@ export function ColumnEditorSheet({
                 <Switch
                   checked={Boolean(draft.primaryKey)}
                   onCheckedChange={(checked) => updateDraft({ primaryKey: checked })}
-                  disabled={!canEditPrimaryKey || saving}
+                  disabled={!canEditPrimaryKey || isProcessing}
                 />
               </label>
 
@@ -234,7 +268,7 @@ export function ColumnEditorSheet({
                 <Switch
                   checked={Boolean(draft.autoIncrement)}
                   onCheckedChange={(checked) => updateDraft({ autoIncrement: checked })}
-                  disabled={!canEditAutoIncrement || saving}
+                  disabled={!canEditAutoIncrement || isProcessing}
                 />
               </label>
             </div>
@@ -244,13 +278,34 @@ export function ColumnEditorSheet({
             <SqlPreview sql={previewSql} />
 
             {submitError && <p className="text-destructive text-sm">{submitError}</p>}
+
+            {canDeleteColumn && (
+              <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="space-y-1">
+                    <p className="font-medium text-destructive text-sm">危险操作</p>
+                    <p className="text-muted-foreground text-xs">删除列将永久移除该列及其所有数据，此操作不可撤销。</p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    disabled={isProcessing}
+                    onClick={() => setDeleteConfirmOpen(true)}>
+                    <Trash2Icon className="size-4" />
+                    删除列
+                  </Button>
+                </div>
+                <SqlPreview sql={buildDropColumnPreview(context.dialect, tableName, column?.name || '')} />
+              </div>
+            )}
           </SheetPanel>
 
           <SheetFooter>
             <Button
               type="button"
               variant="outline"
-              disabled={saving}
+              disabled={isProcessing}
               onClick={() => onOpenChange(false)}>
               取消
             </Button>
@@ -264,6 +319,37 @@ export function ColumnEditorSheet({
           </SheetFooter>
         </form>
       </SheetPopup>
+
+      {canDeleteColumn && (
+        <AlertDialog
+          open={deleteConfirmOpen}
+          onOpenChange={setDeleteConfirmOpen}>
+          <AlertDialogPopup>
+            <AlertDialogHeader>
+              <AlertDialogTitle>确认删除列</AlertDialogTitle>
+              <AlertDialogDescription>
+                确定要删除列 <strong>{column?.name}</strong> 吗？该列的所有数据将被永久移除，此操作不可撤销。
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogClose>
+                <Button
+                  variant="outline"
+                  disabled={deleting}>
+                  取消
+                </Button>
+              </AlertDialogClose>
+              <Button
+                variant="destructive"
+                disabled={deleting}
+                onClick={() => void handleDeleteConfirm()}>
+                {deleting && <Loader2Icon className="size-4 animate-spin" />}
+                确认删除
+              </Button>
+            </AlertDialogFooter>
+          </AlertDialogPopup>
+        </AlertDialog>
+      )}
     </Sheet>
   );
 }

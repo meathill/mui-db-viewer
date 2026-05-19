@@ -31,6 +31,7 @@ interface StructureViewProps {
   onCreateTable(input: CreateTableRequest): Promise<unknown>;
   onCreateColumn(tableName: string, column: TableStructureColumnInput): Promise<void>;
   onUpdateColumn(tableName: string, columnName: string, column: TableStructureColumnInput): Promise<void>;
+  onDeleteColumn(tableName: string, columnName: string): Promise<void>;
   onCreateIndex(tableName: string, index: TableStructureIndexInput): Promise<void>;
   onUpdateIndex(tableName: string, indexName: string, index: TableStructureIndexInput): Promise<void>;
 }
@@ -126,6 +127,7 @@ export function StructureView({
   onCreateTable,
   onCreateColumn,
   onUpdateColumn,
+  onDeleteColumn,
   onCreateIndex,
   onUpdateIndex,
 }: StructureViewProps) {
@@ -408,6 +410,7 @@ export function StructureView({
           onSubmit={(column) =>
             editingColumn ? onUpdateColumn(selectedTable, editingColumn.name, column) : Promise.resolve()
           }
+          onDelete={(columnName) => onDeleteColumn(selectedTable, columnName)}
         />
       )}
 

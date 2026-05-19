@@ -20,6 +20,7 @@ import {
   createLocalSQLiteColumn,
   createLocalSQLiteIndex,
   createLocalSQLiteTable,
+  deleteLocalSQLiteColumn,
   getLocalSQLiteStructureEditorContext,
   getLocalSQLiteTableStructure,
   updateLocalSQLiteColumn,
@@ -40,6 +41,7 @@ export interface DatabaseDetailStrategy {
     columnName: string,
     column: TableStructureColumnInput,
   ): Promise<void>;
+  deleteColumn(databaseId: string, tableName: string, columnName: string): Promise<void>;
   createIndex(databaseId: string, tableName: string, index: TableStructureIndexInput): Promise<void>;
   updateIndex(databaseId: string, tableName: string, indexName: string, index: TableStructureIndexInput): Promise<void>;
   deleteRows(databaseId: string, tableName: string, ids: Array<string | number>): Promise<void>;
@@ -68,6 +70,9 @@ const remoteDatabaseDetailStrategy: DatabaseDetailStrategy = {
   },
   updateColumn(databaseId, tableName, columnName, column) {
     return api.databases.updateColumn(databaseId, tableName, columnName, column);
+  },
+  deleteColumn(databaseId, tableName, columnName) {
+    return api.databases.deleteColumn(databaseId, tableName, columnName);
   },
   createIndex(databaseId, tableName, index) {
     return api.databases.createIndex(databaseId, tableName, index);
@@ -107,6 +112,9 @@ const localSqliteDetailStrategy: DatabaseDetailStrategy = {
   },
   async updateColumn(databaseId, tableName, columnName, column) {
     await updateLocalSQLiteColumn(databaseId, tableName, columnName, column);
+  },
+  async deleteColumn(databaseId, tableName, columnName) {
+    await deleteLocalSQLiteColumn(databaseId, tableName, columnName);
   },
   async createIndex(databaseId, tableName, index) {
     await createLocalSQLiteIndex(databaseId, tableName, index);
